@@ -2,8 +2,8 @@
 
 import asyncio
 
-from reactivesocket import ReactiveSocket, BaseRequestHandler
-from reactivesocket.payload import Payload
+from rsocket import RSocket, BaseRequestHandler
+from rsocket.payload import Payload
 
 
 class Handler(BaseRequestHandler):
@@ -16,7 +16,7 @@ class Handler(BaseRequestHandler):
 
 
 def session(reader, writer):
-    ReactiveSocket(reader, writer, handler_factory=Handler)
+    RSocket(reader, writer, handler_factory=Handler)
 
 
 if __name__ == '__main__':

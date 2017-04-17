@@ -473,4 +473,4 @@ def parse(buffer, offset):
         frame.parse(buffer, offset)
         return frame
     except KeyError:
-        raise ParseError('Wrong frame type: {}'.format(self.frame_type))
+        raise ParseError('Wrong frame type: {}'.format(frame_type))

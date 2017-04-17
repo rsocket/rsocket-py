@@ -1,15 +1,15 @@
 from setuptools import setup
 
 setup(
-    name='reactivesocket',
+    name='rsocket',
     version='0.1',
-    description='Python ReactiveSocket library',
-    url='https://github.com/ReactiveSocket/reactivesocket-py',
+    description='Python RSocket library',
+    url='https://github.com/RSocket/rsocket-py',
     author='Vijayan Rajan',
     author_email='',
     license='MIT',
     packages=[
-        'reactivesocket',
+        'rsocket',
         'reactivestreams'
     ],
     zip_safe=True,

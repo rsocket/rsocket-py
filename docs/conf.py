@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# reactivesocket documentation build configuration file, created by
+# rsocket documentation build configuration file, created by
 # sphinx-quickstart on Thu Feb  9 05:26:44 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -49,7 +49,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'reactivesocket'
+project = 'rsocket'
 copyright = '2017, Vijayan Rajan'
 author = 'Vijayan Rajan'
 
@@ -103,7 +103,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'reactivesocketdoc'
+htmlhelp_basename = 'rsocketdoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -130,7 +130,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'reactivesocket.tex', 'reactivesocket Documentation',
+    (master_doc, 'rsocket.tex', 'rsocket Documentation',
      'Vijayan Rajan', 'manual'),
 ]
 
@@ -140,7 +140,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'reactivesocket', 'reactivesocket Documentation',
+    (master_doc, 'rsocket', 'rsocket Documentation',
      [author], 1)
 ]
 
@@ -151,8 +151,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'reactivesocket', 'reactivesocket Documentation',
-     author, 'reactivesocket', 'One line description of project.',
+    (master_doc, 'rsocket', 'rsocket Documentation',
+     author, 'rsocket', 'One line description of project.',
      'Miscellaneous'),
 ]
 

@@ -1,6 +1,6 @@
 # rsocket-py
 
-Python implementation of [ReactiveSocket](http://rsocket.io)
+Python implementation of [RSocket](http://rsocket.io)
 
 # Build Status
 

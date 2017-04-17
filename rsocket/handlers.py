@@ -1,11 +1,10 @@
 from abc import abstractmethod, ABCMeta
 from asyncio import Future, ensure_future
 
-from reactivesocket.frame import CancelFrame, ErrorFrame, RequestNFrame,\
-    RequestResponseFrame, RequestStreamFrame, ResponseFrame,\
-    RequestSubscriptionFrame
-from reactivesocket.payload import Payload
 from reactivestreams import Publisher, Subscriber, Subscription
+from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
+    RequestResponseFrame, RequestStreamFrame, ResponseFrame
+from rsocket.payload import Payload
 
 
 class StreamHandler(metaclass=ABCMeta):

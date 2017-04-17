@@ -9,7 +9,7 @@ if "%SPHINXBUILD%" == "" (
 )
 set SOURCEDIR=.
 set BUILDDIR=_build
-set SPHINXPROJ=reactivesocket
+set SPHINXPROJ=rsocket
 
 if "%1" == "" goto help
 

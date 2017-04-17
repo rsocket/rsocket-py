@@ -1,6 +1,6 @@
 import struct
 
-from reactivesocket.frame import parse
+from rsocket.frame import parse
 
 __all__ = ['Connection']
 

@@ -2,9 +2,9 @@
 
 import asyncio
 
-from reactivesocket import Payload
-from reactivesocket import ReactiveSocket
-from reactivestreams import Subscriber, Subscription
+from reactivestreams import Subscriber
+from rsocket import Payload
+from rsocket import RSocket
 
 
 class StreamSubscriber(Subscriber):
@@ -24,7 +24,7 @@ class StreamSubscriber(Subscriber):
 
 
 async def download(reader, writer):
-    socket = ReactiveSocket(reader, writer, server=False)
+    socket = RSocket(reader, writer, server=False)
     payload = Payload(b'The quick brown fox', b'meta')
     print('RR: {}'.format(await socket.request_response(payload)))
     socket.request_stream(payload).subscribe(StreamSubscriber())

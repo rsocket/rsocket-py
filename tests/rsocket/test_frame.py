@@ -1,8 +1,7 @@
 import pytest
 
-from reactivesocket.frame import (Type, SetupFrame, MetadataPushFrame,
-                                  KeepAliveFrame)
-from reactivesocket.connection import Connection
+from rsocket.connection import Connection
+from rsocket.frame import (Type, SetupFrame, MetadataPushFrame)
 
 
 @pytest.fixture()

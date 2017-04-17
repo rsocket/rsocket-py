@@ -1,15 +1,15 @@
 import asyncio
 from abc import ABCMeta, abstractmethod
 
-from reactivesocket.connection import Connection
-from reactivesocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
+from rsocket.connection import Connection
+from rsocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
     LeaseFrame, MetadataPushFrame, RequestChannelFrame, \
     RequestFireAndForgetFrame, RequestNFrame, RequestResponseFrame, \
     RequestStreamFrame, RequestSubscriptionFrame, ResponseFrame, SetupFrame
-from reactivesocket.frame import ErrorCode
-from reactivesocket.payload import Payload
+from rsocket.frame import ErrorCode
+from rsocket.payload import Payload
 from reactivestreams.publisher import Publisher, DefaultPublisher
-from reactivesocket.handlers import RequestResponseRequester,\
+from rsocket.handlers import RequestResponseRequester,\
     RequestResponseResponder, RequestStreamRequester, RequestStreamResponder
 
 
@@ -60,7 +60,7 @@ class BaseRequestHandler(RequestHandler):
         return DefaultPublisher()
 
 
-class ReactiveSocket:
+class RSocket:
     def __init__(self, reader, writer, *,
                  handler_factory=BaseRequestHandler, loop=None, server=True):
         self._reader = reader
