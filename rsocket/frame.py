@@ -7,16 +7,16 @@ PROTOCOL_MINOR_VERSION = 2
 
 
 class ErrorCode(IntEnum):
-    INVALID_SETUP = 1,
-    UNSUPPORTED_SETUP = 2,
-    REJECTED_SETUP = 3,
-    CONNECTION_ERROR = 0x101,
+    INVALID_SETUP             = 0x001,
+    UNSUPPORTED_SETUP         = 0x002,
+    REJECTED_SETUP            = 0x003,
+    CONNECTION_ERROR          = 0x101,
     CONNECTION_ERROR_NO_RETRY = 0x102,
-    APPLICATION_ERROR = 0x201,
-    REJECTED = 0x202,
-    CANCELED = 0x203,
-    INVALID = 0x204,
-    RESERVED = 0xFFFFFFFF
+    APPLICATION_ERROR         = 0x201,
+    REJECTED                  = 0x202,
+    CANCELED                  = 0x203,
+    INVALID                   = 0x204,
+    RESERVED                  = 0xFFFFFFFF
 
 
 class ParseError(ValueError):
@@ -24,29 +24,33 @@ class ParseError(ValueError):
 
 
 class Type(IntEnum):
-    SETUP = 1,
-    LEASE = 2,
-    KEEPALIVE = 3,
-    REQUEST_RESPONSE = 4,
-    REQUEST_FNF = 5,
-    REQUEST_STREAM = 6,
-    REQUEST_SUB = 7,  # delete this, and move below up one.
-    REQUEST_CHANNEL = 8,
-    REQUEST_N = 9,
-    CANCEL = 10,
-    RESPONSE = 11,
-    ERROR = 12,
-    METADATA_PUSH = 13,
-    RESUME = 14,
-    RESUME_OK = 15,
-    EXT = 0xFFFF
+    SETUP            = 0x01,
+    LEASE            = 0x02,
+    KEEPALIVE        = 0x03,
+    REQUEST_RESPONSE = 0x04,
+    REQUEST_FNF      = 0x05,
+    REQUEST_STREAM   = 0x06,
+    REQUEST_SUB      = 0xABCDE,  # delete this
+    REQUEST_CHANNEL  = 0x07,
+    REQUEST_N        = 0x08,
+    CANCEL           = 0x09,
+    RESPONSE         = 0x0A,
+    ERROR            = 0x0B,
+    METADATA_PUSH    = 0x0C,
+    RESUME           = 0x0D,
+    RESUME_OK        = 0x0E,
+    EXT              = 0xFFFF
 
 
 class Frame(metaclass=ABCMeta):
     __slots__ = (
-        'length', 'frame_type', 'flags', 'stream_id', 'metadata', 'data',
-        'flags_ignore', 'flags_metadata',
-        'flags_follows', 'flags_complete')
+        'length', # Unsigned 24-bit integer representing the length of Frame in bytes (excl. this)
+        'frame_type', # Type of Frame
+        'flags', # Flags (see below). Generally depend on frame type
+        'stream_id', # Stream ID value of 0 is reserved for any operation involving the connection
+        'metadata',
+        'data',
+        'flags_ignore', 'flags_metadata', 'flags_follows', 'flags_complete')
 
     _FLAG_IGNORE_BIT = 0x8000
     _FLAG_METADATA_BIT = 0x4000
@@ -141,9 +145,17 @@ class Frame(metaclass=ABCMeta):
 
 class SetupFrame(Frame):
     __slots__ = (
-        'major_version', 'minor_version', 'keep_alive_milliseconds',
-        'max_lifetime_milliseconds', 'metadata_encoding', 'data_encoding',
-        'resume_identification_token',
+        'major_version', # Should match PROTOCOL_MAJOR_VERSION
+        'minor_version', # Should match PROTOCOL_MINOR_VERSION
+        'keep_alive_milliseconds', # Time between KEEPALIVE frames that the client will send 
+                                   # Value MUST be > 0.
+        'max_lifetime_milliseconds', # Time that a client will allow a server to not respond to a 
+                                     # KEEPALIVE before it is assumed to be dead. Value MUST be > 0.
+        'metadata_encoding', # This SHOULD be a US-ASCII string that includes the Internet media
+        'data_encoding',     # type specified in RFC 2045. For example, application/x.netflix+cbor 
+                             # or application/x.reactivesocket+json 
+        'resume_identification_token', # Token used for client resume identification 
+                                       # (Not present if R flag is not set)
         'flags_lease', 'flags_strict', 'flags_resume')
 
     _FLAG_LEASE_BIT = 0x2000
@@ -209,7 +221,7 @@ class SetupFrame(Frame):
 
 
 class ErrorFrame(Frame):
-    __slots__ = 'error_code'
+    __slots__ = 'error_code' # see ErrorCode enum
 
     def __init__(self):
         super().__init__(Type.ERROR)
@@ -228,7 +240,10 @@ class ErrorFrame(Frame):
 
 
 class LeaseFrame(Frame):
-    __slots__ = ('time_to_live', 'number_of_requests')
+    __slots__ = (
+        'time_to_live', # Time (ms) validity of LEASE from time of reception
+        'number_of_requests' # Number of Requests that may be sent until next LEASE
+        )
 
     def __init__(self):
         super().__init__(Type.LEASE)
@@ -316,7 +331,7 @@ class RequestFireAndForgetFrame(RequestFrame):
 
 
 class RequestStreamFrame(RequestFrame):
-    __slots__ = 'initial_request_n'
+    __slots__ = 'initial_request_n' # the initial number of items to request. Value MUST be > 0.
 
     def __init__(self):
         super().__init__(Type.REQUEST_STREAM)
@@ -336,7 +351,7 @@ class RequestStreamFrame(RequestFrame):
 
 
 class RequestSubscriptionFrame(RequestFrame):
-    __slots__ = 'initial_request_n'
+    __slots__ = 'initial_request_n' # the initial number of items to request. Value MUST be > 0.
 
     def __init__(self):
         super().__init__(Type.REQUEST_SUB)
@@ -356,7 +371,9 @@ class RequestSubscriptionFrame(RequestFrame):
 
 
 class RequestChannelFrame(RequestFrame):
-    __slots__ = ('initial_request_n', 'flags_complete', 'flags_initial')
+    __slots__ = (
+        'initial_request_n', # the initial number of items to request. Value MUST be > 0.
+        'flags_complete', 'flags_initial')
 
     _FLAG_COMPLETE_BIT = 0x1000
     _FLAG_INITIAL_BIT = 0x0800
@@ -379,7 +396,7 @@ class RequestChannelFrame(RequestFrame):
 
 
 class RequestNFrame(RequestFrame):
-    __slots__ = 'request_n'
+    __slots__ = 'request_n' #  the number of items to request. Value MUST be > 0.
 
     def __init__(self):
         super().__init__(Type.REQUEST_N)
