@@ -1,6 +1,6 @@
 import struct
 
-from rsocket.frame import parse
+from rsocket import frame
 
 __all__ = ['Connection']
 
@@ -13,12 +13,12 @@ class Connection:
         self._buffer.extend(data)
         total = len(self._buffer)
         events = []
-        offset = 0
-        while offset + 4 <= total:
-            length, = struct.unpack_from('>I', self._buffer, offset)
-            if len(self._buffer) < length:
+
+        while total >= 3:
+            length, = struct.unpack('>I', b'\x00' + self._buffer[:3])
+            if total < length + 3:
                 break
-            events.append(parse(self._buffer[:length], offset))
-            self._buffer = self._buffer[length:]
-            total -= length
+            events.append(frame.parse(self._buffer[:length + 3]))
+            self._buffer = self._buffer[length + 3:]
+            total -= length + 3
         return events

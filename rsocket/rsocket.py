@@ -5,7 +5,7 @@ from rsocket.connection import Connection
 from rsocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
     LeaseFrame, MetadataPushFrame, RequestChannelFrame, \
     RequestFireAndForgetFrame, RequestNFrame, RequestResponseFrame, \
-    RequestStreamFrame, RequestSubscriptionFrame, ResponseFrame, SetupFrame
+    RequestStreamFrame, PayloadFrame, SetupFrame
 from rsocket.frame import ErrorCode
 from rsocket.payload import Payload
 from reactivestreams.publisher import Publisher, DefaultPublisher
@@ -111,7 +111,7 @@ class RSocket:
         self.send_frame(error)
 
     async def send_response(self, stream, payload, complete=False):
-        response = ResponseFrame()
+        response = PayloadFrame()
         response.stream_id = stream
         response.flags_complete = complete
         response.data = payload.data
@@ -157,11 +157,9 @@ class RSocket:
                         self._streams[stream] = RequestStreamResponder(
                             stream, self, self._handler.request_stream(
                                 Payload(frame.data, frame.metadata)))
-                    elif isinstance(frame, RequestSubscriptionFrame):
-                        pass
                     elif isinstance(frame, RequestNFrame):
                         pass
-                    elif isinstance(frame, ResponseFrame):
+                    elif isinstance(frame, PayloadFrame):
                         pass
                     elif isinstance(frame, SetupFrame):
                         if frame.flags_lease:
@@ -194,11 +192,11 @@ class RSocket:
         self._streams[stream] = requester
         return requester
 
-    def request_channel(self, local: Publisher) -> Publisher:
-        stream = self.allocate_stream()
-        requester = RequestChannelRequester(strean, self, publisher)
-        self._streams[stream] = requester
-        return requester
+    # def request_channel(self, local: Publisher) -> Publisher:
+    #     stream = self.allocate_stream()
+    #     requester = RequestChannelRequester(stream, self, publisher)
+    #     self._streams[stream] = requester
+    #     return requester
 
     async def close(self):
         self._sender_task.cancel()

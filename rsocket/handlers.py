@@ -3,7 +3,7 @@ from asyncio import Future, ensure_future
 
 from reactivestreams import Publisher, Subscriber, Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
-    RequestResponseFrame, RequestStreamFrame, ResponseFrame
+    RequestResponseFrame, RequestStreamFrame, PayloadFrame
 from rsocket.payload import Payload
 
 
@@ -46,7 +46,7 @@ class RequestResponseRequester(StreamHandler, Future):
         self.socket.send_frame(request)
 
     def frame_received(self, frame):
-        if isinstance(frame, ResponseFrame):
+        if isinstance(frame, PayloadFrame):
             self.set_result(Payload(frame.data, frame.metadata))
             self.socket.finish_stream(self.stream)
         elif isinstance(frame, ErrorFrame):
@@ -106,7 +106,7 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
         self.send_request_n(n)
 
     def frame_received(self, frame):
-        if isinstance(frame, ResponseFrame):
+        if isinstance(frame, PayloadFrame):
             if frame.data or not frame.flags_complete:
                 self.subscriber.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
