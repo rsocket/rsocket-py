@@ -12,6 +12,8 @@ from reactivestreams.publisher import Publisher, DefaultPublisher
 from rsocket.handlers import RequestResponseRequester,\
     RequestResponseResponder, RequestStreamRequester, RequestStreamResponder
 
+MAX_STREAM_ID = 0x7FFFFFFF
+
 
 class RequestHandler(metaclass=ABCMeta):
     """
@@ -94,7 +96,9 @@ class RSocket:
 
     def allocate_stream(self):
         stream = self._next_stream
-        self._next_stream += 2
+        self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
+        while self._next_stream == 0 or self._next_stream in self._streams:
+            self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
         return stream
 
     def finish_stream(self, stream):
