@@ -70,8 +70,7 @@ class RSocket:
         self._server = server
         self._handler = handler_factory(self)
 
-        # self._next_stream = 2 if self._server else 1
-        self._next_stream = 2 if not self._server else 1
+        self._next_stream = 2 if self._server else 1
         self._streams = {}
 
         self._send_queue = asyncio.Queue()
