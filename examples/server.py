@@ -4,6 +4,27 @@ import asyncio
 
 from rsocket import RSocket, BaseRequestHandler
 from rsocket.payload import Payload
+from reactivestreams.publisher import Publisher
+
+
+class FluxProcessor(Publisher):
+
+  def __init__(self) -> None:
+    self.payloads = []
+
+  def next(self, payload):
+    self.payloads.append(payload)
+
+  def subscribe(self, subscriber):
+    for payload in self.payloads:
+      subscriber.on_next(payload)
+    subscriber.on_complete()
+
+  @classmethod
+  def from_list(cls, payloads):
+    processor = FluxProcessor()
+    processor.payloads = payloads
+    return processor
 
 
 class Handler(BaseRequestHandler):
@@ -13,6 +34,9 @@ class Handler(BaseRequestHandler):
             b'The quick brown fox jumps over the lazy dog.',
             b'Escher are an artist.'))
         return future
+
+    def request_stream(self, payload: Payload) -> Publisher:
+        return FluxProcessor.from_list([Payload(b'data1', b'metadata'), Payload(b'data2', b'metadata')])
 
 
 def session(reader, writer):
