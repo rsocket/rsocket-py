@@ -155,7 +155,7 @@ class RSocket:
                     elif isinstance(frame, RequestChannelFrame):
                         pass
                     elif isinstance(frame, RequestFireAndForgetFrame):
-                        self._handler.request_fire_and_forget(Payload(frame.data, frame.metadata))
+                        asyncio.get_event_loop().run_in_executor(None, self._handler.request_fire_and_forget, Payload(frame.data, frame.metadata))
                     elif isinstance(frame, RequestResponseFrame):
                         stream = frame.stream_id
                         self._streams[stream] = RequestResponseResponder(
