@@ -99,3 +99,33 @@ class ExplicitMimeTimeEntry(CompositeMetadataEntry):
         return self.content
 
 
+class TaggingMetadata:
+
+    def __init__(self, mime_type, source=bytearray()):
+        self.mime_type = mime_type
+        self.source = source
+        self.reader_index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if len(self.source) <= self.reader_index:
+            raise StopIteration
+        else:
+            tag_length = self.source[self.reader_index]
+            tag_start = self.reader_index + 1
+            tag = self.source[tag_start:tag_start + tag_length].decode("utf-8")
+            self.reader_index = tag_start + tag_start + tag_length - 1
+            return tag
+
+    @classmethod
+    def from_tags(cls, mime_type, tags):
+        source = bytearray()
+        for tag in tags:
+            tag_bytes = bytes(tag, encoding='utf-8')
+            source.append(len(tag_bytes) & 0x7F)
+            source += tag_bytes
+
+        return TaggingMetadata(mime_type,source)
+
