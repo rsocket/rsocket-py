@@ -9,25 +9,29 @@ from reactivestreams.publisher import Publisher
 
 class FluxProcessor(Publisher):
 
-  def __init__(self) -> None:
-    self.payloads = []
+    def __init__(self) -> None:
+        self.payloads = []
 
-  def next(self, payload):
-    self.payloads.append(payload)
+    def next(self, payload):
+        self.payloads.append(payload)
 
-  def subscribe(self, subscriber):
-    for payload in self.payloads:
-      subscriber.on_next(payload)
-    subscriber.on_complete()
+    def subscribe(self, subscriber):
+        for payload in self.payloads:
+            subscriber.on_next(payload)
+        subscriber.on_complete()
 
-  @classmethod
-  def from_list(cls, payloads):
-    processor = FluxProcessor()
-    processor.payloads = payloads
-    return processor
+    @classmethod
+    def from_list(cls, payloads):
+        processor = FluxProcessor()
+        processor.payloads = payloads
+        return processor
 
 
 class Handler(BaseRequestHandler):
+
+    def request_fire_and_forget(self, payload: Payload):
+        print("received fir_and_forget: ", payload.data)
+
     def request_response(self, payload: Payload) -> asyncio.Future:
         future = asyncio.Future()
         future.set_result(Payload(
