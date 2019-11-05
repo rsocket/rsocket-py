@@ -69,5 +69,5 @@ class WellKnowMimeTypes(Enum):
         return MIME_TYPES_BY_NAME[name]
 
     @classmethod
-    def add_wellknown(cls,identifier, name):
-        WellKnowMimeType(identifier, name)
+    def add_wellknown(cls, name, identifier):
+        WellKnowMimeType(name, identifier)
