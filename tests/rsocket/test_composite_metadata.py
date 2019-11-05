@@ -1,6 +1,6 @@
 import pytest
 
-from rsocket.composite_metadata import CompositeMetadata
+from rsocket.composite_metadata import CompositeMetadata, TaggingMetadata
 
 
 def test_byte_array():
@@ -35,3 +35,9 @@ def test_composite_metadata():
     # convert to metadata dict
     all_metadata = {metadata.get_mime_type(): metadata.get_content() for metadata in composite_metadata}
     print(all_metadata)
+
+
+def test_tagging_metadata():
+    tagging_metadata = TaggingMetadata.from_tags("a/c", ["first", "second"])
+    assert tagging_metadata.__next__() == "first"
+    assert tagging_metadata.__next__() == "second"
