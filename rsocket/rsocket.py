@@ -183,6 +183,13 @@ class RSocket:
         except asyncio.CancelledError:
             pass
 
+    def fire_and_forget(self, payload):
+        frame = RequestFireAndForgetFrame()
+        frame.stream_id = self.allocate_stream()
+        frame.metadata = payload.metadata
+        frame.data = payload.data
+        self.send_frame(frame)
+
     def request_response(self, payload):
         stream = self.allocate_stream()
         requester = RequestResponseRequester(stream, self, payload)
