@@ -64,7 +64,9 @@ class BaseRequestHandler(RequestHandler):
 
 class RSocket:
     def __init__(self, reader, writer, *,
-                 handler_factory=BaseRequestHandler, loop=None, server=True):
+                 handler_factory=BaseRequestHandler, loop=None, server=True,
+                 data_encoding =b'utf-8', metadata_encoding=b'utf-8',
+                 setup_payload=None):
         self._reader = reader
         self._writer = writer
         self._server = server
@@ -84,9 +86,13 @@ class RSocket:
 
             setup.keep_alive_milliseconds = 60000
             setup.max_lifetime_milliseconds = 240000
+            # setup frame: data encoding, metadata encoding, setup payload
+            setup.data_encoding = data_encoding
+            setup.metadata_encoding = metadata_encoding
+            if not setup_payload:
+                setup.data = setup_payload.data
+                setup.metadata = setup_payload.metadata
 
-            setup.data_encoding = b'utf-8'
-            setup.metadata_encoding = b'utf-8'
             self.send_frame(setup)
 
         self._receiver_task = loop.create_task(self._receiver())
