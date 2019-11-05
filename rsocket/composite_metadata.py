@@ -22,7 +22,7 @@ class CompositeMetadata:
 
     def add_custom_metadata(self, mime_type, metadata_bytes):
         if mime_type in MIME_TYPES_BY_NAME:
-            self.add_wellknown_metadata(MIME_TYPES_BY_NAME[mime_type],metadata_bytes)
+            self.add_wellknown_metadata(MIME_TYPES_BY_NAME[mime_type], metadata_bytes)
         else:
             mime_type_len = len(mime_type)
             # mime id/length
@@ -127,5 +127,4 @@ class TaggingMetadata:
             source.append(len(tag_bytes) & 0x7F)
             source += tag_bytes
 
-        return TaggingMetadata(mime_type,source)
-
+        return TaggingMetadata(mime_type, source)
