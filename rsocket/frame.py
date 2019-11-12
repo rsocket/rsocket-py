@@ -438,7 +438,7 @@ class PayloadFrame(Frame):
             self.flags |= self._FLAG_FOLLOWS_BIT
         if self.flags_complete:
             self.flags |= self._FLAG_COMPLETE_BIT
-        if self.flags_next:
+        if self.flags_next or self.data or self.metadata:
             self.flags |= self._FLAG_NEXT_BIT
         return Frame.serialize(self)
 
