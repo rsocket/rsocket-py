@@ -89,7 +89,7 @@ class RSocket:
             # setup frame: data encoding, metadata encoding, setup payload
             setup.data_encoding = data_encoding
             setup.metadata_encoding = metadata_encoding
-            if not setup_payload:
+            if setup_payload:
                 setup.data = setup_payload.data
                 setup.metadata = setup_payload.metadata
 
