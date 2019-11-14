@@ -5,6 +5,7 @@ from reactivestreams import Publisher, Subscriber, Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     RequestResponseFrame, RequestStreamFrame, PayloadFrame
 from rsocket.payload import Payload
+from rsocket.timer import Timer
 
 
 class StreamHandler(metaclass=ABCMeta):
@@ -63,6 +64,8 @@ class RequestResponseResponder(StreamHandler):
         super().__init__(stream, socket)
         self.future = future
         self.future.add_done_callback(self.future_done)
+        if hasattr(self.future, 'timeout'):
+            Timer(self.future.timeout, self.timeout(), callback_args=(self,))
 
     def future_done(self, future):
         if self.future.cancelled():
@@ -77,6 +80,10 @@ class RequestResponseResponder(StreamHandler):
 
     def frame_received(self, frame):
         if isinstance(frame, CancelFrame):
+            self.future.cancel()
+
+    def timeout(self):
+        if not self.future.done():
             self.future.cancel()
 
 
