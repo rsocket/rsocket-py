@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 from abc import ABCMeta, abstractmethod
 
 from rsocket.connection import Connection
@@ -160,7 +159,7 @@ class RSocket:
                     elif isinstance(frame, RequestResponseFrame):
                         stream = frame.stream_id
                         response_handler = self._handler.request_response
-                        if inspect.iscoroutinefunction(response_handler):
+                        if asyncio.iscoroutinefunction(response_handler):
                             future_result = await response_handler(Payload(frame.data, frame.metadata))
                         else:
                             future_result = response_handler(Payload(frame.data, frame.metadata))
