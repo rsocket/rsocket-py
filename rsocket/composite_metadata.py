@@ -4,7 +4,9 @@ from rsocket.wellknown_mimetype import WellKnowMimeTypes, MIME_TYPES_BY_NAME
 
 
 class CompositeMetadata:
-    def __init__(self, source=bytearray()):
+    def __init__(self, source=None):
+        if source is None:
+            source = bytearray()
         self.source = source
         self.reader_index = 0
 
@@ -101,8 +103,11 @@ class ExplicitMimeTimeEntry(CompositeMetadataEntry):
 
 class TaggingMetadata:
 
-    def __init__(self, mime_type, source=bytearray()):
+    def __init__(self, mime_type, source=None):
         self.mime_type = mime_type
+        if source is None:
+            source = bytearray()
+        self.source = source
         self.source = source
         self.reader_index = 0
 
