@@ -1,5 +1,7 @@
 import asyncio
 from abc import ABCMeta, abstractmethod
+from rsocket.timer import IntervalTimer
+
 
 from rsocket.connection import Connection
 from rsocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
@@ -94,10 +96,14 @@ class RSocket:
                 setup.metadata = setup_payload.metadata
 
             self.send_frame(setup)
+            self.keep_alive_timer = IntervalTimer(5, self.send_keep_alive)
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
         self._error = ErrorFrame()
+
+    async def send_keep_alive(self):
+        self.send_frame(KeepAliveFrame())
 
     def allocate_stream(self):
         stream = self._next_stream
@@ -220,5 +226,6 @@ class RSocket:
     async def close(self):
         self._sender_task.cancel()
         self._receiver_task.cancel()
+        self.keep_alive_timer.cancel()
         await self._sender_task
         await self._receiver_task
