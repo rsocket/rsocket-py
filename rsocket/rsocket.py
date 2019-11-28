@@ -96,13 +96,14 @@ class RSocket:
                 setup.metadata = setup_payload.metadata
 
             self.send_frame(setup)
-            self.keep_alive_timer = IntervalTimer(15, self.send_keep_alive)
+            self.keep_alive_timer = IntervalTimer(3, self.send_keep_alive)
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
         self._error = ErrorFrame()
 
     async def send_keep_alive(self):
+        print("keep alive sent")
         self.send_frame(KeepAliveFrame())
 
     def allocate_stream(self):
@@ -152,8 +153,9 @@ class RSocket:
                     elif isinstance(frame, ErrorFrame):
                         pass
                     elif isinstance(frame, KeepAliveFrame):
-                        frame.flags_respond = False
-                        self.send_frame(frame)
+                        if frame.flags_respond:
+                            frame.flags_respond = False
+                            self.send_frame(frame)
                     elif isinstance(frame, LeaseFrame):
                         pass
                     elif isinstance(frame, MetadataPushFrame):
