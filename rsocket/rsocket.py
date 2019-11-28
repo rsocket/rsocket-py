@@ -96,7 +96,7 @@ class RSocket:
                 setup.metadata = setup_payload.metadata
 
             self.send_frame(setup)
-            self.keep_alive_timer = IntervalTimer(5, self.send_keep_alive)
+            self.keep_alive_timer = IntervalTimer(15, self.send_keep_alive)
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
