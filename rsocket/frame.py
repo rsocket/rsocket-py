@@ -269,24 +269,28 @@ class LeaseFrame(Frame):
 
 
 class KeepAliveFrame(Frame):
-    __slots__ = 'flags_respond'
+    __slots__ = ('flags_respond', "last_receive_position")
 
     _FLAG_RESPOND_BIT = 0x80
 
     def __init__(self):
         super().__init__(Type.KEEPALIVE)
         self.flags_respond = False
+        self.last_receive_position = 0
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += self.parse_header(buffer, offset)
         self.flags_respond = (self.flags & self._FLAG_RESPOND_BIT) != 0
+        self.last_receive_position = struct.unpack_from('>L', buffer, offset)
+        offset += 8
         offset += self.parse_data(buffer, offset)
 
     def serialize(self, middle=b''):
         self.flags &= ~self._FLAG_RESPOND_BIT
         if self.flags_respond:
             self.flags |= self._FLAG_RESPOND_BIT
+        middle = struct.pack('>L', self.last_receive_position)
         return Frame.serialize(self, middle)
 
 
