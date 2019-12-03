@@ -282,7 +282,7 @@ class KeepAliveFrame(Frame):
     def parse(self, buffer, offset):
         offset += self.parse_header(buffer, offset)
         self.flags_respond = (self.flags & self._FLAG_RESPOND_BIT) != 0
-        self.last_receive_position = struct.unpack_from('>L', buffer, offset)
+        self.last_receive_position = struct.unpack_from('>Q', buffer, offset)
         offset += 8
         offset += self.parse_data(buffer, offset)
 
@@ -290,7 +290,7 @@ class KeepAliveFrame(Frame):
         self.flags &= ~self._FLAG_RESPOND_BIT
         if self.flags_respond:
             self.flags |= self._FLAG_RESPOND_BIT
-        middle = struct.pack('>L', self.last_receive_position)
+        middle = struct.pack('>Q', self.last_receive_position)
         return Frame.serialize(self, middle)
 
 
