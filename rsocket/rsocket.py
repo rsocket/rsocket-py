@@ -157,8 +157,6 @@ class RSocket:
                         if frame.flags_respond:
                             keep_alive_frame = KeepAliveFrame()
                             keep_alive_frame.flags_respond = False
-                            keep_alive_frame.data = frame.data
-                            keep_alive_frame.last_receive_position = frame.last_receive_position
                             self.send_frame(keep_alive_frame)
                     elif isinstance(frame, LeaseFrame):
                         pass
