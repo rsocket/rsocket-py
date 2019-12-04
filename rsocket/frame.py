@@ -180,6 +180,8 @@ class SetupFrame(Frame):
         self.minor_version = PROTOCOL_MINOR_VERSION
         self.flags_lease = False
         self.flags_resume = False
+        self.keep_alive_milliseconds = 300000
+        self.max_lifetime_milliseconds = 120000
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
