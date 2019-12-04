@@ -86,8 +86,8 @@ class RSocket:
             setup.flags_lease = False
             setup.flags_strict = True
 
-            setup.keep_alive_milliseconds = 60000
-            setup.max_lifetime_milliseconds = 240000
+            setup.keep_alive_milliseconds = 30000
+            setup.max_lifetime_milliseconds = 120000
             # setup frame: data encoding, metadata encoding, setup payload
             setup.data_encoding = data_encoding
             setup.metadata_encoding = metadata_encoding
@@ -96,7 +96,7 @@ class RSocket:
                 setup.metadata = setup_payload.metadata
 
             self.send_frame(setup)
-            self.keep_alive_timer = IntervalTimer(3, self.send_keep_alive)
+            self.keep_alive_timer = IntervalTimer(setup.keep_alive_milliseconds/1000, self.send_keep_alive)
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
