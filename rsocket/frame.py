@@ -284,7 +284,7 @@ class KeepAliveFrame(Frame):
     def parse(self, buffer, offset):
         offset += self.parse_header(buffer, offset)
         self.flags_respond = (self.flags & self._FLAG_RESPOND_BIT) != 0
-        self.last_receive_position = struct.unpack_from('>Q', buffer, offset)
+        self.last_receive_position = struct.unpack_from('>Q', buffer, offset)[0]
         offset += 8
         offset += self.parse_data(buffer, offset)
 
