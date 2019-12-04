@@ -155,10 +155,8 @@ class RSocket:
                         pass
                     elif isinstance(frame, KeepAliveFrame):
                         if frame.flags_respond:
-                            keep_alive_frame = KeepAliveFrame()
-                            keep_alive_frame.flags_respond = False
-                            keep_alive_frame.last_receive_position = frame.last_receive_position
-                            self.send_frame(keep_alive_frame)
+                            frame.flags_respond = False
+                            self.send_frame(frame)
                     elif isinstance(frame, LeaseFrame):
                         pass
                     elif isinstance(frame, MetadataPushFrame):
