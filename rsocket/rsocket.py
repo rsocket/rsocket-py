@@ -105,7 +105,7 @@ class RSocket:
     async def send_keep_alive(self):
         keep_alive_frame = KeepAliveFrame()
         keep_alive_frame.flags_respond = True
-        self.send_frame(keep_alive_frame)
+        self.send_frame_directly(keep_alive_frame)
 
     def allocate_stream(self):
         stream = self._next_stream
