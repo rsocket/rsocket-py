@@ -120,6 +120,9 @@ class RSocket:
     def send_frame(self, frame):
         self._send_queue.put_nowait(frame)
 
+    def send_frame_directly(self, frame):
+        self._writer.write(frame.serialize())
+
     async def send_error(self, stream, exception):
         error = ErrorFrame()
         error.stream_id = stream
@@ -156,7 +159,7 @@ class RSocket:
                     elif isinstance(frame, KeepAliveFrame):
                         if frame.flags_respond:
                             frame.flags_respond = False
-                            self._writer.write(frame.serialize())
+                            self.send_frame_directly(frame)
                     elif isinstance(frame, LeaseFrame):
                         pass
                     elif isinstance(frame, MetadataPushFrame):
