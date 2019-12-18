@@ -156,7 +156,7 @@ class RSocket:
                     elif isinstance(frame, KeepAliveFrame):
                         if frame.flags_respond:
                             frame.flags_respond = False
-                            self.send_frame(frame)
+                            self._writer.write(frame.serialize())
                     elif isinstance(frame, LeaseFrame):
                         pass
                     elif isinstance(frame, MetadataPushFrame):
