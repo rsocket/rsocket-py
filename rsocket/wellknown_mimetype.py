@@ -56,6 +56,9 @@ class WellKnowMimeTypes(Enum):
     APPLICATION_JAVA_OBJECT = WellKnowMimeType("application/x-java-object", 0x27)
     APPLICATION_CLOUDEVENTS_JSON = WellKnowMimeType("application/cloudevents+json", 0x27)
     # reserved for future use ..
+    MESSAGE_RSOCKET_MIMETYPE = WellKnowMimeType("message/x.rsocket.mime-type.v0", 0x7A)
+    MESSAGE_RSOCKET_ACCEPT_MIMETYPES = WellKnowMimeType("message/x.rsocket.accept-mime-types.v0", 0x7B)
+    MESSAGE_RSOCKET_AUTHENTICATION = WellKnowMimeType("message/x.rsocket.authentication.v0", 0x7C)
     MESSAGE_RSOCKET_TRACING_ZIPKIN = WellKnowMimeType("message/x.rsocket.tracing-zipkin.v0", 0x7D)
     MESSAGE_RSOCKET_ROUTING = WellKnowMimeType("message/x.rsocket.routing.v0", 0x7E)
     MESSAGE_RSOCKET_COMPOSITE_METADATA = WellKnowMimeType("message/x.rsocket.composite-metadata.v0", 0x7F)
