@@ -12,8 +12,10 @@ from rsocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
     RequestStreamFrame, PayloadFrame, SetupFrame
 from rsocket.frame import ErrorCode
 from rsocket.handlers import RequestResponseRequester, \
-    RequestResponseResponder, RequestStreamRequester, RequestStreamResponder
+    RequestResponseResponder, RequestStreamRequester, RequestStreamResponder, \
+    RequestChannelResponder, RequestChannelRequester
 from rsocket.payload import Payload
+from rsocket.subscriberrequestchannel import SinkSubscriber
 
 MAX_STREAM_ID = 0x7FFFFFFF
 
@@ -22,13 +24,14 @@ class RequestHandler(metaclass=ABCMeta):
     """
     An ABC for request handlers.
     """
+
     def __init__(self, socket):
         super().__init__()
         self.socket = socket
 
     @abstractmethod
-    def request_channel(self, payload: Payload, publisher: Publisher) \
-            -> Publisher:
+    def request_channel(self, publisher: Publisher) \
+            -> Flowable:
         """
         Bi-directional communication.  A publisher on each end is connected
         to a subscriber on the other end.
@@ -49,8 +52,9 @@ class RequestHandler(metaclass=ABCMeta):
 
 
 class BaseRequestHandler(RequestHandler):
-    def request_channel(self, payload: Payload, publisher: Publisher):
-        self.socket.send_error(RuntimeError("Not implemented"))
+    def request_channel(self, publisher: Publisher) -> Flowable:
+        # self.socket.send_error(RuntimeError("Not implemented"))
+        return default_flowable()
 
     def request_fire_and_forget(self, payload: Payload):
         # The requester isn't listening for errors.  Nothing to do.
@@ -151,7 +155,13 @@ class RSocket:
                     elif isinstance(frame, MetadataPushFrame):
                         pass
                     elif isinstance(frame, RequestChannelFrame):
-                        pass
+                        stream = frame.stream_id
+                        receiving = SinkSubscriber()
+                        self._streams[stream] = RequestChannelResponder(
+                            stream, self, frame.initial_request_n, receiving,
+                            self._handler.request_channel(receiving))
+                        first_payload = Payload(frame.data, frame.metadata)
+                        receiving.next([first_payload])
                     elif isinstance(frame, RequestFireAndForgetFrame):
                         pass
                     elif isinstance(frame, RequestResponseFrame):
@@ -199,11 +209,11 @@ class RSocket:
         self._streams[stream] = requester
         return requester
 
-    # def request_channel(self, local: Publisher) -> Publisher:
-    #     stream = self.allocate_stream()
-    #     requester = RequestChannelRequester(stream, self, publisher)
-    #     self._streams[stream] = requester
-    #     return requester
+    def request_channel(self, sending: Flowable) -> Publisher:
+        stream = self.allocate_stream()
+        requester = RequestChannelRequester(stream, self, sending)
+        self._streams[stream] = requester
+        return requester
 
     async def close(self):
         self._sender_task.cancel()

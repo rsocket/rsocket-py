@@ -359,7 +359,7 @@ class RequestStreamFrame(RequestFrame):
 
 
 class RequestChannelFrame(RequestFrame):
-    __slots__ = ('initial_request_n', 'flags_complete', 'flags_follows')
+    __slots__ = ('initial_request_n', 'flags_complete', 'flags_initial', 'flags_follows')
 
     _FLAG_COMPLETE_BIT = 0x40
     _FLAG_FOLLOWS_BIT = 0x80
