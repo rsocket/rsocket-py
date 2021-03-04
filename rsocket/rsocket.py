@@ -1,16 +1,19 @@
 import asyncio
 from abc import ABCMeta, abstractmethod
 
+from rxbp.flowable import Flowable
+
+from reactivestreams.publisher import Publisher
+from reactivestreams.rx.flowable import default_flowable
 from rsocket.connection import Connection
 from rsocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
     LeaseFrame, MetadataPushFrame, RequestChannelFrame, \
     RequestFireAndForgetFrame, RequestNFrame, RequestResponseFrame, \
     RequestStreamFrame, PayloadFrame, SetupFrame
 from rsocket.frame import ErrorCode
-from rsocket.payload import Payload
-from reactivestreams.publisher import Publisher, DefaultPublisher
-from rsocket.handlers import RequestResponseRequester,\
+from rsocket.handlers import RequestResponseRequester, \
     RequestResponseResponder, RequestStreamRequester, RequestStreamResponder
+from rsocket.payload import Payload
 
 MAX_STREAM_ID = 0x7FFFFFFF
 
@@ -41,7 +44,7 @@ class RequestHandler(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def request_stream(self, payload: Payload) -> Publisher:
+    def request_stream(self, payload: Payload) -> Flowable:
         pass
 
 
@@ -58,8 +61,8 @@ class BaseRequestHandler(RequestHandler):
         future.set_exception(RuntimeError("Not implemented"))
         return future
 
-    def request_stream(self, payload: Payload) -> Publisher:
-        return DefaultPublisher()
+    def request_stream(self, payload: Payload) -> Flowable:
+        return default_flowable()
 
 
 class RSocket:
@@ -113,9 +116,10 @@ class RSocket:
         error.data = str(exception).encode()
         self.send_frame(error)
 
-    async def send_response(self, stream, payload, complete=False):
+    async def send_response(self, stream, payload, flags_next=False, complete=False):
         response = PayloadFrame()
         response.stream_id = stream
+        response.flags_next = flags_next
         response.flags_complete = complete
         response.data = payload.data
         response.metadata = payload.metadata
@@ -156,10 +160,10 @@ class RSocket:
                             stream, self, self._handler.request_response(
                                 Payload(frame.data, frame.metadata)))
                     elif isinstance(frame, RequestStreamFrame):
-                        stream = frame.stream_id
                         self._streams[stream] = RequestStreamResponder(
                             stream, self, self._handler.request_stream(
-                                Payload(frame.data, frame.metadata)))
+                                Payload(frame.data, frame.metadata)),
+                            frame.initial_request_n)
                     elif isinstance(frame, RequestNFrame):
                         pass
                     elif isinstance(frame, PayloadFrame):

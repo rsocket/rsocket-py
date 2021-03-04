@@ -1,10 +1,15 @@
+import asyncio
 from abc import abstractmethod, ABCMeta
 from asyncio import Future, ensure_future
 
-from reactivestreams import Publisher, Subscriber, Subscription
+from rxbp.flowable import Flowable
+
+from reactivestreams import Publisher, Subscription
+from rsocket.acksubscriber import MAX_REQUEST_N
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     RequestResponseFrame, RequestStreamFrame, PayloadFrame
 from rsocket.payload import Payload
+from rsocket.subscriberrequeststream import StreamSubscriber
 
 
 class StreamHandler(metaclass=ABCMeta):
@@ -83,34 +88,53 @@ class RequestResponseResponder(StreamHandler):
 class RequestStreamRequester(StreamHandler, Publisher, Subscription):
     def __init__(self, stream: int, socket, payload: Payload):
         super().__init__(stream, socket)
+
         self.payload = payload
+        self.has_request = False
+        self.initial_request_n = MAX_REQUEST_N
 
     def subscribe(self, subscriber):
         # noinspection PyAttributeOutsideInit
         self.subscriber = subscriber
+        self.subscriber.on_subscribe(self)
 
         request = RequestStreamFrame()
-        request.initial_request_n = 1
+        request.initial_request_n = self.initial_request_n
         request.stream_id = self.stream
         request.data = self.payload.data
         request.metadata = self.payload.metadata
         self.socket.send_frame(request)
-
-        self.subscriber.on_subscribe(self)
+        self.has_request = True
 
     def cancel(self, *args, **kwargs):
-        super().cancel(*args, **kwargs)
         self.send_cancel()
 
     def request(self, n):
-        self.send_request_n(n)
+        if not 0 < n < MAX_REQUEST_N:
+            return
+
+        if not self.has_request:
+            self.initial_request_n = self._add_request_n(n)
+        else:
+            self.send_request_n(n)
+
+    def _add_request_n(self, n):
+        if self.initial_request_n == MAX_REQUEST_N and not self.has_request:
+            return n
+
+        res = self.initial_request_n + n
+
+        if not 0 < res < MAX_REQUEST_N:
+            return MAX_REQUEST_N
+
+        return res
 
     def frame_received(self, frame):
         if isinstance(frame, PayloadFrame):
             if frame.data or not frame.flags_complete:
-                self.subscriber.on_next(Payload(frame.data, frame.metadata))
+                self.subscriber.on_next([Payload(frame.data, frame.metadata)])
             if frame.flags_complete:
-                self.subscriber.on_complete()
+                self.subscriber.on_completed()
                 self.socket.finish_stream(self.stream)
         elif isinstance(frame, ErrorFrame):
             self.subscriber.on_error(RuntimeError(frame.data))
@@ -118,40 +142,24 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
 
 
 class RequestStreamResponder(StreamHandler):
-    class StreamSubscriber(Subscriber):
-        def __init__(self, stream: int, socket):
-            super().__init__()
-            self.stream = stream
-            self.socket = socket
-
-        def on_next(self, value):
-            ensure_future(self.socket.send_response(
-                self.stream, value, complete=False))
-
-        def on_complete(self):
-            ensure_future(self.socket.send_response(
-                self.stream, Payload(b'', b''), complete=True))
-            self.socket.finish_stream(self.stream)
-
-        def on_error(self, exception):
-            ensure_future(self.socket.send_error(self.stream, exception))
-            self.socket.finish_stream(self.stream)
-
-        def on_subscribe(self, subscription):
-            # noinspection PyAttributeOutsideInit
-            self.subscription = subscription
-
-    def __init__(self, stream: int, socket, publisher: Publisher):
+    def __init__(self, stream: int, socket, publisher: Flowable, initial_request_n: int):
         super().__init__(stream, socket)
+
         self.publisher = publisher
-        self.subscriber = self.StreamSubscriber(stream, socket)
-        self.publisher.subscribe(self.subscriber)
+        self.sink = StreamSubscriber(
+            stream, socket, asyncio.get_event_loop(),
+            initial_request_n
+        )
+        self.sink.on_subscribe(self)
+        self.subscription = self.publisher.subscribe(observer=self.sink)
 
     def frame_received(self, frame):
         if isinstance(frame, CancelFrame):
-            self.subscriber.subscription.cancel()
+            self.sink.dispose()
+            self.subscription.dispose()
+            self.socket.finish_stream(self.stream)
         elif isinstance(frame, RequestNFrame):
-            self.subscriber.subscription.request(frame.request_n)
+            self.sink.incr_request_n(frame.request_n[0])
 
 
 class RequestChannelRequester(StreamHandler, Publisher, Subscription):
