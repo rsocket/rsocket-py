@@ -10,7 +10,8 @@ setup(
     license='MIT',
     packages=[
         'rsocket',
-        'reactivestreams'
+        'reactivestreams',
+        'reactivestreams.rx',
     ],
     zip_safe=True,
     classifiers=[
