@@ -1,16 +1,16 @@
 import asyncio
 from abc import ABCMeta, abstractmethod
 
+from reactivestreams.publisher import Publisher, DefaultPublisher
 from rsocket.connection import Connection
 from rsocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
     LeaseFrame, MetadataPushFrame, RequestChannelFrame, \
     RequestFireAndForgetFrame, RequestNFrame, RequestResponseFrame, \
-    RequestStreamFrame, PayloadFrame, SetupFrame
+    RequestStreamFrame, PayloadFrame, SetupFrame, Frame
 from rsocket.frame import ErrorCode
-from rsocket.payload import Payload
-from reactivestreams.publisher import Publisher, DefaultPublisher
-from rsocket.handlers import RequestResponseRequester,\
+from rsocket.handlers import RequestResponseRequester, \
     RequestResponseResponder, RequestStreamRequester, RequestStreamResponder
+from rsocket.payload import Payload
 
 MAX_STREAM_ID = 0x7FFFFFFF
 
@@ -19,6 +19,7 @@ class RequestHandler(metaclass=ABCMeta):
     """
     An ABC for request handlers.
     """
+
     def __init__(self, socket):
         super().__init__()
         self.socket = socket
@@ -93,17 +94,22 @@ class RSocket:
         self._sender_task = loop.create_task(self._sender())
         self._error = ErrorFrame()
 
-    def allocate_stream(self):
+    def allocate_stream(self) -> int:
         stream = self._next_stream
-        self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
+        self._increment_next_stream()
+
         while self._next_stream == 0 or self._next_stream in self._streams:
-            self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
+            self._increment_next_stream()
+
         return stream
+
+    def _increment_next_stream(self):
+        self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
 
     def finish_stream(self, stream):
         self._streams.pop(stream, None)
 
-    def send_frame(self, frame):
+    def send_frame(self, frame: Frame):
         self._send_queue.put_nowait(frame)
 
     async def send_error(self, stream, exception):
@@ -183,7 +189,7 @@ class RSocket:
         except asyncio.CancelledError:
             pass
 
-    def request_response(self, payload):
+    def request_response(self, payload: Payload):
         stream = self.allocate_stream()
         requester = RequestResponseRequester(stream, self, payload)
         self._streams[stream] = requester

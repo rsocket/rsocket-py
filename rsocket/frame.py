@@ -2,6 +2,9 @@ import struct
 from abc import ABCMeta
 from enum import IntEnum
 
+from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.extensions.mimetypes import WellKnownMimeTypes
+
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
 
@@ -44,9 +47,18 @@ class Type(IntEnum):
 
 class Frame(metaclass=ABCMeta):
     __slots__ = (
-        'length', 'frame_type', 'flags', 'stream_id', 'metadata', 'data',
-        'flags_ignore', 'flags_metadata',
-        'flags_follows', 'flags_complete', 'metadata_only')
+        'length',
+        'frame_type',
+        'flags',
+        'stream_id',
+        'metadata',
+        'data',
+        'flags_ignore',
+        'flags_metadata',
+        'flags_follows',
+        'flags_complete',
+        'metadata_only'
+    )
 
     _FLAG_IGNORE_BIT = 0x200
     _FLAG_METADATA_BIT = 0x100
@@ -68,7 +80,7 @@ class Frame(metaclass=ABCMeta):
 
     class Parser:
 
-        def __init__(self, buffer, offset, limit):
+        def __init__(self, buffer: bytes, offset: int, limit: int):
             self.buffer = buffer
             self.offset = offset
             self.limit = limit
@@ -82,8 +94,7 @@ class Frame(metaclass=ABCMeta):
             self.offset += 12
             return length, frame_type, flags, stream_id
 
-    # noinspection PyAttributeOutsideInit
-    def parse_header(self, buffer, offset):
+    def parse_header(self, buffer: bytes, offset: int) -> int:
         self.length, = struct.unpack('>I', b'\x00' + buffer[offset:offset + 3])
         self.stream_id, self.frame_type, self.flags = struct.unpack_from(
             '>IBB', buffer, offset + 3)
@@ -93,29 +104,30 @@ class Frame(metaclass=ABCMeta):
         self.flags_metadata = (self.flags & self._FLAG_METADATA_BIT) != 0
         return 9
 
-    # noinspection PyAttributeOutsideInit
-    def parse_metadata(self, buffer, offset):
+    def parse_metadata(self, buffer: bytes, offset: int) -> int:
         if not self.flags_metadata:
             return 0
+
         if not self.metadata_only:
             length, = struct.unpack('>I', b'\x00' + buffer[offset:offset + 3])
             offset += 3
         else:
             length = self.length - offset + 3
-        self.metadata = buffer[offset:offset+length]
+
+        self.metadata = buffer[offset:offset + length]
+
         return length + (0 if self.metadata_only else 3)
 
-    # noinspection PyAttributeOutsideInit
-    def parse_data(self, buffer, offset):
+    def parse_data(self, buffer: bytes, offset: int) -> int:
         length = self.length - offset + 3
-        self.data = buffer[offset:offset+length]
+        self.data = buffer[offset:offset + length]
         return length
 
     @staticmethod
     def pack_string(buffer):
         return struct.pack('b', len(buffer)) + buffer
 
-    def serialize(self, middle=b''):
+    def serialize(self, middle=b'') -> bytes:
         self.flags &= ~(self._FLAG_IGNORE_BIT | self._FLAG_METADATA_BIT)
         if self.flags_ignore:
             self.flags |= self._FLAG_IGNORE_BIT
@@ -135,7 +147,7 @@ class Frame(metaclass=ABCMeta):
         offset = 0
         buffer = bytearray(self.length)
 
-        buffer[offset:offset+3] = struct.pack('>I', self.length - 3)[1:]
+        buffer[offset:offset + 3] = struct.pack('>I', self.length - 3)[1:]
         offset += 3
 
         struct.pack_into('>I', buffer, offset, self.stream_id)
@@ -145,19 +157,19 @@ class Frame(metaclass=ABCMeta):
         buffer[8] = self.flags & 0xff
         offset += 2
 
-        buffer[offset:offset+len(middle)] = middle[:]
+        buffer[offset:offset + len(middle)] = middle[:]
         offset += len(middle)
 
         if self.flags_metadata and self.metadata:
             length = len(self.metadata)
             if not self.metadata_only:
-                buffer[offset:offset+3] = struct.pack('>I', length)[1:]
+                buffer[offset:offset + 3] = struct.pack('>I', length)[1:]
                 offset += 3
-            buffer[offset:offset+length] = self.metadata[:]
+            buffer[offset:offset + length] = self.metadata[:]
             offset += length
 
         if not self.metadata_only:
-            buffer[offset:offset+len(self.data)] = self.data[:]
+            buffer[offset:offset + len(self.data)] = self.data[:]
             offset += len(self.data)
 
         return bytes(buffer)
@@ -165,11 +177,19 @@ class Frame(metaclass=ABCMeta):
 
 class SetupFrame(Frame):
     __slots__ = (
-        'major_version', 'minor_version',
-        'keep_alive_milliseconds', 'max_lifetime_milliseconds',
-        'token_length', 'resume_identification_token',
-        'metadata_encoding', 'data_encoding',
-        'flags_lease', 'flags_strict', 'flags_resume')
+        'major_version',
+        'minor_version',
+        'keep_alive_milliseconds',
+        'max_lifetime_milliseconds',
+        'token_length',
+        'resume_identification_token',
+        'metadata_encoding',
+        'data_encoding',
+        'flags_lease',
+        'flags_strict',
+        'flags_resume',
+        'composite_metadata'
+    )
 
     _FLAG_LEASE_BIT = 0x40
     _FLAG_RESUME_BIT = 0x80
@@ -182,7 +202,7 @@ class SetupFrame(Frame):
         self.flags_resume = False
 
     # noinspection PyAttributeOutsideInit
-    def parse(self, buffer, offset):
+    def parse(self, buffer: bytes, offset: int):
         offset += self.parse_header(buffer, offset)
         self.flags_lease = (self.flags & self._FLAG_LEASE_BIT) != 0
         self.flags_resume = (self.flags & self._FLAG_RESUME_BIT) != 0
@@ -193,10 +213,10 @@ class SetupFrame(Frame):
         offset += 12
 
         if self.flags_resume:
-            self.token_length = struct.unpack_from('>H', buffer, offset)
+            self.token_length = struct.unpack_from('>H', buffer, offset)[0]
             offset += 2
             self.resume_identification_token = (
-                buffer[offset:offset+self.token_length])
+                buffer[offset:offset + self.token_length])
             offset += self.token_length
 
         def unpack_string():
@@ -210,9 +230,13 @@ class SetupFrame(Frame):
         self.data_encoding = unpack_string()
 
         offset += self.parse_metadata(buffer, offset)
+
+        if self.metadata_encoding == WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value[0]:
+            self._parse_composite_metadata()
+
         offset += self.parse_data(buffer, offset)
 
-    def serialize(self, middle=b''):
+    def serialize(self, middle=b'') -> bytes:
         self.flags &= ~(self._FLAG_LEASE_BIT | self._FLAG_RESUME_BIT)
         if self.flags_lease:
             self.flags |= self._FLAG_LEASE_BIT
@@ -230,6 +254,10 @@ class SetupFrame(Frame):
         middle += self.pack_string(self.data_encoding)
         return Frame.serialize(self, middle)
 
+    def _parse_composite_metadata(self):
+        self.composite_metadata = CompositeMetadata()
+        self.composite_metadata.parse(self.metadata, 0)
+
 
 class ErrorFrame(Frame):
     __slots__ = 'error_code'
@@ -237,20 +265,23 @@ class ErrorFrame(Frame):
     def __init__(self):
         super().__init__(Type.ERROR)
 
-# noinspection PyAttributeOutsideInit
-    def parse(self, buffer, offset):
+    # noinspection PyAttributeOutsideInit
+    def parse(self, buffer: bytes, offset: int):
         offset += self.parse_header(buffer, offset)
         self.error_code, = struct.unpack_from('>I', buffer, offset)
         offset += 4
         offset += self.parse_data(buffer, offset)
 
-    def serialize(self, middle=b''):
+    def serialize(self, middle=b'') -> bytes:
         middle = struct.pack('>I', self.error_code)
         return Frame.serialize(self, middle)
 
 
 class LeaseFrame(Frame):
-    __slots__ = ('time_to_live', 'number_of_requests')
+    __slots__ = (
+        'time_to_live',
+        'number_of_requests'
+    )
 
     def __init__(self):
         super().__init__(Type.LEASE)
@@ -300,15 +331,17 @@ class RequestFrame(Frame):
         self.flags_follows = False
 
     # noinspection PyAttributeOutsideInit
-    def parse(self, buffer, offset):
+    def parse(self, buffer, offset: int) -> int:
         length = self.parse_header(buffer, offset)
         self.flags_follows = (self.flags & self._FLAG_FOLLOWS_BIT) != 0
         return length
 
-    def serialize(self, middle=b''):
+    def serialize(self, middle=b'') -> bytes:
         self.flags &= ~self._FLAG_FOLLOWS_BIT
+
         if self.flags_follows:
             self.flags |= self._FLAG_FOLLOWS_BIT
+
         return Frame.serialize(self, middle)
 
 
@@ -331,7 +364,7 @@ class RequestFireAndForgetFrame(RequestFrame):
     def __init__(self):
         super().__init__(Type.REQUEST_FNF)
 
-# noinspection PyAttributeOutsideInit
+    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += RequestFrame.parse(self, buffer, offset)
         offset += self.parse_metadata(buffer, offset)
@@ -359,7 +392,12 @@ class RequestStreamFrame(RequestFrame):
 
 
 class RequestChannelFrame(RequestFrame):
-    __slots__ = ('initial_request_n', 'flags_complete', 'flags_follows')
+    __slots__ = (
+        'initial_request_n',
+        'flags_complete',
+        'flags_follows',
+        'flags_initial'
+    )
 
     _FLAG_COMPLETE_BIT = 0x40
     _FLAG_FOLLOWS_BIT = 0x80
@@ -410,7 +448,11 @@ class CancelFrame(Frame):
 
 
 class PayloadFrame(Frame):
-    __slots__ = ('flags_follows', 'flags_complete', 'flags_next')
+    __slots__ = (
+        'flags_follows',
+        'flags_complete',
+        'flags_next'
+    )
 
     _FLAG_FOLLOWS_BIT = 0x80
     _FLAG_COMPLETE_BIT = 0x40
@@ -476,11 +518,13 @@ _table = {
 }
 
 
-def parse(buffer, offset=0):
+def parse(buffer: bytes, offset=0) -> Frame:
     # A full header is 3 (length) + 4 (stream) + 2 (type, flags) bytes.
     if len(buffer) < 9:
         raise ParseError('Frame too short: {} bytes'.format(len(buffer)))
+
     frame_type = struct.unpack_from('>B', buffer, offset + 7)[0] >> 2
+
     try:
         frame = _table[frame_type]()
         frame.parse(buffer, offset)
