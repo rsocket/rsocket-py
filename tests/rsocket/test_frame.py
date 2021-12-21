@@ -1,8 +1,9 @@
 import pytest
 
 from rsocket.connection import Connection
+from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame)
+from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type, RequestResponseFrame)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -79,39 +80,22 @@ def test_setup_readable():
     assert frame.metadata == b'\x04\x05\x06\x07\x08'
 
 
-def test_setup_with_composite_metadata():
+def test_request_with_composite_metadata():
     connection = Connection()
 
     data = build_frame(
-        bits(24, 89, 'Frame size'),
+        bits(24, 27, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 0, 'Stream id'),
-        bits(6, 1, 'Frame type'),
+        bits(6, Type.REQUEST_RESPONSE.value, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
-        bits(1, 0, 'Resume'),
-        bits(1, 0, 'Lease'),
-        bits(6, 0, 'Padding flags'),
-        # Version
-        bits(16, 1, 'Major version'),
-        bits(16, 0, 'Minor version'),
-        # Timeouts
-        bits(1, 0, 'Padding'),
-        bits(31, 123, 'Time Between KEEPALIVE Frames'),
-        bits(1, 0, 'Padding'),
-        bits(31, 456, 'Max Lifetime'),
-        # Resume token - not present
-        # Meta-data mime
-        bits(8, 39, 'Metadata mime length'),
-        data_bits(b'message/x.rsocket.composite-metadata.v0'),
-        # Data mime
-        bits(8, 9, 'Data mime length'),
-        data_bits(b'text/html'),
+        bits(1, 0, 'Follows'),
+        bits(7, 0, 'Empty flags'),
         # Metadata
         bits(24, 15, 'Metadata length'),
         # Composite metadata
-
         bits(1, 1, 'Well known metadata type'),
         bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value[1], 'Mime ID'),
         bits(24, 11, 'Metadata length'),
@@ -122,17 +106,16 @@ def test_setup_with_composite_metadata():
     )
 
     frame = connection.receive_data(data)[0]
-    assert isinstance(frame, SetupFrame)
-    # assert frame.serialize() == data
+    assert isinstance(frame, RequestResponseFrame)
+    assert frame.serialize() == data
 
-    assert frame.metadata_encoding == b'message/x.rsocket.composite-metadata.v0'
-    assert frame.data_encoding == b'text/html'
-    assert frame.keep_alive_milliseconds == 123
-    assert frame.max_lifetime_milliseconds == 456
     assert frame.data == b'\x01\x02\x03'
 
-    assert frame.composite_metadata.items[0].metadata_encoding == b'message/x.rsocket.routing.v0'
-    assert frame.composite_metadata.items[0].metadata == b'target.path'
+    metadata = CompositeMetadata()
+    metadata.parse(frame.metadata, 0)
+
+    assert metadata.items[0].metadata_encoding == b'message/x.rsocket.routing.v0'
+    assert metadata.items[0].metadata == b'target.path'
 
 
 def test_cancel():

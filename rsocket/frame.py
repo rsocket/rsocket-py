@@ -2,9 +2,6 @@ import struct
 from abc import ABCMeta
 from enum import IntEnum
 
-from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.extensions.mimetypes import WellKnownMimeTypes
-
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
 
@@ -63,7 +60,7 @@ class Frame(metaclass=ABCMeta):
     _FLAG_IGNORE_BIT = 0x200
     _FLAG_METADATA_BIT = 0x100
 
-    def __init__(self, frame_type):
+    def __init__(self, frame_type: Type):
         self.length = 0
         self.frame_type = frame_type
         self.flags = 0
@@ -135,14 +132,7 @@ class Frame(metaclass=ABCMeta):
             self.flags_metadata = True
             self.flags |= self._FLAG_METADATA_BIT
 
-        # compute the length of the frame: header + middle + suffix.
-        self.length = 9 + len(middle)
-        if self.flags_metadata and self.metadata:
-            self.length += len(self.metadata)
-            if not self.metadata_only:
-                self.length += 3
-        if not self.metadata_only:
-            self.length += len(self.data)
+        self.length = self._compute_frame_length(middle)
 
         offset = 0
         buffer = bytearray(self.length)
@@ -174,6 +164,20 @@ class Frame(metaclass=ABCMeta):
 
         return bytes(buffer)
 
+    def _compute_frame_length(self, middle: bytes) -> int:
+        header_length = 9
+        length = header_length + len(middle)
+
+        if self.flags_metadata and self.metadata:
+            length += len(self.metadata)
+            if not self.metadata_only:
+                length += 3
+
+        if not self.metadata_only:
+            length += len(self.data)
+
+        return length
+
 
 class SetupFrame(Frame):
     __slots__ = (
@@ -187,8 +191,7 @@ class SetupFrame(Frame):
         'data_encoding',
         'flags_lease',
         'flags_strict',
-        'flags_resume',
-        'composite_metadata'
+        'flags_resume'
     )
 
     _FLAG_LEASE_BIT = 0x40
@@ -210,6 +213,7 @@ class SetupFrame(Frame):
         (self.major_version, self.minor_version,
          self.keep_alive_milliseconds, self.max_lifetime_milliseconds) = (
             struct.unpack_from('>HHII', buffer, offset))
+
         offset += 12
 
         if self.flags_resume:
@@ -230,10 +234,6 @@ class SetupFrame(Frame):
         self.data_encoding = unpack_string()
 
         offset += self.parse_metadata(buffer, offset)
-
-        if self.metadata_encoding == WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value[0]:
-            self._parse_composite_metadata()
-
         offset += self.parse_data(buffer, offset)
 
     def serialize(self, middle=b'') -> bytes:
@@ -253,10 +253,6 @@ class SetupFrame(Frame):
         middle += self.pack_string(self.metadata_encoding)
         middle += self.pack_string(self.data_encoding)
         return Frame.serialize(self, middle)
-
-    def _parse_composite_metadata(self):
-        self.composite_metadata = CompositeMetadata()
-        self.composite_metadata.parse(self.metadata, 0)
 
 
 class ErrorFrame(Frame):
@@ -308,7 +304,6 @@ class KeepAliveFrame(Frame):
         super().__init__(Type.KEEPALIVE)
         self.flags_respond = False
 
-    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += self.parse_header(buffer, offset)
         self.flags_respond = (self.flags & self._FLAG_RESPOND_BIT) != 0
@@ -322,7 +317,11 @@ class KeepAliveFrame(Frame):
 
 
 class RequestFrame(Frame):
-    __slots__ = 'flags_follows'
+    __slots__ = (
+        'flags_follows',
+        'composite_metadata',
+        'is_composite_metadata'
+    )
 
     _FLAG_FOLLOWS_BIT = 0x80
 
@@ -330,7 +329,6 @@ class RequestFrame(Frame):
         super().__init__(frame_type)
         self.flags_follows = False
 
-    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset: int) -> int:
         length = self.parse_header(buffer, offset)
         self.flags_follows = (self.flags & self._FLAG_FOLLOWS_BIT) != 0
@@ -344,6 +342,10 @@ class RequestFrame(Frame):
 
         return Frame.serialize(self, middle)
 
+    def _parse_payload(self, buffer, offset):
+        offset += self.parse_metadata(buffer, offset)
+        offset += self.parse_data(buffer, offset)
+
 
 class RequestResponseFrame(RequestFrame):
     __slots__ = ()
@@ -354,8 +356,7 @@ class RequestResponseFrame(RequestFrame):
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += RequestFrame.parse(self, buffer, offset)
-        offset += self.parse_metadata(buffer, offset)
-        offset += self.parse_data(buffer, offset)
+        self._parse_payload(buffer, offset)
 
 
 class RequestFireAndForgetFrame(RequestFrame):
@@ -364,11 +365,9 @@ class RequestFireAndForgetFrame(RequestFrame):
     def __init__(self):
         super().__init__(Type.REQUEST_FNF)
 
-    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += RequestFrame.parse(self, buffer, offset)
-        offset += self.parse_metadata(buffer, offset)
-        offset += self.parse_data(buffer, offset)
+        self._parse_payload(buffer, offset)
 
 
 class RequestStreamFrame(RequestFrame):
@@ -378,13 +377,11 @@ class RequestStreamFrame(RequestFrame):
         super().__init__(Type.REQUEST_STREAM)
         self.initial_request_n = 0
 
-    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += RequestFrame.parse(self, buffer, offset)
         self.initial_request_n, = struct.unpack_from('>I', buffer, offset)
         offset += 4
-        offset += self.parse_metadata(buffer, offset)
-        offset += self.parse_data(buffer, offset)
+        self._parse_payload(buffer, offset)
 
     def serialize(self, middle=b''):
         middle = struct.pack('>I', self.initial_request_n)
@@ -414,8 +411,7 @@ class RequestChannelFrame(RequestFrame):
         self.flags_follows = (self.flags & self._FLAG_FOLLOWS_BIT) != 0
         self.initial_request_n, = struct.unpack_from('>I', buffer, offset)
         offset += 4
-        offset += self.parse_metadata(buffer, offset)
-        offset += self.parse_data(buffer, offset)
+        self._parse_payload(buffer, offset)
 
     def serialize(self, middle=b''):
         middle = struct.pack('>I', self.initial_request_n)
@@ -464,7 +460,6 @@ class PayloadFrame(Frame):
         self.flags_complete = False
         self.flags_next = False
 
-    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += self.parse_header(buffer, offset)
         self.flags_follows = (self.flags & self._FLAG_FOLLOWS_BIT) != 0
@@ -488,19 +483,17 @@ class PayloadFrame(Frame):
 class MetadataPushFrame(Frame):
     __slots__ = ()
 
-    # noinspection PyDunderSlots
     def __init__(self):
         super().__init__(Type.METADATA_PUSH)
         self.metadata_only = True
         self.flags_metadata = True
 
-    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += self.parse_header(buffer, offset)
         offset += self.parse_metadata(buffer, offset)
 
 
-_table = {
+_frame_class_by_id = {
     Type.SETUP: SetupFrame,
     Type.LEASE: LeaseFrame,
     Type.KEEPALIVE: KeepAliveFrame,
@@ -519,14 +512,13 @@ _table = {
 
 
 def parse(buffer: bytes, offset=0) -> Frame:
-    # A full header is 3 (length) + 4 (stream) + 2 (type, flags) bytes.
-    if len(buffer) < 9:
+    if len(buffer) < 9:  # A full header is 3 (length) + 4 (stream) + 2 (type, flags) bytes.
         raise ParseError('Frame too short: {} bytes'.format(len(buffer)))
 
     frame_type = struct.unpack_from('>B', buffer, offset + 7)[0] >> 2
 
     try:
-        frame = _table[frame_type]()
+        frame = _frame_class_by_id[frame_type]()
         frame.parse(buffer, offset)
         return frame
     except KeyError:

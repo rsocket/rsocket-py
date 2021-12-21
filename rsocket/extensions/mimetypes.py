@@ -1,4 +1,5 @@
 from enum import Enum, unique
+from typing import Optional
 
 
 @unique
@@ -71,9 +72,9 @@ class WellKnownMimeTypes(Enum):
         raise Exception('Unknown mime type id')
 
     @classmethod
-    def require__by_name(cls, metadata_name: str) -> 'WellKnownMimeTypes':
+    def get_by_name(cls, metadata_name: str) -> Optional['WellKnownMimeTypes']:
         for value in cls:
             if value.value[0] == metadata_name:
                 return value
 
-        raise Exception('Unknown mime type id')
+        return None

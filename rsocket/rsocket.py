@@ -1,7 +1,6 @@
 import asyncio
-from abc import ABCMeta, abstractmethod
 
-from reactivestreams.publisher import Publisher, DefaultPublisher
+from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
 from rsocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
     LeaseFrame, MetadataPushFrame, RequestChannelFrame, \
@@ -11,65 +10,22 @@ from rsocket.frame import ErrorCode
 from rsocket.handlers import RequestResponseRequester, \
     RequestResponseResponder, RequestStreamRequester, RequestStreamResponder
 from rsocket.payload import Payload
+from rsocket.request_handler import BaseRequestHandler
 
 MAX_STREAM_ID = 0x7FFFFFFF
 
 
-class RequestHandler(metaclass=ABCMeta):
-    """
-    An ABC for request handlers.
-    """
-
-    def __init__(self, socket):
-        super().__init__()
-        self.socket = socket
-
-    @abstractmethod
-    def request_channel(self, payload: Payload, publisher: Publisher) \
-            -> Publisher:
-        """
-        Bi-directional communication.  A publisher on each end is connected
-        to a subscriber on the other end.
-        """
-        pass
-
-    @abstractmethod
-    def request_fire_and_forget(self, payload: Payload):
-        pass
-
-    @abstractmethod
-    def request_response(self, payload: Payload) -> asyncio.Future:
-        pass
-
-    @abstractmethod
-    def request_stream(self, payload: Payload) -> Publisher:
-        pass
-
-
-class BaseRequestHandler(RequestHandler):
-    def request_channel(self, payload: Payload, publisher: Publisher):
-        self.socket.send_error(RuntimeError("Not implemented"))
-
-    def request_fire_and_forget(self, payload: Payload):
-        # The requester isn't listening for errors.  Nothing to do.
-        pass
-
-    def request_response(self, payload: Payload):
-        future = asyncio.Future()
-        future.set_exception(RuntimeError("Not implemented"))
-        return future
-
-    def request_stream(self, payload: Payload) -> Publisher:
-        return DefaultPublisher()
-
-
 class RSocket:
-    def __init__(self, reader, writer, *,
-                 handler_factory=BaseRequestHandler, loop=None, server=True):
+    def __init__(self,
+                 reader, writer, *,
+                 handler_factory=BaseRequestHandler,
+                 loop=None,
+                 server=True):
         self._reader = reader
         self._writer = writer
         self._server = server
-        self._handler = handler_factory(self)
+        self._handler_factory = handler_factory
+        self._is_composite_metadata = False
 
         self._next_stream = 2 if self._server else 1
         self._streams = {}
@@ -158,19 +114,20 @@ class RSocket:
                         pass
                     elif isinstance(frame, RequestResponseFrame):
                         stream = frame.stream_id
-                        self._streams[stream] = RequestResponseResponder(
-                            stream, self, self._handler.request_response(
-                                Payload(frame.data, frame.metadata)))
+                        response_future = self._handler.request_response(Payload(frame.data, frame.metadata))
+                        self._streams[stream] = RequestResponseResponder(stream, self, response_future)
                     elif isinstance(frame, RequestStreamFrame):
                         stream = frame.stream_id
-                        self._streams[stream] = RequestStreamResponder(
-                            stream, self, self._handler.request_stream(
-                                Payload(frame.data, frame.metadata)))
+                        publisher = self._handler.request_stream(Payload(frame.data, frame.metadata))
+                        self._streams[stream] = RequestStreamResponder(stream, self, publisher)
                     elif isinstance(frame, RequestNFrame):
                         pass
                     elif isinstance(frame, PayloadFrame):
                         pass
                     elif isinstance(frame, SetupFrame):
+                        self._handler = self._handler_factory(self)
+                        await self._handler.on_setup(frame.data_encoding, frame.metadata_encoding)
+
                         if frame.flags_lease:
                             lease = LeaseFrame()
                             lease.time_to_live = 10000

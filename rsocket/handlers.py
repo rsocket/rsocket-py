@@ -98,8 +98,8 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
 
         self.subscriber.on_subscribe(self)
 
-    def cancel(self, *args, **kwargs):
-        super().cancel(*args, **kwargs)
+    def cancel(self):
+        super().cancel()
         self.send_cancel()
 
     def request(self, n):

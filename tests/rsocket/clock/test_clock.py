@@ -1,12 +1,11 @@
 import asyncio
 
 import pytest
-from asyncio.test_utils import TestLoop as EventLoop
 
 
 @pytest.mark.asyncio
 @asyncio.coroutine
-def test_sleep(event_loop: EventLoop):
+def test_sleep(event_loop):
     def near(x, y, relative=5):
         return y - relative < x < y + relative
 
