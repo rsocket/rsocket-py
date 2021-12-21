@@ -3,10 +3,10 @@ import functools
 
 import pytest
 
-from rsocket import BaseRequestHandler
-from rsocket.payload import Payload
 from reactivestreams import Publisher, Subscriber, Subscription
 from reactivestreams.subscriber import DefaultSubscriber
+from rsocket import BaseRequestHandler
+from rsocket.payload import Payload
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
@@ -24,7 +25,7 @@ class RSocket:
         self._reader = reader
         self._writer = writer
         self._server = server
-        self._handler_factory = handler_factory
+        self._handler = handler_factory(self)
         self._is_composite_metadata = False
 
         self._next_stream = 2 if self._server else 1
@@ -125,7 +126,6 @@ class RSocket:
                     elif isinstance(frame, PayloadFrame):
                         pass
                     elif isinstance(frame, SetupFrame):
-                        self._handler = self._handler_factory(self)
                         await self._handler.on_setup(frame.data_encoding, frame.metadata_encoding)
 
                         if frame.flags_lease:
@@ -135,6 +135,9 @@ class RSocket:
                             self.send_frame(lease)
         except asyncio.CancelledError:
             pass
+        except Exception:
+            logging.error('Unknown error', exc_info=True)
+            raise
 
     async def _sender(self):
         try:
