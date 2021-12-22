@@ -84,7 +84,7 @@ def test_request_with_composite_metadata():
     connection = Connection()
 
     data = build_frame(
-        bits(24, 27, 'Frame size'),
+        bits(24, 28, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 0, 'Stream id'),
         bits(6, Type.REQUEST_RESPONSE.value, 'Frame type'),
@@ -94,11 +94,12 @@ def test_request_with_composite_metadata():
         bits(1, 0, 'Follows'),
         bits(7, 0, 'Empty flags'),
         # Metadata
-        bits(24, 15, 'Metadata length'),
+        bits(24, 16, 'Metadata length'),
         # Composite metadata
         bits(1, 1, 'Well known metadata type'),
         bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value[1], 'Mime ID'),
-        bits(24, 11, 'Metadata length'),
+        bits(24, 12, 'Metadata length'),
+        bits(8, 11, 'Tag Length'),
         data_bits(b'target.path'),
 
         # Payload
@@ -111,13 +112,13 @@ def test_request_with_composite_metadata():
 
     assert frame.data == b'\x01\x02\x03'
 
-    metadata = CompositeMetadata()
-    metadata.parse(frame.metadata, 0)
+    composite_metadata = CompositeMetadata()
+    composite_metadata.parse(frame.metadata)
 
-    assert metadata.items[0].metadata_encoding == b'message/x.rsocket.routing.v0'
-    assert metadata.items[0].metadata == b'target.path'
+    assert composite_metadata.items[0].metadata_encoding == b'message/x.rsocket.routing.v0'
+    assert composite_metadata.items[0].tags == [b'target.path']
 
-    assert metadata.serialize() == frame.metadata
+    assert composite_metadata.serialize() == frame.metadata
 
 
 def test_cancel():

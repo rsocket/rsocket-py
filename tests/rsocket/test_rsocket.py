@@ -3,8 +3,9 @@ import functools
 
 import pytest
 
-from reactivestreams import Publisher, Subscriber, Subscription
-from reactivestreams.subscriber import DefaultSubscriber
+from reactivestreams.publisher import Publisher
+from reactivestreams.subscriber import Subscriber, DefaultSubscriber
+from reactivestreams.subscription import Subscription
 from rsocket import BaseRequestHandler
 from rsocket.payload import Payload
 

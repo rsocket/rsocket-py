@@ -3,8 +3,6 @@ import json
 from asyncio import Event
 from typing import Optional
 
-from hamcrest import assert_that, has_length
-
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import Subscription
 from rsocket import Payload
@@ -42,7 +40,7 @@ async def example():
                      data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value[0])
 
     metadata = CompositeMetadata()
-    metadata.append(RoutingMetadata('investigation.getInvestigationByContext'))
+    metadata.append(RoutingMetadata(['investigation.getInvestigationByContext']))
 
     body = bytes(bytearray(map(ord, json.dumps({'active': True}))))
 
@@ -52,7 +50,7 @@ async def example():
     client.request_stream(request).subscribe(subscriber)
     await completion_event.wait()
 
-    assert_that(subscriber.values, has_length(2))
+    assert len(subscriber.values) == 2
 
 
 asyncio.run(example())

@@ -41,7 +41,7 @@ class RequestHandler(metaclass=ABCMeta):
 
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:
         composite_metadata = CompositeMetadata()
-        composite_metadata.parse(metadata, 0)
+        composite_metadata.parse(metadata)
         return composite_metadata
 
 
