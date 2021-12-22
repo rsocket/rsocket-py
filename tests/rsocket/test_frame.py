@@ -115,7 +115,7 @@ def test_request_with_composite_metadata():
     composite_metadata = CompositeMetadata()
     composite_metadata.parse(frame.metadata)
 
-    assert composite_metadata.items[0].metadata_encoding == b'message/x.rsocket.routing.v0'
+    assert composite_metadata.items[0].encoding == b'message/x.rsocket.routing.v0'
     assert composite_metadata.items[0].tags == [b'target.path']
 
     assert composite_metadata.serialize() == frame.metadata

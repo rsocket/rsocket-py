@@ -14,21 +14,21 @@ def _default_or_value(value, default=None):
 
 class CompositeMetadataItem:
     __slots__ = (
-        'metadata_encoding',
-        'metadata'
+        'encoding',
+        'content'
     )
 
     def __init__(self,
-                 metadata_type: Union[str, WellKnownMimeTypes] = _default,
+                 metadata_type: Union[bytes, WellKnownMimeTypes] = _default,
                  body: Optional[bytes] = _default):
-        self.metadata_encoding = _default_or_value(metadata_type)
-        self.metadata = _default_or_value(body)
+        self.encoding = _default_or_value(metadata_type)
+        self.content = _default_or_value(body)
 
     def parse(self, buffer: bytes):
-        self.metadata = buffer
+        self.content = buffer
 
     def serialize(self) -> bytes:
-        return self.metadata
+        return self.content
 
     def _str_to_bytes(self, route_path):
         return bytes(bytearray(map(ord, route_path)))
@@ -73,7 +73,7 @@ class CompositeMetadata:
             offset += 3
 
             item = metadata_item_factory(metadata_encoding)()
-            item.metadata_encoding = metadata_encoding
+            item.encoding = metadata_encoding
 
             item_metadata = metadata[offset:offset + length]
             metadata_length = len(item_metadata)
@@ -95,16 +95,16 @@ class CompositeMetadata:
         return metadata_encoding, offset
 
     def _serialize_item_metadata_encoding(self, item: CompositeMetadataItem) -> bytes:
-        metadata_known_type = WellKnownMimeTypes.get_by_name(item.metadata_encoding)
+        metadata_known_type = WellKnownMimeTypes.get_by_name(item.encoding)
 
         if metadata_known_type is None:
-            metadata_encoding_length = len(item.metadata_encoding)
+            metadata_encoding_length = len(item.encoding)
 
             if metadata_encoding_length > 0b1111111:
                 raise Exception('metadata encoding type too long')
 
             serialized = ((0 << 7) | metadata_encoding_length & 0b1111111).to_bytes(1, 'big')
-            serialized += item.metadata_encoding
+            serialized += item.encoding
         else:
             serialized = ((1 << 7) | metadata_known_type.value[1] & 0b1111111).to_bytes(1, 'big')
         return serialized
