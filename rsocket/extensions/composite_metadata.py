@@ -50,10 +50,10 @@ class CompositeMetadataItem:
             if metadata_encoding_length > 0b1111111:
                 raise Exception('metadata encoding type too long')
 
-            middle = bytearray(0 << 8 | metadata_encoding_length & 0b1111111)
+            middle = ((0 << 7) | metadata_encoding_length & 0b1111111).to_bytes(1, 'big')
             middle += self.metadata_encoding
         else:
-            middle = bytearray(1 << 8 | metadata_known_type.value[1] & 0b1111111)
+            middle = ((1 << 7) | metadata_known_type.value[1] & 0b1111111).to_bytes(1, 'big')
 
         middle += struct.pack('>I', len(self.metadata))[1:]
         middle += self.metadata
@@ -66,7 +66,11 @@ class CompositeMetadata:
     )
 
     def __init__(self, items: List[CompositeMetadataItem] = _default):
-        self.items = _default_or_value(items, [])
+        self.items: List[CompositeMetadataItem] = _default_or_value(items, [])
+
+    def append(self, item: CompositeMetadataItem) -> 'CompositeMetadata':
+        self.items.append(item)
+        return self
 
     def parse(self, buffer: bytes, offset: int):
         item = CompositeMetadataItem()

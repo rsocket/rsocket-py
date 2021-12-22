@@ -117,6 +117,8 @@ def test_request_with_composite_metadata():
     assert metadata.items[0].metadata_encoding == b'message/x.rsocket.routing.v0'
     assert metadata.items[0].metadata == b'target.path'
 
+    assert metadata.serialize() == frame.metadata
+
 
 def test_cancel():
     connection = Connection()

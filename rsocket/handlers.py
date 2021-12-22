@@ -1,7 +1,9 @@
 from abc import abstractmethod, ABCMeta
 from asyncio import Future, ensure_future
 
-from reactivestreams import Publisher, Subscriber, Subscription
+from reactivestreams.publisher import Publisher
+from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     RequestResponseFrame, RequestStreamFrame, PayloadFrame
 from rsocket.payload import Payload

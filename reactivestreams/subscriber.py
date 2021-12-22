@@ -1,32 +1,34 @@
 from abc import ABCMeta, abstractmethod
 
+from reactivestreams.subscription import Subscription
+
 
 class Subscriber(metaclass=ABCMeta):
     @abstractmethod
-    def on_subscribe(self, subscription):
-        pass
+    def on_subscribe(self, subscription: Subscription):
+        ...
 
     @abstractmethod
     def on_next(self, value):
-        pass
+        ...
 
     @abstractmethod
-    def on_error(self, exception):
-        pass
+    def on_error(self, exception: Exception):
+        ...
 
     @abstractmethod
     def on_complete(self):
-        pass
+        ...
 
 
 class DefaultSubscriber(Subscriber):
     def on_next(self, value):
         pass
 
-    def on_error(self, exception):
+    def on_error(self, exception: Exception):
         pass
 
-    def on_subscribe(self, subscription):
+    def on_subscribe(self, subscription: Subscription):
         pass
 
     def on_complete(self):

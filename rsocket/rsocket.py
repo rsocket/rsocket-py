@@ -15,41 +15,48 @@ from rsocket.request_handler import BaseRequestHandler
 
 MAX_STREAM_ID = 0x7FFFFFFF
 
+_not_provided = object()
+
 
 class RSocket:
     def __init__(self,
                  reader, writer, *,
                  handler_factory=BaseRequestHandler,
-                 loop=None,
-                 server=True):
+                 loop=_not_provided,
+                 server=True,
+                 data_encoding: bytes = b'utf-8',
+                 metadata_encoding: bytes = b'utf-8'):
         self._reader = reader
         self._writer = writer
         self._server = server
         self._handler = handler_factory(self)
-        self._is_composite_metadata = False
 
         self._next_stream = 2 if self._server else 1
         self._streams = {}
 
         self._send_queue = asyncio.Queue()
-        if not loop:
-            loop = asyncio.get_event_loop()
+
+        if loop is _not_provided:
+            loop = asyncio.get_event_loop()  # TODO: get running loop ?
 
         if not self._server:
-            setup = SetupFrame()
-            setup.flags_lease = False
-            setup.flags_strict = True
-
-            setup.keep_alive_milliseconds = 60000
-            setup.max_lifetime_milliseconds = 240000
-
-            setup.data_encoding = b'utf-8'
-            setup.metadata_encoding = b'utf-8'
-            self.send_frame(setup)
+            self._send_setup_frame(data_encoding, metadata_encoding)
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
         self._error = ErrorFrame()
+
+    def _send_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes):
+        setup = SetupFrame()
+
+        setup.flags_lease = False
+        setup.flags_strict = True
+        setup.keep_alive_milliseconds = 60000
+        setup.max_lifetime_milliseconds = 240000
+        setup.data_encoding = data_encoding
+        setup.metadata_encoding = metadata_encoding
+
+        self.send_frame(setup)
 
     def allocate_stream(self) -> int:
         stream = self._next_stream

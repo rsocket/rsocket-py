@@ -319,8 +319,6 @@ class KeepAliveFrame(Frame):
 class RequestFrame(Frame):
     __slots__ = (
         'flags_follows',
-        'composite_metadata',
-        'is_composite_metadata'
     )
 
     _FLAG_FOLLOWS_BIT = 0x80
