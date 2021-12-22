@@ -6,11 +6,10 @@ from rsocket.extensions.composite_metadata import CompositeMetadataItem
 
 class TaggingMetadata(CompositeMetadataItem):
     __slots__ = (
-        'tags',
-        'encoding'
+        'tags'
     )
 
-    def __init__(self, encoding:bytes, tags: Optional[List[Union[bytes, str]]] = None):
+    def __init__(self, encoding: bytes, tags: Optional[List[Union[bytes, str]]] = None):
         self.tags = tags
         self.encoding = encoding
 
