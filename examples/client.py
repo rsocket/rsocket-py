@@ -48,7 +48,7 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     try:
         connection = loop.run_until_complete(asyncio.open_connection(
-            'localhost', 9898))
+            'localhost', 6565))
         loop.run_until_complete(download(*connection))
     finally:
         loop.close()

@@ -23,7 +23,7 @@ def session(reader, writer):
 
 
 async def run_server():
-    server = await asyncio.start_server(session, 'localhost', 9898)
+    server = await asyncio.start_server(session, 'localhost', 6565)
 
     async with server:
         await server.serve_forever()
