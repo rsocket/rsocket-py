@@ -1,5 +1,3 @@
-"""A client."""
-
 import asyncio
 from asyncio import Event
 

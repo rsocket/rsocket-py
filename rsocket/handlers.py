@@ -21,7 +21,7 @@ class StreamHandler(metaclass=ABCMeta):
 
     @abstractmethod
     def frame_received(self, frame):
-        pass
+        ...
 
     def send_cancel(self):
         """Convenience method for use by requester subclasses."""

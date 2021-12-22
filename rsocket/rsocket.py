@@ -3,11 +3,10 @@ import logging
 
 from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
-from rsocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
-    LeaseFrame, MetadataPushFrame, RequestChannelFrame, \
-    RequestFireAndForgetFrame, RequestNFrame, RequestResponseFrame, \
-    RequestStreamFrame, PayloadFrame, SetupFrame, Frame
 from rsocket.frame import ErrorCode
+from rsocket.frame import ErrorFrame, KeepAliveFrame, \
+    LeaseFrame, MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
+    RequestStreamFrame, PayloadFrame, SetupFrame, Frame
 from rsocket.handlers import RequestResponseRequester, \
     RequestResponseResponder, RequestStreamRequester, RequestStreamResponder
 from rsocket.payload import Payload
@@ -16,6 +15,7 @@ from rsocket.request_handler import BaseRequestHandler
 MAX_STREAM_ID = 0x7FFFFFFF
 
 _not_provided = object()
+noop = lambda _: _
 
 
 class RSocket:
@@ -93,6 +93,37 @@ class RSocket:
 
     async def _receiver(self):
         try:
+            def handle_keep_alive(frame_: KeepAliveFrame):
+                frame_.flags_respond = False
+                self.send_frame(frame_)
+
+            def handle_request_response(frame_: RequestResponseFrame):
+                stream_ = frame_.stream_id
+                response_future = self._handler.request_response(Payload(frame_.data, frame_.metadata))
+                self._streams[stream_] = RequestResponseResponder(stream_, self, response_future)
+
+            def handle_request_stream(frame_: RequestStreamFrame):
+                stream_ = frame_.stream_id
+                publisher = self._handler.request_stream(Payload(frame_.data, frame_.metadata))
+                self._streams[stream_] = RequestStreamResponder(stream_, self, publisher)
+
+            def handle_setup(frame_: SetupFrame):
+                self._handler.on_setup(frame_.data_encoding, frame_.metadata_encoding)
+
+                if frame_.flags_lease:
+                    lease = LeaseFrame()
+                    lease.time_to_live = 10000
+                    lease.number_of_requests = 100
+                    self.send_frame(lease)
+
+            frame_handler_by_type = {
+                KeepAliveFrame: handle_keep_alive,
+                RequestResponseFrame: handle_request_response,
+                RequestStreamFrame: handle_request_stream,
+                SetupFrame: handle_setup,
+                RequestFireAndForgetFrame: lambda _: self._handler.request_fire_and_forget(Payload(_.data, _.metadata)),
+                MetadataPushFrame: lambda _: self._handler.on_metadata_push(_.metadata)
+            }
             connection = Connection()
             while True:
                 data = await self._reader.read(1024)
@@ -102,44 +133,13 @@ class RSocket:
                 frames = connection.receive_data(data)
                 for frame in frames:
                     stream = frame.stream_id
+
                     if stream and stream in self._streams:
                         self._streams[stream].frame_received(frame)
                         continue
-                    if isinstance(frame, CancelFrame):
-                        pass
-                    elif isinstance(frame, ErrorFrame):
-                        pass
-                    elif isinstance(frame, KeepAliveFrame):
-                        frame.flags_respond = False
-                        self.send_frame(frame)
-                    elif isinstance(frame, LeaseFrame):
-                        pass
-                    elif isinstance(frame, MetadataPushFrame):
-                        pass
-                    elif isinstance(frame, RequestChannelFrame):
-                        pass
-                    elif isinstance(frame, RequestFireAndForgetFrame):
-                        pass
-                    elif isinstance(frame, RequestResponseFrame):
-                        stream = frame.stream_id
-                        response_future = self._handler.request_response(Payload(frame.data, frame.metadata))
-                        self._streams[stream] = RequestResponseResponder(stream, self, response_future)
-                    elif isinstance(frame, RequestStreamFrame):
-                        stream = frame.stream_id
-                        publisher = self._handler.request_stream(Payload(frame.data, frame.metadata))
-                        self._streams[stream] = RequestStreamResponder(stream, self, publisher)
-                    elif isinstance(frame, RequestNFrame):
-                        pass
-                    elif isinstance(frame, PayloadFrame):
-                        pass
-                    elif isinstance(frame, SetupFrame):
-                        await self._handler.on_setup(frame.data_encoding, frame.metadata_encoding)
 
-                        if frame.flags_lease:
-                            lease = LeaseFrame()
-                            lease.time_to_live = 10000
-                            lease.number_of_requests = 100
-                            self.send_frame(lease)
+                    frame_handler_by_type.get(type(frame), noop)(frame)
+
         except asyncio.CancelledError:
             pass
         except Exception:

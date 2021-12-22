@@ -1,43 +1,34 @@
 import asyncio
 
-from reactivestreams.publisher import Publisher
-from reactivestreams.subscription import Subscription
-from rsocket import Payload
-from rsocket.rsocket import BaseRequestHandler, RSocket
+from response_stream import ResponseStream
+from rsocket import RSocket, Payload
+from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.extensions.routing_request_handler import RoutingRequestHandler
 
 
-class ServerHandler(BaseRequestHandler, Publisher, Subscription):
+def router(socket, route: str, payload: Payload, composite_metadata: CompositeMetadata):
+    if route == 'single_request':
+        print('Got single request')
+        future = asyncio.Future()
+        future.set_result(Payload(b'single_response'))
+        return future
 
-    def request_channel(self, payload: Payload, publisher: Publisher):
-        return super().request_channel(payload, publisher)
+    if route == 'stream1':
+        return ResponseStream(socket)
 
-    def request_fire_and_forget(self, payload: Payload):
-        super().request_fire_and_forget(payload)
 
-    def request_response(self, payload: Payload):
-        return super().request_response(payload)
-
-    def request_stream(self, payload: Payload) -> Publisher:
-        return super().request_stream(payload)
-
-    def subscribe(self, subscriber):
-        pass
-
-    def request(self, n):
-        pass
-
-    def cancel(self):
-        pass
+def handler_factory(socket):
+    return RoutingRequestHandler(socket, router)
 
 
 def handle_client(reader, writer):
-    RSocket(reader, writer, server=True)
+    RSocket(reader, writer, handler_factory=handler_factory, server=True)
 
 
 async def run_server():
-    server = await asyncio.start_server(handle_client, 'localhost', 5555)
+    server = await asyncio.start_server(handle_client, 'localhost', 6565)
+
     async with server:
         await server.serve_forever()
-
 
 asyncio.run(run_server())

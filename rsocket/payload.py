@@ -32,3 +32,4 @@ def payload_from_any(data: Any,
                      metadata: Any,
                      serializer: Callable[[Any], bytes] = _default_serializer) -> Payload:
     return Payload(serializer(data), serializer(metadata))
+
