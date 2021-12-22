@@ -2,7 +2,8 @@
 
 import asyncio
 
-from reactivestreams import Publisher, Subscription
+from reactivestreams.publisher import Publisher
+from reactivestreams.subscription import Subscription
 from rsocket import RSocket, BaseRequestHandler
 from rsocket.payload import Payload
 

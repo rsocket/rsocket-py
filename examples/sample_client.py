@@ -1,6 +1,6 @@
 import asyncio
 
-from reactivestreams import Subscriber
+from reactivestreams.subscriber import Subscriber
 from rsocket import RSocket
 
 

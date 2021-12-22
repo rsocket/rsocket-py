@@ -3,7 +3,7 @@
 import asyncio
 from asyncio import Event
 
-from reactivestreams import Subscriber
+from reactivestreams.subscriber import Subscriber
 from rsocket import Payload
 from rsocket import RSocket
 
