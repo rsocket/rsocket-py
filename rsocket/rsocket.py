@@ -87,6 +87,7 @@ class RSocket:
         response = PayloadFrame()
         response.stream_id = stream
         response.flags_complete = complete
+        response.flags_next = True
         response.data = payload.data
         response.metadata = payload.metadata
         self.send_frame(response)

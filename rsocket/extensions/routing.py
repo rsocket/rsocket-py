@@ -7,4 +7,4 @@ from rsocket.extensions.tagging import TaggingMetadata
 class RoutingMetadata(TaggingMetadata):
 
     def __init__(self, tags: Optional[List[Union[bytes, str]]] = None):
-        super().__init__(WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value[0], tags)
+        super().__init__(WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value.name, tags)

@@ -3,7 +3,7 @@ import asyncio
 from response_stream import ResponseStream
 from rsocket import RSocket, Payload
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.extensions.routing_request_handler import RoutingRequestHandler
+from rsocket.routing.routing_request_handler import RoutingRequestHandler
 
 
 def router(socket, route: str, payload: Payload, composite_metadata: CompositeMetadata):

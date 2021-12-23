@@ -36,8 +36,8 @@ async def example():
     connection = await asyncio.open_connection('localhost', 6565)
     client = RSocket(*connection,
                      server=False,
-                     metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value[0],
-                     data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value[0])
+                     metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name,
+                     data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value.name)
 
     metadata = CompositeMetadata()
     metadata.append(RoutingMetadata(['investigation.getInvestigationByContext']))
