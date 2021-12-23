@@ -109,7 +109,7 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
 
     def frame_received(self, frame):
         if isinstance(frame, PayloadFrame):
-            if frame.data or not frame.flags_complete:
+            if frame.flags_next:
                 self.subscriber.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
                 self.subscriber.on_complete()
