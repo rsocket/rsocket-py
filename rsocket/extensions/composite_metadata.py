@@ -44,9 +44,10 @@ def metadata_item_factory(metadata_encoding: bytes) -> Type[CompositeMetadataIte
     from rsocket.extensions.stream_data_mimetype import StreamDataMimetype
 
     metadata_item_factory_by_type = {
-        WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value[0]: RoutingMetadata,
-        WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value[0]: StreamDataMimetype
+        WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value.name: RoutingMetadata,
+        WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value.name: StreamDataMimetype
     }
+
     return metadata_item_factory_by_type.get(metadata_encoding, CompositeMetadataItem)
 
 
@@ -62,7 +63,7 @@ def serialize_metadata_encoding(encoding: bytes) -> bytes:
         serialized = ((0 << 7) | metadata_encoding_length & 0b1111111).to_bytes(1, 'big')
         serialized += encoding
     else:
-        serialized = ((1 << 7) | metadata_known_type.value[1] & 0b1111111).to_bytes(1, 'big')
+        serialized = ((1 << 7) | metadata_known_type.id & 0b1111111).to_bytes(1, 'big')
 
     return serialized
 
@@ -71,7 +72,7 @@ def parse_item_metadata_encoding(buffer) -> Tuple[bytes, int]:
     is_known_mime_id = struct.unpack('>B', buffer[:1])[0] >> 7 == 1
     mime_length_or_type = (struct.unpack('>B', buffer[:1])[0]) & 0b1111111
     if is_known_mime_id:
-        metadata_encoding = WellKnownMimeTypes.require_by_id(mime_length_or_type).value[0]
+        metadata_encoding = WellKnownMimeTypes.require_by_id(mime_length_or_type).name
         offset = 1
     else:
         metadata_encoding = buffer[1:1 + mime_length_or_type]

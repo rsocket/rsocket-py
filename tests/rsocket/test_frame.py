@@ -97,7 +97,7 @@ def test_request_with_composite_metadata():
         bits(24, 16, 'Metadata length'),
         # Composite metadata
         bits(1, 1, 'Well known metadata type'),
-        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value[1], 'Mime ID'),
+        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value.id, 'Mime ID'),
         bits(24, 12, 'Metadata length'),
         bits(8, 11, 'Tag Length'),
         data_bits(b'target.path'),
@@ -125,19 +125,19 @@ def test_composite_metadata_multiple_items():
     data = build_frame(
 
         bits(1, 1, 'Well known metadata type'),
-        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value[1], 'Mime ID'),
+        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value.id, 'Mime ID'),
         bits(24, 12, 'Metadata length'),
         bits(8, 11, 'Tag Length'),
         data_bits(b'target.path'),
 
         bits(1, 1, 'Well known metadata type'),
-        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value[1], 'Mime ID'),
+        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value.id, 'Mime ID'),
         bits(24, 1, 'Metadata length'),
         bits(1, 1, 'Well known metadata type'),
-        bits(7, WellKnownMimeTypes.TEXT_CSS.value[1], 'Mime ID'),
+        bits(7, WellKnownMimeTypes.TEXT_CSS.value.id, 'Mime ID'),
 
         bits(1, 1, 'Well known metadata type'),
-        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value[1], 'Mime ID'),
+        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value.id, 'Mime ID'),
         bits(24, 26, 'Metadata length'),
         bits(1, 0, 'Not well known metadata type'),
         bits(7, 25, 'Encoding length'),
@@ -151,10 +151,10 @@ def test_composite_metadata_multiple_items():
     assert composite_metadata.items[0].tags == [b'target.path']
 
     assert composite_metadata.items[1].encoding == b'message/x.rsocket.mime-type.v0'
-    assert composite_metadata.items[1].data_encoding ==b'text/css'
+    assert composite_metadata.items[1].data_encoding == b'text/css'
 
     assert composite_metadata.items[2].encoding == b'message/x.rsocket.mime-type.v0'
-    assert composite_metadata.items[2].data_encoding ==b'some-custom-encoding/type'
+    assert composite_metadata.items[2].data_encoding == b'some-custom-encoding/type'
 
     assert composite_metadata.serialize() == data
 

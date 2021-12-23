@@ -11,7 +11,7 @@ class StreamDataMimetype(CompositeMetadataItem):
     )
 
     def __init__(self, data_encoding: Optional[bytes] = None):
-        super().__init__(WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value[0], None)
+        super().__init__(WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value.name, None)
         self.data_encoding = data_encoding
 
     def parse(self, buffer: bytes):
