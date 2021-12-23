@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from asyncio import Future
 
 from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
@@ -157,7 +158,7 @@ class RSocket:
         except asyncio.CancelledError:
             pass
 
-    def request_response(self, payload: Payload):
+    def request_response(self, payload: Payload) -> Future:
         stream = self.allocate_stream()
         requester = RequestResponseRequester(stream, self, payload)
         self._streams[stream] = requester
