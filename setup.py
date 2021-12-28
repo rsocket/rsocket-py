@@ -11,7 +11,7 @@ setup(
     name='precognize-rsocket',
     version=get_version(),
     description='Python RSocket library (Precognize fork)',
-    url='https://github.com/Precognize/rsocket-pyy',
+    url='https://github.com/Precognize/rsocket-py',
     author='Gabi Shaar',
     author_email='',
     license='MIT',
