@@ -8,7 +8,7 @@ import java.util.Objects;
 
 public class Server {
 
-    public static void start() {
+    public static void main(String[] args) {
         RSocketServer rSocketServer = RSocketServer.create();
         rSocketServer.acceptor(new SimpleRSocketAcceptor());
         rSocketServer.payloadDecoder(PayloadDecoder.ZERO_COPY);
