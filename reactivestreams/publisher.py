@@ -17,6 +17,5 @@ class DefaultPublisher(Publisher, Subscription):
         pass
 
     def subscribe(self, subscriber):
-        self.subscriber = subscriber
-        self.subscriber.on_subscribe(self)
+        subscriber.on_subscribe(self)
         subscriber.on_error(RuntimeError("Not implemented"))
