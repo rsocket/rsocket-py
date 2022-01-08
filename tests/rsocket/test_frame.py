@@ -3,7 +3,7 @@ import pytest
 from rsocket.connection import Connection
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type, RequestResponseFrame)
+from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type, RequestResponseFrame, RequestNFrame)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -186,3 +186,27 @@ def test_multiple_frames():
     data += b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
     frames = connection.receive_data(data)
     assert len(frames) == 5
+
+
+def test_request_n_frame():
+    connection = Connection()
+
+    data = build_frame(
+        bits(24, 10, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, 8, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        # Request N
+        bits(1, 0, 'Padding'),
+        bits(31, 23, 'Number of frames to request'),
+    )
+
+    frame = connection.receive_data(data)[0]
+    assert isinstance(frame, RequestNFrame)
+    assert frame.serialize() == data
+
+    assert frame.request_n == 23

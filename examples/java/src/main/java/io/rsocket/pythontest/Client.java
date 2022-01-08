@@ -44,6 +44,7 @@ public class Client {
 
     private static void testStream(RSocket rSocket) {
         rSocket.requestStream(DefaultPayload.create(getPayload("simple"), route("stream1")))
+                .limitRate(1)
                 .doOnComplete(() -> System.out.println("Response from server stream completed"))
                 .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
                 .collectList()

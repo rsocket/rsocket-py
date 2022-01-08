@@ -425,7 +425,7 @@ class RequestNFrame(RequestFrame):
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += self.parse_header(buffer, offset)
-        self.request_n = struct.unpack_from('>I', buffer, offset)
+        self.request_n, = struct.unpack_from('>I', buffer, offset)
 
     def serialize(self, middle=b''):
         middle = struct.pack('>I', self.request_n)

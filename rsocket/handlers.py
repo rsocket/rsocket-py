@@ -155,7 +155,7 @@ class RequestStreamResponder(StreamHandler):
     async def frame_received(self, frame: Frame):
         if isinstance(frame, RequestStreamFrame):
             await self.subscriber.subscription.request(frame.initial_request_n)
-        if isinstance(frame, CancelFrame):
+        elif isinstance(frame, CancelFrame):
             self.subscriber.subscription.cancel()
         elif isinstance(frame, RequestNFrame):
             await self.subscriber.subscription.request(frame.request_n)
