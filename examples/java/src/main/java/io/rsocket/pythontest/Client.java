@@ -31,7 +31,7 @@ public class Client {
         testStream(rSocket);
         testStreamWithLimit(rSocket);
         testFireAndForget(rSocket);
-//        testChannel(rSocket);
+        testChannel(rSocket);
     }
 
     private static void testStreamWithLimit(RSocket rSocket) {
@@ -44,7 +44,15 @@ public class Client {
     }
 
     private static void testChannel(RSocket rSocket) {
-        rSocket.requestChannel(new ClientChannelHandler()).blockLast(Duration.ofMinutes(5));
+        final var payload = DefaultPayload.create(getPayload("simple"), route("channel"));
+        final var channel = new ClientChannelHandler(payload);
+
+        rSocket.requestChannel(channel)
+                .limitRate(1)
+                .doOnNext(channel::onNext)
+                .doOnComplete(channel::onComplete)
+                .collectList()
+                .block(Duration.ofMinutes(1));
     }
 
     private static void testFireAndForget(RSocket rSocket) {

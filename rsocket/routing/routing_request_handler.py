@@ -2,6 +2,8 @@ from asyncio import Future
 from typing import Callable, Union, Optional
 
 from reactivestreams.publisher import Publisher
+from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscription import Subscription
 from rsocket import Payload
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
@@ -24,7 +26,9 @@ class RoutingRequestHandler(BaseRequestHandler):
         self.router = router
 
     # noinspection PyAttributeOutsideInit
-    def on_setup(self, data_encoding: bytes, metadata_encoding: bytes):
+    def on_setup(self,
+                 data_encoding: bytes,
+                 metadata_encoding: bytes):
 
         if metadata_encoding != WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name:
             self._send_error(Exception('Setup frame did not specify composite metadata. required for routing handler'))
@@ -33,8 +37,8 @@ class RoutingRequestHandler(BaseRequestHandler):
             self.metadata_encoding = metadata_encoding
             super().on_setup(data_encoding, metadata_encoding)
 
-    def request_channel(self, payload: Payload, publisher: Publisher):
-        self._parse_and_route_channel(payload, publisher)
+    def request_channel(self, payload: Payload) -> Union[Publisher, Subscription, Subscriber]:
+        return self._parse_and_route(payload)
 
     def request_fire_and_forget(self, payload: Payload):
         self._parse_and_route(payload)
@@ -51,13 +55,6 @@ class RoutingRequestHandler(BaseRequestHandler):
         route = self._require_route(composite_metadata)
 
         return self.router(self.socket, route, payload, composite_metadata, None)
-
-    def _parse_and_route_channel(self, payload: Payload, publisher) -> Union[Future, Publisher, None]:
-        composite_metadata = CompositeMetadata()
-        composite_metadata.parse(payload.metadata)
-        route = self._require_route(composite_metadata)
-
-        return self.router(self.socket, route, payload, composite_metadata, publisher)
 
     def _require_route(self, composite_metadata) -> Optional[str]:
         for item in composite_metadata.items:

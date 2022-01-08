@@ -9,11 +9,10 @@ channel_decorated_method = Callable[[RSocket, Payload, CompositeMetadata], Any]
 
 
 class RequestRouter:
-    __slots__ = ('_routes', '_channel_routes')
+    __slots__ = '_routes'
 
     def __init__(self):
         self._routes = {}
-        self._channel_routes = {}
 
     def response(self, route: str):
         def decorator(function: decorated_method):
@@ -31,7 +30,7 @@ class RequestRouter:
 
     def channel(self, route: str):
         def decorator(function: channel_decorated_method):
-            self._channel_routes[route] = function
+            self._routes[route] = function
             return function
 
         return decorator
@@ -51,6 +50,3 @@ class RequestRouter:
                  publisher: Optional[Publisher] = None):
         if route in self._routes:
             return self._routes[route](socket, payload, composite_metadata)
-
-        if route in self._channel_routes:
-            return self._channel_routes[route](socket, payload, composite_metadata, publisher)

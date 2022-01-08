@@ -1,11 +1,12 @@
 from abc import abstractmethod, ABCMeta
 from asyncio import Future, ensure_future
+from typing import Union
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
-    RequestResponseFrame, RequestStreamFrame, PayloadFrame, Frame
+    RequestResponseFrame, RequestStreamFrame, PayloadFrame, Frame, RequestChannelFrame
 from rsocket.payload import Payload
 
 
@@ -161,7 +162,7 @@ class RequestStreamResponder(StreamHandler):
             await self.subscriber.subscription.request(frame.request_n)
 
 
-class RequestChannelRequester(StreamHandler, Publisher, Subscription):
+class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
     class StreamSubscriber(Subscriber):
         def __init__(self, stream: int, socket):
             super().__init__()
@@ -189,30 +190,39 @@ class RequestChannelRequester(StreamHandler, Publisher, Subscription):
             # noinspection PyAttributeOutsideInit
             self.subscription = subscription
 
-    def __init__(self, stream: int, socket, publisher: Publisher):
+    def __init__(self, stream: int, socket, channel: Union[Publisher, Subscription, Subscriber]):
         super().__init__(stream, socket)
-        self.publisher = publisher
+        self.channel = channel
         self.subscriber = self.StreamSubscriber(stream, socket)
-        self.publisher.subscribe(self.subscriber)
+        self.channel.subscribe(self.subscriber)
+        self.subscribe(channel)
 
     async def frame_received(self, frame: Frame):
-        pass
+        if isinstance(frame, RequestChannelFrame):
+            await self.channel.request(frame.initial_request_n)
+
+        elif isinstance(frame, CancelFrame):
+            self.channel.cancel()
+        elif isinstance(frame, RequestNFrame):
+            await self.channel.request(frame.request_n)
+
+        elif isinstance(frame, PayloadFrame):
+            if frame.flags_next:
+                self.channel.on_next(Payload(frame.data, frame.metadata))
+            if frame.flags_complete:
+                self.channel.on_complete()
+                self.socket.finish_stream(self.stream)
+        elif isinstance(frame, ErrorFrame):
+            self.channel.on_error(RuntimeError(frame.data))
+            self.socket.finish_stream(self.stream)
 
     def subscribe(self, subscriber):
-        # noinspection PyAttributeOutsideInit
         self.subscriber = subscriber
-
-        # request = RequestStreamFrame()
-        # request.initial_request_n = 1
-        # request.stream_id = self.stream
-        # request.data = self.payload.data
-        # request.metadata = self.payload.metadata
-        # self.socket.send_frame(request)
-
         self.subscriber.on_subscribe(self)
 
-    async def request(self, n):
-        pass
-
     def cancel(self):
-        pass
+        super().cancel()
+        self.send_cancel()
+
+    async def request(self, n: int):
+        self.send_request_n(n)

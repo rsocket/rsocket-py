@@ -4,19 +4,22 @@ from asyncio import Future
 
 from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
-from rsocket.frame import ErrorCode
+from rsocket.frame import ErrorCode, RequestChannelFrame
 from rsocket.frame import ErrorFrame, KeepAliveFrame, \
-    LeaseFrame, MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
+    MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, PayloadFrame, SetupFrame, Frame
 from rsocket.handlers import RequestResponseRequester, \
-    RequestResponseResponder, RequestStreamRequester, RequestStreamResponder, RequestChannelRequester
+    RequestResponseResponder, RequestStreamRequester, RequestStreamResponder, RequestChannelRequesterResponder
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
 MAX_STREAM_ID = 0x7FFFFFFF
 
 _not_provided = object()
-noop = lambda _: _
+
+
+async def noop_frame_handler(frame):
+    pass
 
 
 class RSocket:
@@ -112,13 +115,11 @@ class RSocket:
                 self._streams[stream_] = request_responder
 
             async def handle_setup(frame_: SetupFrame):
-                self._handler.on_setup(frame_.data_encoding, frame_.metadata_encoding)
+                self._handler.on_setup(frame_.data_encoding,
+                                       frame_.metadata_encoding)
 
                 if frame_.flags_lease:
-                    lease = LeaseFrame()
-                    lease.time_to_live = 10000
-                    lease.number_of_requests = 100
-                    self.send_frame(lease)
+                    self._handler.supply_lease()
 
             async def handle_fire_and_forget(frame_: RequestFireAndForgetFrame):
                 self._handler.request_fire_and_forget(Payload(frame_.data, frame_.metadata))
@@ -126,10 +127,18 @@ class RSocket:
             async def on_metadata_push(frame_: MetadataPushFrame):
                 self._handler.on_metadata_push(frame_.metadata)
 
+            async def handle_request_channel(frame_: RequestChannelFrame):
+                stream_ = frame_.stream_id
+                channel = self._handler.request_channel(Payload(frame_.data, frame_.metadata))
+                channel_responder = RequestChannelRequesterResponder(stream_, self, channel)
+                await channel_responder.frame_received(frame_)
+                self._streams[stream_] = channel_responder
+
             frame_handler_by_type = {
                 KeepAliveFrame: handle_keep_alive,
                 RequestResponseFrame: handle_request_response,
                 RequestStreamFrame: handle_request_stream,
+                RequestChannelFrame: handle_request_channel,
                 SetupFrame: handle_setup,
                 RequestFireAndForgetFrame: handle_fire_and_forget,
                 MetadataPushFrame: on_metadata_push
@@ -161,7 +170,7 @@ class RSocket:
                     await self._streams[stream].frame_received(frame)
                     continue
 
-                frame_handler = frame_handler_by_type.get(type(frame), noop)
+                frame_handler = frame_handler_by_type.get(type(frame), noop_frame_handler)
                 await frame_handler(frame)
 
     async def _sender(self):
@@ -169,6 +178,7 @@ class RSocket:
             while True:
                 frame = await self._send_queue.get()
                 self._writer.write(frame.serialize())
+
                 if self._send_queue.empty():
                     await self._writer.drain()
         except asyncio.CancelledError:
@@ -188,7 +198,7 @@ class RSocket:
 
     def request_channel(self, local: Publisher) -> Publisher:
         stream = self.allocate_stream()
-        requester = RequestChannelRequester(stream, self, local)
+        requester = RequestChannelRequesterResponder(stream, self, local)
         self._streams[stream] = requester
         return requester
 

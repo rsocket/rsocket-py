@@ -1,32 +1,37 @@
 import asyncio
 from abc import ABCMeta, abstractmethod
 from asyncio import Future
+from typing import Union
 
 from reactivestreams.publisher import Publisher, DefaultPublisher
+from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscription import Subscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.frame import LeaseFrame
 from rsocket.payload import Payload
 
 
 class RequestHandler(metaclass=ABCMeta):
-    """
-    An ABC for request handlers.
-    """
 
     def __init__(self, socket):
         super().__init__()
         self.socket = socket
 
     @abstractmethod
-    def on_setup(self, data_encoding: bytes, metadata_encoding: bytes):
+    def on_setup(self,
+                 data_encoding: bytes,
+                 metadata_encoding: bytes):
         ...
+
+    def supply_lease(self):
+        """Not implemented by default"""
 
     @abstractmethod
     def on_metadata_push(self, metadata: bytes):
         ...
 
     @abstractmethod
-    def request_channel(self, payload: Payload, publisher: Publisher) \
-            -> Publisher:
+    def request_channel(self, payload: Payload) -> Union[Publisher, Subscription, Subscriber]:
         """
         Bi-Directional communication.  A publisher on each end is connected
         to a subscriber on the other end.
@@ -52,12 +57,20 @@ class RequestHandler(metaclass=ABCMeta):
     def _send_error(self, exception: Exception):
         self.socket.send_error(exception)
 
+    def _send_lease(self, time_to_live: int, number_of_requests: int):
+        lease = LeaseFrame()
+        lease.time_to_live = time_to_live
+        lease.number_of_requests = number_of_requests
+        self.socket.send_frame(lease)
+
 
 class BaseRequestHandler(RequestHandler):
-    def on_setup(self, data_encoding: bytes, metadata_encoding: bytes):
+    def on_setup(self,
+                 data_encoding: bytes,
+                 metadata_encoding: bytes):
         """Nothing to do on setup by default"""
 
-    def request_channel(self, payload: Payload, publisher: Publisher):
+    def request_channel(self, payload: Payload):
         self._send_error(RuntimeError("Not implemented"))
 
     def request_fire_and_forget(self, payload: Payload):
@@ -73,5 +86,3 @@ class BaseRequestHandler(RequestHandler):
 
     def request_stream(self, payload: Payload) -> Publisher:
         return DefaultPublisher()
-
-

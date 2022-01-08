@@ -1,6 +1,6 @@
 import asyncio
 
-from reactivestreams.publisher import Publisher
+from examples.response_channel import ResponseChannel
 from response_stream import ResponseStream
 from rsocket import RSocket, Payload
 from rsocket.routing.request_router import RequestRouter
@@ -28,8 +28,8 @@ def no_response(socket, payload, composite_metadata):
 
 
 @router.channel('channel')
-def channel(socket, payload, composite_metadata, publisher: Publisher):
-    pass
+def channel(socket, payload, composite_metadata):
+    return ResponseChannel()
 
 
 def handler_factory(socket):
