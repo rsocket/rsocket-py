@@ -18,7 +18,8 @@ class RoutingRequestHandler(BaseRequestHandler):
 
     def __init__(self,
                  socket,
-                 router: Callable[[int, str, Payload, CompositeMetadata], Union[Publisher, Future]]):
+                 router: Callable[
+                     [int, str, Payload, CompositeMetadata, Optional[Publisher]], Union[Publisher, Future]]):
         super().__init__(socket)
         self.router = router
 
@@ -33,7 +34,7 @@ class RoutingRequestHandler(BaseRequestHandler):
             super().on_setup(data_encoding, metadata_encoding)
 
     def request_channel(self, payload: Payload, publisher: Publisher):
-        return super().request_channel(payload, publisher)
+        self._parse_and_route_channel(payload, publisher)
 
     def request_fire_and_forget(self, payload: Payload):
         self._parse_and_route(payload)
@@ -49,7 +50,14 @@ class RoutingRequestHandler(BaseRequestHandler):
         composite_metadata.parse(payload.metadata)
         route = self._require_route(composite_metadata)
 
-        return self.router(self.socket, route, payload, composite_metadata)
+        return self.router(self.socket, route, payload, composite_metadata, None)
+
+    def _parse_and_route_channel(self, payload: Payload, publisher) -> Union[Future, Publisher, None]:
+        composite_metadata = CompositeMetadata()
+        composite_metadata.parse(payload.metadata)
+        route = self._require_route(composite_metadata)
+
+        return self.router(self.socket, route, payload, composite_metadata, publisher)
 
     def _require_route(self, composite_metadata) -> Optional[str]:
         for item in composite_metadata.items:

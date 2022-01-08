@@ -129,7 +129,7 @@ async def test_request_stream(pipe):
         def cancel(self):
             self.feeder.cancel()
 
-        def request(self, n):
+        async def request(self, n):
             pass
 
         def subscribe(self, subscriber):
@@ -138,7 +138,7 @@ async def test_request_stream(pipe):
             self.feeder = asyncio.ensure_future(self.feed(subscriber))
             handler_subscribed.set()
 
-        def request_stream(self, payload: Payload):
+        def request_stream(self, payload: Payload) -> Publisher:
             return self
 
         @staticmethod

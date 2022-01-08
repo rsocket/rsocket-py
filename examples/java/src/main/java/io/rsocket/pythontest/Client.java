@@ -30,7 +30,11 @@ public class Client {
         testSingleRequest(rSocket);
         testStream(rSocket);
         testFireAndForget(rSocket);
+//        testChannel(rSocket);
+    }
 
+    private static void testChannel(RSocket rSocket) {
+        rSocket.requestChannel(new ClientChannelHandler()).blockLast(Duration.ofMinutes(5));
     }
 
     private static void testFireAndForget(RSocket rSocket) {

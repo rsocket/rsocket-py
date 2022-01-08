@@ -15,12 +15,11 @@ class StreamHandler(metaclass=ABCMeta):
         self.stream = stream
         self.socket = socket
 
-    # Not being marked abstract, since most handlers won't override.
     def frame_sent(self, frame: Frame):
-        pass
+        """Not being marked abstract, since most handlers won't override."""
 
     @abstractmethod
-    def frame_received(self, frame: Frame):
+    async def frame_received(self, frame: Frame):
         ...
 
     def send_cancel(self):
@@ -47,7 +46,7 @@ class RequestResponseRequester(StreamHandler, Future):
         request.metadata = payload.metadata
         self.socket.send_frame(request)
 
-    def frame_received(self, frame: Frame):
+    async def frame_received(self, frame: Frame):
         if isinstance(frame, PayloadFrame):
             self.set_result(Payload(frame.data, frame.metadata))
             self.socket.finish_stream(self.stream)
@@ -77,7 +76,7 @@ class RequestResponseResponder(StreamHandler):
                 self.stream, future.exception()))
         self.socket.finish_stream(self.stream)
 
-    def frame_received(self, frame: Frame):
+    async def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):
             self.future.cancel()
 
@@ -104,10 +103,10 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
         super().cancel()
         self.send_cancel()
 
-    def request(self, n: int):
+    async def request(self, n: int):
         self.send_request_n(n)
 
-    def frame_received(self, frame: Frame):
+    async def frame_received(self, frame: Frame):
         if isinstance(frame, PayloadFrame):
             if frame.flags_next:
                 self.subscriber.on_next(Payload(frame.data, frame.metadata))
@@ -153,24 +152,66 @@ class RequestStreamResponder(StreamHandler):
         self.subscriber = self.StreamSubscriber(stream, socket)
         self.publisher.subscribe(self.subscriber)
 
-    def frame_received(self, frame: Frame):
+    async def frame_received(self, frame: Frame):
+        if isinstance(frame, RequestStreamFrame):
+            await self.subscriber.subscription.request(frame.initial_request_n)
         if isinstance(frame, CancelFrame):
             self.subscriber.subscription.cancel()
         elif isinstance(frame, RequestNFrame):
-            self.subscriber.subscription.request(frame.request_n)
+            await self.subscriber.subscription.request(frame.request_n)
 
 
 class RequestChannelRequester(StreamHandler, Publisher, Subscription):
+    class StreamSubscriber(Subscriber):
+        def __init__(self, stream: int, socket):
+            super().__init__()
+            self.stream = stream
+            self.socket = socket
+
+        def on_next(self, value, is_complete=False):
+            ensure_future(self.socket.send_response(
+                self.stream, value, complete=is_complete))
+
+        def on_complete(self, value=None):
+            if value is None:
+                value = Payload(b'', b'')
+
+            ensure_future(self.socket.send_response(
+                self.stream, value, complete=True))
+
+            self.socket.finish_stream(self.stream)
+
+        def on_error(self, exception):
+            ensure_future(self.socket.send_error(self.stream, exception))
+            self.socket.finish_stream(self.stream)
+
+        def on_subscribe(self, subscription):
+            # noinspection PyAttributeOutsideInit
+            self.subscription = subscription
+
     def __init__(self, stream: int, socket, publisher: Publisher):
         super().__init__(stream, socket)
+        self.publisher = publisher
+        self.subscriber = self.StreamSubscriber(stream, socket)
+        self.publisher.subscribe(self.subscriber)
 
-    def frame_received(self, frame: Frame):
+    async def frame_received(self, frame: Frame):
         pass
 
     def subscribe(self, subscriber):
-        pass
+        # noinspection PyAttributeOutsideInit
+        self.subscriber = subscriber
 
-    def request(self, n):
+        # request = RequestStreamFrame()
+        # request.initial_request_n = 1
+        # request.stream_id = self.stream
+        # request.data = self.payload.data
+        # request.metadata = self.payload.metadata
+        # self.socket.send_frame(request)
+
+        self.subscriber.on_subscribe(self)
+
+    async def request(self, n):
         pass
 
     def cancel(self):

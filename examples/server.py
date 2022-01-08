@@ -15,7 +15,7 @@ class Handler(BaseRequestHandler):
         return future
 
     def request_stream(self, payload: Payload) -> Publisher:
-        return ResponseStream(self.socket)
+        return ResponseStream()
 
 
 def session(reader, writer):
