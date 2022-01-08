@@ -127,26 +127,33 @@ class RSocket:
                 MetadataPushFrame: lambda _: self._handler.on_metadata_push(_.metadata)
             }
             connection = Connection()
-            while True:
-                data = await self._reader.read(1024)
-                if not data:
-                    self._writer.close()
-                    break
-                frames = connection.receive_data(data)
-                for frame in frames:
-                    stream = frame.stream_id
 
-                    if stream and stream in self._streams:
-                        self._streams[stream].frame_received(frame)
-                        continue
-
-                    frame_handler_by_type.get(type(frame), noop)(frame)
+            await self._reciever_listen(connection, frame_handler_by_type)
 
         except asyncio.CancelledError:
-            pass
+            logging.debug('Canceled')
         except Exception:
             logging.error('Unknown error', exc_info=True)
             raise
+
+    async def _reciever_listen(self, connection, frame_handler_by_type):
+        while True:
+            data = await self._reader.read(1024)
+
+            if not data:
+                self._writer.close()
+                break
+
+            frames = connection.receive_data(data)
+
+            for frame in frames:
+                stream = frame.stream_id
+
+                if stream and stream in self._streams:
+                    self._streams[stream].frame_received(frame)
+                    continue
+
+                frame_handler_by_type.get(type(frame), noop)(frame)
 
     async def _sender(self):
         try:
@@ -156,7 +163,7 @@ class RSocket:
                 if self._send_queue.empty():
                     await self._writer.drain()
         except asyncio.CancelledError:
-            pass
+            logging.debug('Canceled')
 
     def request_response(self, payload: Payload) -> Future:
         stream = self.allocate_stream()

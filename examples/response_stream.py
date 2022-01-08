@@ -22,9 +22,10 @@ class ResponseStream(BaseRequestHandler, Publisher, Subscription):
     async def feed(self, subscriber):
         loop = asyncio.get_event_loop()
         try:
-            for x in range(3):
+            response_count = 3
+            for x in range(response_count):
                 value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                loop.call_soon(subscriber.on_next, value)
-            loop.call_soon(subscriber.on_complete)
+                is_complete = x == response_count - 1
+                loop.call_soon(subscriber.on_next, value, is_complete)
         except asyncio.CancelledError:
             pass

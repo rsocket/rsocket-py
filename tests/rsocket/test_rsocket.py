@@ -153,10 +153,10 @@ async def test_request_stream(pipe):
                 pass
 
     class StreamSubscriber(Subscriber):
-        def on_next(self, value):
+        def on_next(self, value, is_complete=False):
             print(value)
 
-        def on_complete(self):
+        def on_complete(self, value=None):
             print('Complete')
 
         def on_error(self, exception):

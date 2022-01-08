@@ -11,11 +11,11 @@ class StreamSubscriber(Subscriber):
     def __init__(self, wait_for_complete: Event):
         self._wait_for_complete = wait_for_complete
 
-    def on_next(self, value):
+    def on_next(self, value, is_complete=False):
         print('RS: {}'.format(value))
         self.subscription.request(1)
 
-    def on_complete(self):
+    def on_complete(self, value=None):
         print('RS: Complete')
         self._wait_for_complete.set()
 

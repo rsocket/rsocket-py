@@ -4,6 +4,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
+import io.rsocket.RSocket;
 import io.rsocket.core.RSocketConnector;
 import io.rsocket.metadata.CompositeMetadataCodec;
 import io.rsocket.metadata.RoutingMetadata;
@@ -24,14 +25,25 @@ public class Client {
                 .connect(TcpClientTransport.create("localhost", 6565))
                 .block();
 
-        var payload = DefaultPayload.create(getPayload("simple"), route("single_request"));
-
         assert rSocket != null;
-        rSocket.requestResponse(payload)
-                .doOnNext(response -> {
-                    System.out.println("Response from server :: " + response.getDataUtf8());
-                }).block(Duration.ofMinutes(5));
 
+        testSingleRequest(rSocket);
+        testStream(rSocket);
+
+    }
+
+    private static void testStream(RSocket rSocket) {
+        rSocket.requestStream(DefaultPayload.create(getPayload("simple"), route("stream1")))
+                .doOnComplete(() -> System.out.println("Response from server stream completed"))
+                .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
+                .collectList()
+                .block(Duration.ofMinutes(5));
+    }
+
+    private static void testSingleRequest(RSocket rSocket) {
+        rSocket.requestResponse(DefaultPayload.create(getPayload("simple stream"), route("single_request")))
+                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
+                .block(Duration.ofMinutes(5));
     }
 
     private static CompositeByteBuf route(String route) {

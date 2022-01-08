@@ -5,7 +5,7 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
-    RequestResponseFrame, RequestStreamFrame, PayloadFrame
+    RequestResponseFrame, RequestStreamFrame, PayloadFrame, Frame
 from rsocket.payload import Payload
 
 
@@ -16,11 +16,11 @@ class StreamHandler(metaclass=ABCMeta):
         self.socket = socket
 
     # Not being marked abstract, since most handlers won't override.
-    def frame_sent(self, frame):
+    def frame_sent(self, frame: Frame):
         pass
 
     @abstractmethod
-    def frame_received(self, frame):
+    def frame_received(self, frame: Frame):
         ...
 
     def send_cancel(self):
@@ -30,7 +30,7 @@ class StreamHandler(metaclass=ABCMeta):
         self.socket.send_frame(frame)
         self.socket.finish_stream(self.stream)
 
-    def send_request_n(self, n):
+    def send_request_n(self, n: int):
         """Convenience method for use by requester subclasses."""
         frame = RequestNFrame()
         frame.stream_id = self.stream
@@ -47,7 +47,7 @@ class RequestResponseRequester(StreamHandler, Future):
         request.metadata = payload.metadata
         self.socket.send_frame(request)
 
-    def frame_received(self, frame):
+    def frame_received(self, frame: Frame):
         if isinstance(frame, PayloadFrame):
             self.set_result(Payload(frame.data, frame.metadata))
             self.socket.finish_stream(self.stream)
@@ -77,7 +77,7 @@ class RequestResponseResponder(StreamHandler):
                 self.stream, future.exception()))
         self.socket.finish_stream(self.stream)
 
-    def frame_received(self, frame):
+    def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):
             self.future.cancel()
 
@@ -104,10 +104,10 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
         super().cancel()
         self.send_cancel()
 
-    def request(self, n):
+    def request(self, n: int):
         self.send_request_n(n)
 
-    def frame_received(self, frame):
+    def frame_received(self, frame: Frame):
         if isinstance(frame, PayloadFrame):
             if frame.flags_next:
                 self.subscriber.on_next(Payload(frame.data, frame.metadata))
@@ -126,13 +126,17 @@ class RequestStreamResponder(StreamHandler):
             self.stream = stream
             self.socket = socket
 
-        def on_next(self, value):
+        def on_next(self, value, is_complete=False):
             ensure_future(self.socket.send_response(
-                self.stream, value, complete=False))
+                self.stream, value, complete=is_complete))
 
-        def on_complete(self):
+        def on_complete(self, value=None):
+            if value is None:
+                value = Payload(b'', b'')
+
             ensure_future(self.socket.send_response(
-                self.stream, Payload(b'', b''), complete=True))
+                self.stream, value, complete=True))
+
             self.socket.finish_stream(self.stream)
 
         def on_error(self, exception):
@@ -149,7 +153,7 @@ class RequestStreamResponder(StreamHandler):
         self.subscriber = self.StreamSubscriber(stream, socket)
         self.publisher.subscribe(self.subscriber)
 
-    def frame_received(self, frame):
+    def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):
             self.subscriber.subscription.cancel()
         elif isinstance(frame, RequestNFrame):
@@ -160,7 +164,7 @@ class RequestChannelRequester(StreamHandler, Publisher, Subscription):
     def __init__(self, stream: int, socket, publisher: Publisher):
         super().__init__(stream, socket)
 
-    def frame_received(self, frame):
+    def frame_received(self, frame: Frame):
         pass
 
     def subscribe(self, subscriber):

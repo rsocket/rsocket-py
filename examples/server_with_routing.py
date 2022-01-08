@@ -2,19 +2,23 @@ import asyncio
 
 from response_stream import ResponseStream
 from rsocket import RSocket, Payload
-from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 
+router = RequestRouter()
 
-def router(socket, route: str, payload: Payload, composite_metadata: CompositeMetadata):
-    if route == 'single_request':
-        print('Got single request')
-        future = asyncio.Future()
-        future.set_result(Payload(b'single_response'))
-        return future
 
-    if route == 'stream1':
-        return ResponseStream(socket)
+@router.response('single_request')
+def single_request(socket, payload, composite_metadata):
+    print('Got single request')
+    future = asyncio.Future()
+    future.set_result(Payload(b'single_response'))
+    return future
+
+
+@router.stream('stream1')
+def stream(socket, payload, composite_metadata):
+    return ResponseStream(socket)
 
 
 def handler_factory(socket):
@@ -30,5 +34,6 @@ async def run_server():
 
     async with server:
         await server.serve_forever()
+
 
 asyncio.run(run_server())

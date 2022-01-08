@@ -9,7 +9,7 @@ class Subscriber(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def on_next(self, value):
+    def on_next(self, value, is_complete=False):
         ...
 
     @abstractmethod
@@ -17,12 +17,12 @@ class Subscriber(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def on_complete(self):
+    def on_complete(self, value=None):
         ...
 
 
 class DefaultSubscriber(Subscriber):
-    def on_next(self, value):
+    def on_next(self, value, is_complete=False):
         pass
 
     def on_error(self, exception: Exception):
@@ -31,5 +31,5 @@ class DefaultSubscriber(Subscriber):
     def on_subscribe(self, subscription: Subscription):
         pass
 
-    def on_complete(self):
+    def on_complete(self, value=None):
         pass
