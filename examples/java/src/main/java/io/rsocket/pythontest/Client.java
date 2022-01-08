@@ -29,8 +29,18 @@ public class Client {
 
         testSingleRequest(rSocket);
         testStream(rSocket);
+        testStreamWithLimit(rSocket);
         testFireAndForget(rSocket);
 //        testChannel(rSocket);
+    }
+
+    private static void testStreamWithLimit(RSocket rSocket) {
+        rSocket.requestStream(DefaultPayload.create(getPayload("simple"), route("stream1")))
+                .limitRate(1)
+                .doOnComplete(() -> System.out.println("Response from server stream completed"))
+                .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
+                .collectList()
+                .block(Duration.ofMinutes(5));
     }
 
     private static void testChannel(RSocket rSocket) {
@@ -44,7 +54,6 @@ public class Client {
 
     private static void testStream(RSocket rSocket) {
         rSocket.requestStream(DefaultPayload.create(getPayload("simple"), route("stream1")))
-                .limitRate(1)
                 .doOnComplete(() -> System.out.println("Response from server stream completed"))
                 .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
                 .collectList()
