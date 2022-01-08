@@ -36,7 +36,7 @@ class RoutingRequestHandler(BaseRequestHandler):
         return super().request_channel(payload, publisher)
 
     def request_fire_and_forget(self, payload: Payload):
-        super().request_fire_and_forget(payload)
+        self._parse_and_route(payload)
 
     def request_response(self, payload: Payload) -> Future:
         return self._parse_and_route(payload)

@@ -29,7 +29,13 @@ public class Client {
 
         testSingleRequest(rSocket);
         testStream(rSocket);
+        testFireAndForget(rSocket);
 
+    }
+
+    private static void testFireAndForget(RSocket rSocket) {
+        rSocket.fireAndForget(DefaultPayload.create(getPayload("simple"), route("no_response")))
+                .block(Duration.ofMinutes(5));
     }
 
     private static void testStream(RSocket rSocket) {

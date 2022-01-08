@@ -21,6 +21,11 @@ def stream(socket, payload, composite_metadata):
     return ResponseStream(socket)
 
 
+@router.fire_and_forget('no_response')
+def no_response(socket, payload, composite_metadata):
+    print('No response sent to client')
+
+
 def handler_factory(socket):
     return RoutingRequestHandler(socket, router)
 

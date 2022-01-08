@@ -26,5 +26,19 @@ class RequestRouter:
 
         return decorator
 
+    def channel(self, route: str):
+        def decorator(function: decorated_method):
+            self._routes[route] = function
+            return function
+
+        return decorator
+
+    def fire_and_forget(self, route: str):
+        def decorator(function: decorated_method):
+            self._routes[route] = function
+            return function
+
+        return decorator
+
     def __call__(self, socket, route: str, payload: Payload, composite_metadata: CompositeMetadata):
         return self._routes[route](socket, payload, composite_metadata)
