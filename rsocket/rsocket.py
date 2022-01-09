@@ -13,7 +13,7 @@ from rsocket.frame import ErrorFrame, KeepAliveFrame, \
     RequestStreamFrame, PayloadFrame, SetupFrame, Frame
 from rsocket.handlers import RequestResponseRequester, \
     RequestResponseResponder, RequestStreamRequester, RequestStreamResponder, RequestChannelRequesterResponder, \
-    RateLimiter
+    Stream
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
@@ -199,7 +199,7 @@ class RSocket:
         self._streams[stream] = requester
         return requester
 
-    def request_stream(self, payload: Payload) -> Union[RateLimiter, Publisher]:
+    def request_stream(self, payload: Payload) -> Union[Stream, Publisher]:
         stream = self.allocate_stream()
         requester = RequestStreamRequester(stream, self, payload)
         self._streams[stream] = requester
@@ -208,7 +208,7 @@ class RSocket:
     async def request_channel(self,
                               channel_request_payload: Payload,
                               local: Union[Publisher, Subscriber, Subscription]
-                              ) -> Union[RateLimiter, Publisher, Subscription]:
+                              ) -> Union[Stream, Publisher, Subscription]:
         stream = self.allocate_stream()
         requester = RequestChannelRequesterResponder(stream, self, local)
         requester.send_channel_request(channel_request_payload)
