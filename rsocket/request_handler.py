@@ -54,11 +54,9 @@ class RequestHandler(metaclass=ABCMeta):
         composite_metadata.parse(metadata)
         return composite_metadata
 
-    def _send_error(self, exception: Exception):
-        self.socket.send_error(exception)
-
-    def _send_lease(self, time_to_live: int, number_of_requests: int):
+    def _send_lease(self, stream: int, time_to_live: int, number_of_requests: int):
         lease = LeaseFrame()
+        lease.stream_id = stream
         lease.time_to_live = time_to_live
         lease.number_of_requests = number_of_requests
         self.socket.send_frame(lease)
@@ -71,7 +69,7 @@ class BaseRequestHandler(RequestHandler):
         """Nothing to do on setup by default"""
 
     def request_channel(self, payload: Payload):
-        self._send_error(RuntimeError("Not implemented"))
+        raise RuntimeError("Not implemented")
 
     def request_fire_and_forget(self, payload: Payload):
         """The requester isn't listening for errors.  Nothing to do."""

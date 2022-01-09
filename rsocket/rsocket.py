@@ -1,15 +1,19 @@
 import asyncio
 import logging
 from asyncio import Future
+from typing import Union
 
 from reactivestreams.publisher import Publisher
+from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscription import Subscription
 from rsocket.connection import Connection
 from rsocket.frame import ErrorCode, RequestChannelFrame
 from rsocket.frame import ErrorFrame, KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, PayloadFrame, SetupFrame, Frame
 from rsocket.handlers import RequestResponseRequester, \
-    RequestResponseResponder, RequestStreamRequester, RequestStreamResponder, RequestChannelRequesterResponder
+    RequestResponseResponder, RequestStreamRequester, RequestStreamResponder, RequestChannelRequesterResponder, \
+    RateLimiter
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
@@ -115,8 +119,11 @@ class RSocket:
                 self._streams[stream_] = request_responder
 
             async def handle_setup(frame_: SetupFrame):
-                self._handler.on_setup(frame_.data_encoding,
-                                       frame_.metadata_encoding)
+                try:
+                    self._handler.on_setup(frame_.data_encoding,
+                                           frame_.metadata_encoding)
+                except Exception as exception:
+                    await self.send_error(frame_.stream_id, exception)
 
                 if frame_.flags_lease:
                     self._handler.supply_lease()
@@ -190,15 +197,18 @@ class RSocket:
         self._streams[stream] = requester
         return requester
 
-    def request_stream(self, payload: Payload) -> Publisher:
+    def request_stream(self, payload: Payload) -> Union[RateLimiter, Publisher]:
         stream = self.allocate_stream()
         requester = RequestStreamRequester(stream, self, payload)
         self._streams[stream] = requester
         return requester
 
-    def request_channel(self, local: Publisher) -> Publisher:
+    async def request_channel(self,
+                              local: Union[Publisher, Subscriber, Subscription]
+                              ) -> Union[RateLimiter, Publisher, Subscription]:
         stream = self.allocate_stream()
         requester = RequestChannelRequesterResponder(stream, self, local)
+        await requester.channel.request(1)
         self._streams[stream] = requester
         return requester
 

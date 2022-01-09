@@ -31,7 +31,7 @@ class RoutingRequestHandler(BaseRequestHandler):
                  metadata_encoding: bytes):
 
         if metadata_encoding != WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name:
-            self._send_error(Exception('Setup frame did not specify composite metadata. required for routing handler'))
+            raise Exception('Setup frame did not specify composite metadata. required for routing handler')
         else:
             self.data_encoding = data_encoding
             self.metadata_encoding = metadata_encoding

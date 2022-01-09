@@ -27,12 +27,11 @@ class ResponseChannel(QueueResponseStream, Subscriber):
     def on_subscribe(self, subscription: Subscription):
         self.subscription = subscription
 
-    def on_next(self, value: Payload, is_complete=False):
+    async def on_next(self, value: Payload, is_complete=False):
         print("From client: " + value.data.decode('utf-8'))
 
     def on_error(self, exception: Exception):
         print("Error " + str(exception))
-        raise exception
 
     def on_complete(self, value=None):
         print("Completed")

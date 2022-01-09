@@ -1,3 +1,4 @@
+import abc
 from abc import abstractmethod, ABCMeta
 from asyncio import Future, ensure_future
 from typing import Union
@@ -9,12 +10,25 @@ from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     RequestResponseFrame, RequestStreamFrame, PayloadFrame, Frame, RequestChannelFrame
 from rsocket.payload import Payload
 
+MAX_REQUEST_N = 0x7FFFFFFF
 
-class StreamHandler(metaclass=ABCMeta):
+
+class RateLimiter(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def limit_rate(self, n: int):
+        ...
+
+
+class StreamHandler(RateLimiter, metaclass=ABCMeta):
     def __init__(self, stream: int, socket):
         super().__init__()
         self.stream = stream
         self.socket = socket
+        self._initial_request_n = MAX_REQUEST_N
+
+    def limit_rate(self, n: int):
+        self._initial_request_n = n
+        return self
 
     def frame_sent(self, frame: Frame):
         """Not being marked abstract, since most handlers won't override."""
@@ -36,6 +50,14 @@ class StreamHandler(metaclass=ABCMeta):
         frame.stream_id = self.stream
         frame.request_n = n
         self.socket.send_frame(frame)
+
+    def send_first_request(self, payload: Payload):
+        request = RequestStreamFrame()
+        request.initial_request_n = self._initial_request_n
+        request.stream_id = self.stream
+        request.data = payload.data
+        request.metadata = payload.metadata
+        self.socket.send_frame(request)
 
 
 class RequestResponseRequester(StreamHandler, Future):
@@ -90,14 +112,7 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
     def subscribe(self, subscriber):
         # noinspection PyAttributeOutsideInit
         self.subscriber = subscriber
-
-        request = RequestStreamFrame()
-        request.initial_request_n = 1
-        request.stream_id = self.stream
-        request.data = self.payload.data
-        request.metadata = self.payload.metadata
-        self.socket.send_frame(request)
-
+        self.send_first_request(self.payload)
         self.subscriber.on_subscribe(self)
 
     def cancel(self):
@@ -110,7 +125,7 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
     async def frame_received(self, frame: Frame):
         if isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                self.subscriber.on_next(Payload(frame.data, frame.metadata))
+                await self.subscriber.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
                 self.subscriber.on_complete()
                 self.socket.finish_stream(self.stream)
@@ -126,7 +141,7 @@ class RequestStreamResponder(StreamHandler):
             self.stream = stream
             self.socket = socket
 
-        def on_next(self, value, is_complete=False):
+        async def on_next(self, value, is_complete=False):
             ensure_future(self.socket.send_response(
                 self.stream, value, complete=is_complete))
 
@@ -169,7 +184,7 @@ class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
             self.stream = stream
             self.socket = socket
 
-        def on_next(self, value, is_complete=False):
+        async def on_next(self, value, is_complete=False):
             ensure_future(self.socket.send_response(
                 self.stream, value, complete=is_complete))
 
@@ -208,7 +223,7 @@ class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
 
         elif isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                self.channel.on_next(Payload(frame.data, frame.metadata))
+                await self.channel.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
                 self.channel.on_complete()
                 self.socket.finish_stream(self.stream)

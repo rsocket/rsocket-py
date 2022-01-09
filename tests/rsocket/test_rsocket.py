@@ -147,13 +147,13 @@ async def test_request_stream(pipe):
             try:
                 for x in range(3):
                     value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                    loop.call_soon(subscriber.on_next, value)
+                    await subscriber.on_next(value)
                 loop.call_soon(subscriber.on_complete)
             except asyncio.CancelledError:
                 pass
 
     class StreamSubscriber(Subscriber):
-        def on_next(self, value, is_complete=False):
+        async def on_next(self, value, is_complete=False):
             print(value)
 
         def on_complete(self, value=None):

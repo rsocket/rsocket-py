@@ -16,7 +16,8 @@ class QueueResponseStream(Publisher, Subscription, metaclass=abc.ABCMeta):
 
     def subscribe(self, subscriber: Subscriber):
         subscriber.on_subscribe(self)
-        self._feeder = asyncio.ensure_future(self.feed(subscriber))
+        self._subscriber = subscriber
+        self._feeder = asyncio.ensure_future(self.feed())
 
     async def request(self, n: int):
         async for next_item in self.generate_next_n(n):
@@ -29,11 +30,14 @@ class QueueResponseStream(Publisher, Subscription, metaclass=abc.ABCMeta):
     def cancel(self):
         self._feeder.cancel()
 
-    async def feed(self, subscriber):
-        loop = asyncio.get_event_loop()
+    async def feed(self):
+
         try:
             while True:
                 item, is_complete = await self._queue.get()
-                loop.call_soon(subscriber.on_next, Payload(item.encode('utf-8')), is_complete)
+                await self._send(Payload(item.encode('utf-8')), is_complete)
         except asyncio.CancelledError:
             logging.debug("Canceled")
+
+    async def _send(self, payload: Payload, is_complete=False):
+        await self._subscriber.on_next(payload, is_complete)
