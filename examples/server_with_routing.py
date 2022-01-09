@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from examples.response_channel import ResponseChannel
 from response_stream import ResponseStream
@@ -41,6 +42,8 @@ def handle_client(reader, writer):
 
 
 async def run_server():
+    logging.basicConfig(level=logging.DEBUG)
+
     server = await asyncio.start_server(handle_client, 'localhost', 6565)
 
     async with server:

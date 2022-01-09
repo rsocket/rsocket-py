@@ -185,11 +185,14 @@ class RSocket:
             while True:
                 frame = await self._send_queue.get()
                 self._writer.write(frame.serialize())
+                self._send_queue.task_done()
 
                 if self._send_queue.empty():
                     await self._writer.drain()
         except asyncio.CancelledError:
-            logging.debug('Canceled')
+            logging.info('Canceled')
+        except Exception:
+            logging.error('RSocket error', exc_info=True)
 
     def request_response(self, payload: Payload) -> Future:
         stream = self.allocate_stream()
@@ -204,11 +207,12 @@ class RSocket:
         return requester
 
     async def request_channel(self,
+                              channel_request_payload: Payload,
                               local: Union[Publisher, Subscriber, Subscription]
                               ) -> Union[RateLimiter, Publisher, Subscription]:
         stream = self.allocate_stream()
         requester = RequestChannelRequesterResponder(stream, self, local)
-        await requester.channel.request(1)
+        requester.send_channel_request(channel_request_payload)
         self._streams[stream] = requester
         return requester
 

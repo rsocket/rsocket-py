@@ -236,7 +236,6 @@ class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
         self.subscriber.on_subscribe(self)
 
     def cancel(self):
-        super().cancel()
         self.send_cancel()
 
     async def request(self, n: int):
