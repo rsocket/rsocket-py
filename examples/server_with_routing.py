@@ -18,7 +18,7 @@ def single_request(socket, payload, composite_metadata):
     return future
 
 
-@router.stream('stream1')
+@router.stream('stream')
 def stream(socket, payload, composite_metadata):
     return ResponseStream()
 

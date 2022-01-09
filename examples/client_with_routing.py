@@ -90,7 +90,7 @@ async def test_channel(socket: RSocket):
 
 
 async def test_stream(socket: RSocket):
-    payload = Payload(b'The quick brown fox', route('stream1'))
+    payload = Payload(b'The quick brown fox', route('stream'))
     completion_event = Event()
     socket.request_stream(payload).subscribe(StreamSubscriber(completion_event))
     await completion_event.wait()

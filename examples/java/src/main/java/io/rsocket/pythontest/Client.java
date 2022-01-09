@@ -35,7 +35,7 @@ public class Client {
     }
 
     private static void testStreamWithLimit(RSocket rSocket) {
-        rSocket.requestStream(DefaultPayload.create(getPayload("simple"), route("stream1")))
+        rSocket.requestStream(DefaultPayload.create(getPayload("simple"), route("stream")))
                 .limitRate(1)
                 .doOnComplete(() -> System.out.println("Response from server stream completed"))
                 .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
@@ -61,7 +61,7 @@ public class Client {
     }
 
     private static void testStream(RSocket rSocket) {
-        rSocket.requestStream(DefaultPayload.create(getPayload("simple"), route("stream1")))
+        rSocket.requestStream(DefaultPayload.create(getPayload("simple"), route("stream")))
                 .doOnComplete(() -> System.out.println("Response from server stream completed"))
                 .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
                 .collectList()
