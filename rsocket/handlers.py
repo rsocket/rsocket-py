@@ -51,7 +51,7 @@ class StreamHandler(RateLimiter, metaclass=ABCMeta):
         frame.request_n = n
         self.socket.send_frame(frame)
 
-    def send_first_request(self, payload: Payload):
+    def send_stream_request(self, payload: Payload):
         request = RequestStreamFrame()
         request.initial_request_n = self._initial_request_n
         request.stream_id = self.stream
@@ -112,7 +112,7 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
     def subscribe(self, subscriber):
         # noinspection PyAttributeOutsideInit
         self.subscriber = subscriber
-        self.send_first_request(self.payload)
+        self.send_stream_request(self.payload)
         self.subscriber.on_subscribe(self)
 
     def cancel(self):
@@ -241,3 +241,11 @@ class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
 
     async def request(self, n: int):
         self.send_request_n(n)
+
+    def send_channel_request(self, payload: Payload):
+        request = RequestChannelFrame()
+        request.initial_request_n = self._initial_request_n
+        request.stream_id = self.stream
+        request.data = payload.data
+        request.metadata = payload.metadata
+        self.socket.send_frame(request)
