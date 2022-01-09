@@ -6,6 +6,7 @@ from typing import Union
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
+from rsocket.exceptions import RSocketApplicationError
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     RequestResponseFrame, RequestStreamFrame, PayloadFrame, Frame, RequestChannelFrame
 from rsocket.payload import Payload
@@ -74,7 +75,7 @@ class RequestResponseRequester(StreamHandler, Future):
             self.set_result(Payload(frame.data, frame.metadata))
             self.socket.finish_stream(self.stream)
         elif isinstance(frame, ErrorFrame):
-            self.set_exception(RuntimeError(frame.data))
+            self.set_exception(RSocketApplicationError(frame.data))
             self.socket.finish_stream(self.stream)
 
     def cancel(self, *args, **kwargs):
@@ -130,7 +131,7 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
                 self.subscriber.on_complete()
                 self.socket.finish_stream(self.stream)
         elif isinstance(frame, ErrorFrame):
-            self.subscriber.on_error(RuntimeError(frame.data))
+            self.subscriber.on_error(RSocketApplicationError(frame.data))
             self.socket.finish_stream(self.stream)
 
 

@@ -52,7 +52,6 @@ class RSocket:
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
-        self._error = ErrorFrame()
 
     def _send_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes):
         setup = SetupFrame()

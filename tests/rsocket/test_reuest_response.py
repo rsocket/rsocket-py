@@ -4,6 +4,7 @@ import functools
 import pytest
 
 from rsocket import BaseRequestHandler
+from rsocket.exceptions import RSocketApplicationError
 from rsocket.payload import Payload
 
 
@@ -18,6 +19,7 @@ async def test_request_response_repeated(pipe):
 
     server, client = pipe
     server._handler = Handler(server)
+
     for x in range(2):
         response = await client.request_response(Payload(b'dog', b'cat'))
         assert response == Payload(b'data: dog', b'meta: cat')
@@ -33,7 +35,7 @@ async def test_request_response_failure(pipe):
     server, client = pipe
     server._handler = Handler(server)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RSocketApplicationError):
         await client.request_response(Payload(b''))
 
 
@@ -41,20 +43,21 @@ async def test_request_response_failure(pipe):
 async def test_request_response_cancellation(pipe):
     class Handler(BaseRequestHandler, asyncio.Future):
         def request_response(self, payload: Payload):
-            # return a future that we'll never complete.
+            # return a future that will never complete.
             return self
 
     server, client = pipe
     server._handler = handler = Handler(server)
 
     future = client.request_response(Payload(b''))
-    asyncio.ensure_future(future)
 
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(asyncio.shield(handler), 0.1)
+
     assert not handler.cancelled()
 
     future.cancel()
+
     with pytest.raises(asyncio.CancelledError):
         await asyncio.wait_for(asyncio.shield(handler), 0.1)
 
@@ -96,6 +99,8 @@ async def test_request_response_bidirectional(pipe):
     server, client = pipe
     server._handler = ServerHandler(server)
     client._handler = ClientHandler(client)
+
     response = await client.request_response(Payload(b'data', b'metadata'))
+
     assert response.data == b'(server (client data))'
     assert response.metadata == b'(server (client metadata))'

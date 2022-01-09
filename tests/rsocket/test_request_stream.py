@@ -6,6 +6,7 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription
 from rsocket import BaseRequestHandler
+from rsocket.exceptions import RSocketApplicationError
 from rsocket.payload import Payload
 
 
@@ -14,10 +15,10 @@ async def test_base_request_handler(pipe):
     payload = Payload(b'abc', b'def')
     server, client = pipe
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RSocketApplicationError):
         await client.request_response(payload)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RSocketApplicationError):
         class Receiver(DefaultSubscriber):
             def on_error(self, exception):
                 error.set_exception(exception)
