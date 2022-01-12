@@ -13,9 +13,13 @@ from rsocket.routing.helpers import route
 
 
 class RequestChannel(QueueResponseStream, Subscriber):
-    def __init__(self, wait_for_complete: Event, response_count: int = 3):
+    def __init__(self,
+                 wait_for_responder_complete: Event,
+                 wait_for_requester_complete: Event,
+                 response_count: int = 3):
         super().__init__()
-        self._wait_for_complete = wait_for_complete
+        self._wait_for_responder_complete = wait_for_responder_complete
+        self._wait_for_requester_complete = wait_for_requester_complete
         self._response_count = response_count
         self._current_response = 0
 
@@ -27,6 +31,7 @@ class RequestChannel(QueueResponseStream, Subscriber):
 
             await self.subscription.request(1)
             if is_complete:
+                self._wait_for_requester_complete.set()
                 break
 
             self._current_response += 1
@@ -39,11 +44,11 @@ class RequestChannel(QueueResponseStream, Subscriber):
 
     def on_error(self, exception: Exception):
         print("Error frmo server" + str(exception))
-        self._wait_for_complete.set()
+        self._wait_for_responder_complete.set()
 
     def on_complete(self, value=None):
         print("Completed from server")
-        self._wait_for_complete.set()
+        self._wait_for_responder_complete.set()
 
 
 class StreamSubscriber(Subscriber):
@@ -82,11 +87,14 @@ async def communicate(reader, writer):
 
 async def test_channel(socket: RSocket):
     channel_completion_event = Event()
+    requester_completion_event = Event()
     channel_payload = Payload(b'The quick brown fox', route('channel'))
-    channel = RequestChannel(channel_completion_event)
+    channel = RequestChannel(channel_completion_event, requester_completion_event)
     requested = await socket.request_channel(channel_payload, channel)
-    requested.limit_rate(1) #.subscribe(channel)
+    requested.limit_rate(1)  # .subscribe(channel)
+
     await channel_completion_event.wait()
+    await requester_completion_event.wait()
 
 
 async def test_stream(socket: RSocket):

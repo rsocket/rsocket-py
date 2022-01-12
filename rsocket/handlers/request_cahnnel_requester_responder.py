@@ -12,27 +12,30 @@ from rsocket.payload import Payload
 
 class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
     class StreamSubscriber(Subscriber):
-        def __init__(self, stream: int, socket):
+        def __init__(self, stream: int, socket,
+                     requester: 'RequestChannelRequesterResponder'):
             super().__init__()
-            self.stream = stream
-            self.socket = socket
+            self._stream = stream
+            self._socket = socket
+            self._requester = requester
 
         async def on_next(self, value, is_complete=False):
-            ensure_future(self.socket.send_response(
-                self.stream, value, complete=is_complete))
+            ensure_future(self._socket.send_response(
+                self._stream, value, complete=is_complete))
 
         def on_complete(self, value=None):
             if value is None:
                 value = Payload(b'', b'')
 
-            ensure_future(self.socket.send_response(
-                self.stream, value, complete=True))
-
-            self.socket.finish_stream(self.stream)
+            ensure_future(self._socket.send_response(
+                self._stream, value, complete=True))
+            self._requester._sent_complete = True
+            self._requester._finish_if_both_closed()
 
         def on_error(self, exception):
-            ensure_future(self.socket.send_error(self.stream, exception))
-            self.socket.finish_stream(self.stream)
+            ensure_future(self._socket.send_error(self._stream, exception))
+            self._requester._sent_complete = True
+            self._requester._finish_if_both_closed()
 
         def on_subscribe(self, subscription):
             # noinspection PyAttributeOutsideInit
@@ -41,9 +44,12 @@ class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
     def __init__(self, stream: int, socket, channel: Union[Publisher, Subscription, Subscriber]):
         super().__init__(stream, socket)
         self.channel = channel
-        self.subscriber = self.StreamSubscriber(stream, socket)
+        self.subscriber = self.StreamSubscriber(stream, socket, self)
         self.channel.subscribe(self.subscriber)
         self.subscribe(channel)
+
+        self._sent_complete = False
+        self._received_complete = False
 
     async def frame_received(self, frame: Frame):
         if isinstance(frame, RequestChannelFrame):
@@ -59,10 +65,19 @@ class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
                 await self.channel.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
                 self.channel.on_complete()
-                self.socket.finish_stream(self.stream)
+                self._received_complete = True
+                self._finish_if_both_closed()
         elif isinstance(frame, ErrorFrame):
             self.channel.on_error(RuntimeError(frame.data))
-            self.socket.finish_stream(self.stream)
+            self._received_complete = True
+            self._finish_if_both_closed()
+
+    def _finish_stream(self):
+        self.socket.finish_stream(self.stream)
+
+    def _finish_if_both_closed(self):
+        if self._received_complete and self._sent_complete:
+            self._finish_stream()
 
     def subscribe(self, subscriber):
         self.subscriber = subscriber

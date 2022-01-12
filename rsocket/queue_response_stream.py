@@ -36,6 +36,8 @@ class QueueResponseStream(Publisher, Subscription, metaclass=abc.ABCMeta):
             while True:
                 item, is_complete = await self._queue.get()
                 await self._send(Payload(item.encode('utf-8')), is_complete)
+                if is_complete:
+                    break
         except asyncio.CancelledError:
             logging.debug("Canceled")
 
