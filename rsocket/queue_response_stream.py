@@ -25,7 +25,7 @@ class QueueResponseStream(Publisher, Subscription, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Any, bool], None]:
-        ...
+        yield None  # note: this line is here just to satisfy the ide's type checker
 
     def cancel(self):
         self._feeder.cancel()
