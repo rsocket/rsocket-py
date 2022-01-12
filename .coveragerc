@@ -1,0 +1,13 @@
+[run]
+branch=True
+source=rsocket
+parallel = true
+
+[coverage:report]
+skip_empty = true
+exclude_lines =
+    pragma: no cover
+    @(abc\.)?abstractmethod
+
+[html]
+directory = coverage_report_html
