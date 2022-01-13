@@ -5,11 +5,11 @@ from typing import AsyncGenerator, Tuple, Any
 
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
-from rsocket import Payload
-from rsocket import RSocket
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.payload import Payload
 from rsocket.queue_response_stream import QueueResponseStream
-from rsocket.routing.helpers import route
+from rsocket.routing.helpers import route, composite, authenticate_simple
+from rsocket.rsocket import RSocket
 
 
 class RequestChannel(QueueResponseStream, Subscriber):
@@ -40,14 +40,14 @@ class RequestChannel(QueueResponseStream, Subscriber):
         self.subscription = subscription
 
     async def on_next(self, value: Payload, is_complete=False):
-        print("From server: " + value.data.decode('utf-8'))
+        logging.info("From server: " + value.data.decode('utf-8'))
 
     def on_error(self, exception: Exception):
-        print("Error frmo server" + str(exception))
+        logging.error("Error from server" + str(exception))
         self._wait_for_responder_complete.set()
 
     def on_complete(self, value=None):
-        print("Completed from server")
+        logging.info("Completed from server")
         self._wait_for_responder_complete.set()
 
 
@@ -57,15 +57,15 @@ class StreamSubscriber(Subscriber):
         self._wait_for_complete = wait_for_complete
 
     async def on_next(self, value, is_complete=False):
-        print('RS: {}'.format(value))
+        logging.info('RS: {}'.format(value))
         await self.subscription.request(1)
 
     def on_complete(self, value=None):
-        print('RS: Complete')
+        logging.info('RS: Complete')
         self._wait_for_complete.set()
 
     def on_error(self, exception):
-        print('RS: error: {}'.format(exception))
+        logging.info('RS: error: {}'.format(exception))
         self._wait_for_complete.set()
 
     def on_subscribe(self, subscription):
@@ -79,7 +79,7 @@ async def communicate(reader, writer):
                      metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name)
 
     await test_stream(socket)
-
+    await test_slow_stream(socket)
     await test_channel(socket)
 
     await socket.close()
@@ -88,7 +88,8 @@ async def communicate(reader, writer):
 async def test_channel(socket: RSocket):
     channel_completion_event = Event()
     requester_completion_event = Event()
-    channel_payload = Payload(b'The quick brown fox', route('channel'))
+    channel_payload = Payload(b'The quick brown fox',
+                              composite(route('channel'), authenticate_simple('user', '12345')))
     channel = RequestChannel(channel_completion_event, requester_completion_event)
     requested = await socket.request_channel(channel_payload, channel)
     requested.limit_rate(1)  # .subscribe(channel)
@@ -98,7 +99,14 @@ async def test_channel(socket: RSocket):
 
 
 async def test_stream(socket: RSocket):
-    payload = Payload(b'The quick brown fox', route('stream'))
+    payload = Payload(b'The quick brown fox', composite(route('stream'), authenticate_simple('user', '12345')))
+    completion_event = Event()
+    socket.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+    await completion_event.wait()
+
+
+async def test_slow_stream(socket: RSocket):
+    payload = Payload(b'The quick brown fox', composite(route('stream-slow'), authenticate_simple('user', '12345')))
     completion_event = Event()
     socket.request_stream(payload).subscribe(StreamSubscriber(completion_event))
     await completion_event.wait()

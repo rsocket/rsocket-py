@@ -1,8 +1,9 @@
+import logging
 from typing import AsyncGenerator, Tuple, Any
 
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
-from rsocket import Payload
+from rsocket.payload import Payload
 from rsocket.queue_response_stream import QueueResponseStream
 
 
@@ -28,10 +29,10 @@ class ResponseChannel(QueueResponseStream, Subscriber):
         self.subscription = subscription
 
     async def on_next(self, value: Payload, is_complete=False):
-        print("From client: " + value.data.decode('utf-8'))
+        logging.info("From client: " + value.data.decode('utf-8'))
 
     def on_error(self, exception: Exception):
-        print("Error " + str(exception))
+        logging.error("Error " + str(exception))
 
     def on_complete(self, value=None):
-        print("Completed")
+        logging.info("Completed")

@@ -5,10 +5,10 @@ from typing import Optional
 
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import Subscription
-from rsocket import Payload
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
+from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 
 

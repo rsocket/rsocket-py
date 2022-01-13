@@ -1,18 +1,21 @@
 import asyncio
 import logging
+from datetime import timedelta
 
 from examples.response_channel import ResponseChannel
 from response_stream import ResponseStream
-from rsocket import RSocket, Payload
+from rsocket.extensions.authentication import Authentication, AuthenticationSimple
+from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
+from rsocket.rsocket import RSocket
 
 router = RequestRouter()
 
 
 @router.response('single_request')
 def single_request(socket, payload, composite_metadata):
-    print('Got single request')
+    logging.info('Got single request')
     future = asyncio.Future()
     future.set_result(Payload(b'single_response'))
     return future
@@ -25,7 +28,7 @@ def stream(socket, payload, composite_metadata):
 
 @router.fire_and_forget('no_response')
 def no_response(socket, payload, composite_metadata):
-    print('No response sent to client')
+    logging.info('No response sent to client')
 
 
 @router.channel('channel')
@@ -33,8 +36,21 @@ def channel(socket, payload, composite_metadata):
     return ResponseChannel()
 
 
+@router.stream('stream-slow')
+def stream_slow(**kwargs):
+    return ResponseStream(delay_between_messages=timedelta(seconds=2))
+
+
+async def authenticator(authentication: Authentication):
+    if isinstance(authentication, AuthenticationSimple):
+        if authentication.password != b'12345':
+            raise Exception('Authentication error')
+    else:
+        raise Exception('Unsupported authentication')
+
+
 def handler_factory(socket):
-    return RoutingRequestHandler(socket, router)
+    return RoutingRequestHandler(socket, router, authenticator)
 
 
 def handle_client(reader, writer):

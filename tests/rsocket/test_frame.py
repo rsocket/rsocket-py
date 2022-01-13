@@ -1,6 +1,7 @@
 import pytest
 
 from rsocket.connection import Connection
+from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type, RequestResponseFrame, RequestNFrame)
@@ -141,7 +142,16 @@ def test_composite_metadata_multiple_items():
         bits(24, 26, 'Metadata length'),
         bits(1, 0, 'Not well known metadata type'),
         bits(7, 25, 'Encoding length'),
-        data_bits(b'some-custom-encoding/type')
+        data_bits(b'some-custom-encoding/type'),
+
+        bits(1, 1, 'Well known metadata type'),
+        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_AUTHENTICATION.value.id, 'Mime ID'),
+        bits(24, 19, 'Metadata length'),
+        bits(1, 1, 'Well known authentication type'),
+        bits(7, WellKnownAuthenticationTypes.SIMPLE.value.id, 'Authentication ID'),
+        bits(16, 8, 'Username length'),
+        data_bits(b'username'),
+        data_bits(b'password')
     )
 
     composite_metadata = CompositeMetadata()
@@ -155,6 +165,10 @@ def test_composite_metadata_multiple_items():
 
     assert composite_metadata.items[2].encoding == b'message/x.rsocket.mime-type.v0'
     assert composite_metadata.items[2].data_encoding == b'some-custom-encoding/type'
+
+    assert composite_metadata.items[3].encoding == b'message/x.rsocket.authentication.v0'
+    assert composite_metadata.items[3].authentication.username == b'username'
+    assert composite_metadata.items[3].authentication.password == b'password'
 
     assert composite_metadata.serialize() == data
 

@@ -1,7 +1,7 @@
 from abc import abstractmethod, ABCMeta
 
 from rsocket.frame import CancelFrame, RequestNFrame, \
-    RequestStreamFrame, Frame
+    RequestStreamFrame, Frame, KeepAliveFrame
 from rsocket.handlers.stream import Stream
 from rsocket.payload import Payload
 
@@ -38,6 +38,7 @@ class StreamHandler(Stream, metaclass=ABCMeta):
         frame = RequestNFrame()
         frame.stream_id = self.stream
         frame.request_n = n
+
         self.socket.send_frame(frame)
 
     def send_stream_request(self, payload: Payload):
@@ -46,4 +47,14 @@ class StreamHandler(Stream, metaclass=ABCMeta):
         request.stream_id = self.stream
         request.data = payload.data
         request.metadata = payload.metadata
+
         self.socket.send_frame(request)
+
+    def send_request_keepalive(self):
+        frame = KeepAliveFrame()
+        frame.stream_id = 0
+        frame.data = b''
+        frame.metadata = b''
+        frame.flags_respond = True
+
+        self.socket.send_frame(frame)

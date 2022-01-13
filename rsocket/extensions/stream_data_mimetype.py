@@ -1,7 +1,7 @@
 from typing import Optional
 
-from rsocket.extensions.composite_metadata import CompositeMetadataItem, serialize_metadata_encoding, \
-    parse_item_metadata_encoding
+from rsocket.extensions.composite_metadata import CompositeMetadataItem, serialize_well_known_encoding, \
+    parse_well_known_encoding
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 
 
@@ -15,7 +15,7 @@ class StreamDataMimetype(CompositeMetadataItem):
         self.data_encoding = data_encoding
 
     def parse(self, buffer: bytes):
-        self.data_encoding, _ = parse_item_metadata_encoding(buffer)
+        self.data_encoding, _ = parse_well_known_encoding(buffer, WellKnownMimeTypes.require_by_id)
 
     def serialize(self) -> bytes:
-        return serialize_metadata_encoding(self.data_encoding)
+        return serialize_well_known_encoding(self.data_encoding, WellKnownMimeTypes.get_by_name)

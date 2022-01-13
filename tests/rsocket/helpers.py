@@ -1,3 +1,4 @@
+from math import ceil
 from typing import Union
 
 
@@ -11,11 +12,11 @@ def data_bits(data: Union[str, bytes]):
 
 
 def build_frame(*items) -> bytes:
-    bits = ''.join(items)
-    bits_length = len(bits)
-    nearest_round_length = int(8 * round(bits_length / 8.))
-    bits = bits.ljust(nearest_round_length, '0')
-    return bitstring_to_bytes(bits)
+    frame_bits = ''.join(items)
+    bits_length = len(frame_bits)
+    nearest_round_length = int(8 * ceil(bits_length / 8.))
+    frame_bits = frame_bits.ljust(nearest_round_length, '0')
+    return bitstring_to_bytes(frame_bits)
 
 
 def to_hex_string(x):

@@ -3,15 +3,15 @@ import functools
 
 import pytest
 
-from rsocket import BaseRequestHandler
 from rsocket.exceptions import RSocketApplicationError
 from rsocket.payload import Payload
+from rsocket.request_handler import BaseRequestHandler
 
 
 @pytest.mark.asyncio
 async def test_request_response_repeated(pipe):
     class Handler(BaseRequestHandler):
-        def request_response(self, request: Payload):
+        async def request_response(self, request: Payload):
             future = asyncio.Future()
             future.set_result(Payload(b'data: ' + request.data,
                                       b'meta: ' + request.metadata))
@@ -28,7 +28,7 @@ async def test_request_response_repeated(pipe):
 @pytest.mark.asyncio
 async def test_request_response_failure(pipe):
     class Handler(BaseRequestHandler, asyncio.Future):
-        def request_response(self, payload: Payload):
+        async def request_response(self, payload: Payload):
             self.set_exception(RuntimeError(''))
             return self
 
@@ -42,7 +42,7 @@ async def test_request_response_failure(pipe):
 @pytest.mark.asyncio
 async def test_request_response_cancellation(pipe):
     class Handler(BaseRequestHandler, asyncio.Future):
-        def request_response(self, payload: Payload):
+        async def request_response(self, payload: Payload):
             # return a future that will never complete.
             return self
 
@@ -85,14 +85,14 @@ async def test_request_response_bidirectional(pipe):
                 payload.metadata = b'(server ' + payload.metadata + b')'
                 other.set_result(payload)
 
-        def request_response(self, payload: Payload):
+        async def request_response(self, payload: Payload):
             future = asyncio.Future()
             self.socket.request_response(payload).add_done_callback(
                 functools.partial(self.future_done, future))
             return future
 
     class ClientHandler(BaseRequestHandler):
-        def request_response(self, payload: Payload):
+        async def request_response(self, payload: Payload):
             return ready_future(b'(client ' + payload.data + b')',
                                 b'(client ' + payload.metadata + b')')
 

@@ -1,7 +1,7 @@
 import asyncio
 import pytest
 
-from rsocket import RSocket
+from rsocket.rsocket import RSocket
 
 
 @pytest.fixture

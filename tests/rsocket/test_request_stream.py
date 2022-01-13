@@ -1,13 +1,14 @@
 import asyncio
+import logging
 
 import pytest
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription
-from rsocket import BaseRequestHandler
 from rsocket.exceptions import RSocketApplicationError
 from rsocket.payload import Payload
+from rsocket.request_handler import BaseRequestHandler
 
 
 @pytest.mark.asyncio
@@ -44,7 +45,7 @@ async def test_request_stream(pipe):
             self.feeder = asyncio.ensure_future(self.feed(subscriber))
             handler_subscribed.set()
 
-        def request_stream(self, payload: Payload) -> Publisher:
+        async def request_stream(self, payload: Payload) -> Publisher:
             return self
 
         @staticmethod
@@ -60,10 +61,10 @@ async def test_request_stream(pipe):
 
     class StreamSubscriber(Subscriber):
         async def on_next(self, value, is_complete=False):
-            print(value)
+            logging.info(value)
 
         def on_complete(self, value=None):
-            print('Complete')
+            logging.info('Complete')
 
         def on_error(self, exception):
             pass

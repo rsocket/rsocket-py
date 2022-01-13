@@ -2,19 +2,20 @@ import asyncio
 
 from reactivestreams.publisher import Publisher
 from response_stream import ResponseStream
-from rsocket import RSocket, BaseRequestHandler
 from rsocket.payload import Payload
+from rsocket.request_handler import BaseRequestHandler
+from rsocket.rsocket import RSocket
 
 
 class Handler(BaseRequestHandler):
-    def request_response(self, payload: Payload) -> asyncio.Future:
+    async def request_response(self, payload: Payload) -> asyncio.Future:
         future = asyncio.Future()
         future.set_result(Payload(
             b'The quick brown fox jumps over the lazy dog.',
             b'Escher are an artist.'))
         return future
 
-    def request_stream(self, payload: Payload) -> Publisher:
+    async def request_stream(self, payload: Payload) -> Publisher:
         return ResponseStream()
 
 

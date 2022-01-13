@@ -190,7 +190,6 @@ class SetupFrame(Frame):
         'metadata_encoding',
         'data_encoding',
         'flags_lease',
-        'flags_strict',
         'flags_resume'
     )
 
