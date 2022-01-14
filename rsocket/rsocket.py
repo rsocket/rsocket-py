@@ -1,13 +1,22 @@
 import abc
 import asyncio
+from asyncio import Future
 from asyncio import StreamWriter, StreamReader
+from typing import Union
 
+from reactivestreams.publisher import Publisher
+from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscription import Subscription
 from rsocket.connection import Connection
 from rsocket.frame import ErrorCode, RequestChannelFrame
 from rsocket.frame import ErrorFrame, KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
-    RequestStreamFrame, PayloadFrame, SetupFrame, Frame
-from rsocket.handlers import RequestResponseResponder, RequestStreamResponder, RequestChannelRequesterResponder
+    RequestStreamFrame, PayloadFrame, Frame
+from rsocket.frame import SetupFrame
+from rsocket.handlers import RequestResponseRequester, \
+    RequestStreamRequester, RequestChannelRequesterResponder, \
+    Stream
+from rsocket.handlers import RequestResponseResponder, RequestStreamResponder
 from rsocket.helpers import noop_frame_handler
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -233,3 +242,26 @@ class RSocket:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
+
+    def request_response(self, payload: Payload) -> Future:
+        stream = self.allocate_stream()
+
+        requester = RequestResponseRequester(stream, self, payload)
+        self._streams[stream] = requester
+        return requester
+
+    def request_stream(self, payload: Payload) -> Union[Stream, Publisher]:
+        stream = self.allocate_stream()
+        requester = RequestStreamRequester(stream, self, payload)
+        self._streams[stream] = requester
+        return requester
+
+    async def request_channel(self,
+                              channel_request_payload: Payload,
+                              local: Union[Publisher, Subscriber, Subscription]
+                              ) -> Union[Stream, Publisher, Subscription]:
+        stream = self.allocate_stream()
+        requester = RequestChannelRequesterResponder(stream, self, local)
+        requester.send_channel_request(channel_request_payload)
+        self._streams[stream] = requester
+        return requester

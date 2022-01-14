@@ -1,19 +1,11 @@
 import asyncio
-from asyncio import Future
 from asyncio import StreamWriter, StreamReader
 from datetime import timedelta, datetime
 from typing import Union, Optional
 
-from reactivestreams.publisher import Publisher
-from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import Subscription
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import SetupFrame
-from rsocket.handlers import RequestResponseRequester, \
-    RequestStreamRequester, RequestChannelRequesterResponder, \
-    Stream
 from rsocket.helpers import to_milliseconds
-from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket import RSocket, _not_provided
 
@@ -72,28 +64,6 @@ class RSocketClient(RSocket):
 
     def is_server_alive(self) -> bool:
         return self._is_server_alive
-
-    def request_response(self, payload: Payload) -> Future:
-        stream = self.allocate_stream()
-        requester = RequestResponseRequester(stream, self, payload)
-        self._streams[stream] = requester
-        return requester
-
-    def request_stream(self, payload: Payload) -> Union[Stream, Publisher]:
-        stream = self.allocate_stream()
-        requester = RequestStreamRequester(stream, self, payload)
-        self._streams[stream] = requester
-        return requester
-
-    async def request_channel(self,
-                              channel_request_payload: Payload,
-                              local: Union[Publisher, Subscriber, Subscription]
-                              ) -> Union[Stream, Publisher, Subscription]:
-        stream = self.allocate_stream()
-        requester = RequestChannelRequesterResponder(stream, self, local)
-        requester.send_channel_request(channel_request_payload)
-        self._streams[stream] = requester
-        return requester
 
     async def _keepalive_receive_task(self):
         while True:
