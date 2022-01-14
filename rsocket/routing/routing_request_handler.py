@@ -1,3 +1,4 @@
+import asyncio
 from asyncio import Future
 from typing import Callable, Union, Optional, Coroutine
 
@@ -10,7 +11,10 @@ from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
 from rsocket.helpers import always_allow_authenticator
+from rsocket.logger import logger
 from rsocket.payload import Payload
+from rsocket.routing.error_stream_handler import ErrorStreamHandler
+from rsocket.routing.request_router import RequestRouter
 from rsocket.rsocket import BaseRequestHandler
 
 
@@ -24,8 +28,7 @@ class RoutingRequestHandler(BaseRequestHandler):
 
     def __init__(self,
                  socket,
-                 router: Callable[
-                     [int, str, Payload, CompositeMetadata, Optional[Publisher]], Union[Publisher, Future]],
+                 router: RequestRouter,
                  authentication_verifier: Optional[
                      Callable[[Authentication], Coroutine[None, None, None]]] = always_allow_authenticator):
         super().__init__(socket)
@@ -44,25 +47,46 @@ class RoutingRequestHandler(BaseRequestHandler):
             self.metadata_encoding = metadata_encoding
             await super().on_setup(data_encoding, metadata_encoding)
 
-    async def request_channel(self, payload: Payload) -> Union[Publisher, Subscription, Subscriber]:
-        return await self._parse_and_route(payload)
+    async def request_channel(self,
+                              payload: Payload
+                              ) -> Union[Publisher, Subscription, Subscriber]:
+        try:
+            return await self._parse_and_route(payload)
+        except Exception as exception:
+            return self._error_stream_handler(exception)
 
     async def request_fire_and_forget(self, payload: Payload):
-        await self._parse_and_route(payload)
+        try:
+            await self._parse_and_route(payload)
+        except Exception:
+            logger().error('Error', exc_info=True)
 
     async def request_response(self, payload: Payload) -> Future:
-        return await self._parse_and_route(payload)
+        try:
+            return await self._parse_and_route(payload)
+        except Exception as exception:
+            return self._error_future(exception)
 
     async def request_stream(self, payload: Payload) -> Publisher:
-        return await self._parse_and_route(payload)
+        try:
+            return await self._parse_and_route(payload)
+        except Exception as exception:
+            return self._error_stream_handler(exception)
+
+    def _error_stream_handler(self, exception):
+        return ErrorStreamHandler(exception)
+
+    def _error_future(self, exception):
+        future = asyncio.Future()
+        future.set_exception(exception)
+        return future
 
     async def _parse_and_route(self, payload: Payload) -> Union[Future, Publisher, None]:
         composite_metadata = CompositeMetadata()
         composite_metadata.parse(payload.metadata)
-        await self._verify_authentication(composite_metadata)
         route = self._require_route(composite_metadata)
-
-        return self.router(self.socket, route, payload, composite_metadata, None)
+        await self._verify_authentication(composite_metadata)
+        return await self.router.route(route, payload, composite_metadata)
 
     def _require_route(self, composite_metadata: CompositeMetadata) -> Optional[str]:
         for item in composite_metadata.items:

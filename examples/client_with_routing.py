@@ -74,15 +74,13 @@ class StreamSubscriber(Subscriber):
 
 
 async def communicate(reader, writer):
-    socket = RSocket(reader, writer,
-                     server=False,
-                     metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name)
-
-    await test_stream(socket)
-    await test_slow_stream(socket)
-    await test_channel(socket)
-
-    await socket.close()
+    async with RSocket(reader, writer,
+                       server=False,
+                       metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as socket:
+        await test_stream(socket)
+        await test_slow_stream(socket)
+        await test_channel(socket)
+        await test_stream_invalid_login(socket)
 
 
 async def test_channel(socket: RSocket):
@@ -96,6 +94,13 @@ async def test_channel(socket: RSocket):
 
     await channel_completion_event.wait()
     await requester_completion_event.wait()
+
+
+async def test_stream_invalid_login(socket: RSocket):
+    payload = Payload(b'The quick brown fox', composite(route('stream'), authenticate_simple('user', 'wrong_password')))
+    completion_event = Event()
+    socket.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+    await completion_event.wait()
 
 
 async def test_stream(socket: RSocket):

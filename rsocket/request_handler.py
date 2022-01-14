@@ -31,7 +31,9 @@ class RequestHandler(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def request_channel(self, payload: Payload) -> Union[Publisher, Subscription, Subscriber]:
+    async def request_channel(self,
+                              payload: Payload
+                              ) -> Union[Publisher, Subscription, Subscriber]:
         """
         Bi-Directional communication.  A publisher on each end is connected
         to a subscriber on the other end.
@@ -68,7 +70,9 @@ class BaseRequestHandler(RequestHandler):
                        metadata_encoding: bytes):
         """Nothing to do on setup by default"""
 
-    async def request_channel(self, payload: Payload):
+    async def request_channel(
+            self, payload: Payload
+    ) -> Union[Publisher, Subscription, Subscriber]:
         raise RuntimeError("Not implemented")
 
     async def request_fire_and_forget(self, payload: Payload):

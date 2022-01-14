@@ -7,6 +7,7 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.connection import Connection
+from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import ErrorCode, RequestChannelFrame
 from rsocket.frame import ErrorFrame, KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
@@ -31,7 +32,7 @@ class RSocket:
                  loop=_not_provided,
                  server=True,
                  data_encoding: bytes = b'utf-8',
-                 metadata_encoding: bytes = b'utf-8',
+                 metadata_encoding: Union[bytes, WellKnownMimeTypes] = b'utf-8',
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  honor_lease=False):
@@ -52,6 +53,9 @@ class RSocket:
 
         if loop is _not_provided:
             loop = asyncio.get_event_loop()  # TODO: get running loop ?
+
+        if isinstance(metadata_encoding, WellKnownMimeTypes):
+            metadata_encoding = metadata_encoding.value.name
 
         if not self._is_server:
             self._send_setup_frame(data_encoding, metadata_encoding)
@@ -89,7 +93,7 @@ class RSocket:
     def send_frame(self, frame: Frame):
         self._send_queue.put_nowait(frame)
 
-    async def send_error(self, stream, exception):
+    async def send_error(self, stream: int, exception: Exception):
         error = ErrorFrame()
         error.stream_id = stream
         error.error_code = ErrorCode.APPLICATION_ERROR
@@ -281,3 +285,9 @@ class RSocket:
         await self._receiver_task
         self._writer.close()
         await self._writer.wait_closed()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()

@@ -14,7 +14,7 @@ router = RequestRouter()
 
 
 @router.response('single_request')
-def single_request(socket, payload, composite_metadata):
+async def single_request(payload, composite_metadata):
     logging.info('Got single request')
     future = asyncio.Future()
     future.set_result(Payload(b'single_response'))
@@ -22,22 +22,22 @@ def single_request(socket, payload, composite_metadata):
 
 
 @router.stream('stream')
-def stream(socket, payload, composite_metadata):
+async def stream(payload, composite_metadata):
     return ResponseStream()
 
 
 @router.fire_and_forget('no_response')
-def no_response(socket, payload, composite_metadata):
+async def no_response(payload, composite_metadata):
     logging.info('No response sent to client')
 
 
 @router.channel('channel')
-def channel(socket, payload, composite_metadata):
+async def channel(payload, composite_metadata):
     return ResponseChannel()
 
 
 @router.stream('stream-slow')
-def stream_slow(**kwargs):
+async def stream_slow(**kwargs):
     return ResponseStream(delay_between_messages=timedelta(seconds=2))
 
 
