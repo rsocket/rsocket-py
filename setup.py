@@ -1,11 +1,18 @@
+import os
+
 from setuptools import setup
 
+
+def get_version():
+    return os.environ.get('PACKAGE_VERSION', '1.0.0')
+
+
 setup(
-    name='rsocket',
-    version='1.0.0',
-    description='Python RSocket library',
-    url='https://github.com/RSocket/rsocket-py',
-    author='Vijayan Rajan',
+    name='precognize-rsocket',
+    version=get_version(),
+    description='Python RSocket library (Precognize fork)',
+    url='https://github.com/Precognize/rsocket-py',
+    author='Gabi Shaar',
     author_email='',
     license='MIT',
     packages=[

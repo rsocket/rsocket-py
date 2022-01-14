@@ -1,112 +1,81 @@
+import abc
 import asyncio
-from abc import ABCMeta, abstractmethod
+from asyncio import Future
+from asyncio import StreamWriter, StreamReader
+from typing import Union, Type
 
+from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
-from rsocket.frame import CancelFrame, ErrorFrame, KeepAliveFrame, \
-    LeaseFrame, MetadataPushFrame, RequestChannelFrame, \
-    RequestFireAndForgetFrame, RequestNFrame, RequestResponseFrame, \
-    RequestStreamFrame, PayloadFrame, SetupFrame
-from rsocket.frame import ErrorCode
+from rsocket.frame import ErrorCode, RequestChannelFrame, ResumeFrame
+from rsocket.frame import ErrorFrame, KeepAliveFrame, \
+    MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
+    RequestStreamFrame, PayloadFrame, Frame
+from rsocket.frame import SetupFrame
+from rsocket.handlers import RequestChannelRequester
+from rsocket.handlers import RequestChannelResponder
+from rsocket.handlers import RequestResponseRequester, \
+    RequestStreamRequester, \
+    Stream
+from rsocket.handlers import RequestResponseResponder, RequestStreamResponder
+from rsocket.helpers import noop_frame_handler
+from rsocket.logger import logger
 from rsocket.payload import Payload
-from reactivestreams.publisher import Publisher, DefaultPublisher
-from rsocket.handlers import RequestResponseRequester,\
-    RequestResponseResponder, RequestStreamRequester, RequestStreamResponder
+from rsocket.request_handler import BaseRequestHandler, RequestHandler
 
 MAX_STREAM_ID = 0x7FFFFFFF
+CONNECTION_STREAM_ID = 0
 
-
-class RequestHandler(metaclass=ABCMeta):
-    """
-    An ABC for request handlers.
-    """
-    def __init__(self, socket):
-        super().__init__()
-        self.socket = socket
-
-    @abstractmethod
-    def request_channel(self, payload: Payload, publisher: Publisher) \
-            -> Publisher:
-        """
-        Bi-directional communication.  A publisher on each end is connected
-        to a subscriber on the other end.
-        """
-        pass
-
-    @abstractmethod
-    def request_fire_and_forget(self, payload: Payload):
-        pass
-
-    @abstractmethod
-    def request_response(self, payload: Payload) -> asyncio.Future:
-        pass
-
-    @abstractmethod
-    def request_stream(self, payload: Payload) -> Publisher:
-        pass
-
-
-class BaseRequestHandler(RequestHandler):
-    def request_channel(self, payload: Payload, publisher: Publisher):
-        self.socket.send_error(RuntimeError("Not implemented"))
-
-    def request_fire_and_forget(self, payload: Payload):
-        # The requester isn't listening for errors.  Nothing to do.
-        pass
-
-    def request_response(self, payload: Payload):
-        future = asyncio.Future()
-        future.set_exception(RuntimeError("Not implemented"))
-        return future
-
-    def request_stream(self, payload: Payload) -> Publisher:
-        return DefaultPublisher()
+_not_provided = object()
 
 
 class RSocket:
-    def __init__(self, reader, writer, *,
-                 handler_factory=BaseRequestHandler, loop=None, server=True):
+    def __init__(self,
+                 reader: StreamReader, writer: StreamWriter, *,
+                 handler_factory: Type[RequestHandler] = BaseRequestHandler,
+                 loop=_not_provided):
+
         self._reader = reader
         self._writer = writer
-        self._server = server
         self._handler = handler_factory(self)
+        self._next_stream = self._get_first_stream_id()
 
-        self._next_stream = 2 if self._server else 1
         self._streams = {}
 
         self._send_queue = asyncio.Queue()
-        if not loop:
+
+        if loop is _not_provided:
             loop = asyncio.get_event_loop()
-
-        if not self._server:
-            setup = SetupFrame()
-            setup.flags_lease = False
-            setup.flags_strict = True
-
-            setup.keep_alive_milliseconds = 60000
-            setup.max_lifetime_milliseconds = 240000
-
-            setup.data_encoding = b'utf-8'
-            setup.metadata_encoding = b'utf-8'
-            self.send_frame(setup)
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
-        self._error = ErrorFrame()
 
-    def allocate_stream(self):
+    def set_handler_using_factory(self, handler_factory) -> RequestHandler:
+        self._handler = handler_factory(self)
+        return self._handler
+
+    def allocate_stream(self) -> int:
         stream = self._next_stream
-        self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
-        while self._next_stream == 0 or self._next_stream in self._streams:
-            self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
+        self._increment_next_stream()
+
+        while self._next_stream == CONNECTION_STREAM_ID or self._next_stream in self._streams:
+            self._increment_next_stream()
+
         return stream
+
+    @abc.abstractmethod
+    def _get_first_stream_id(self) -> int:
+        ...
+
+    def _increment_next_stream(self):
+        self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
 
     def finish_stream(self, stream):
         self._streams.pop(stream, None)
 
-    def send_frame(self, frame):
+    def send_frame(self, frame: Frame):
         self._send_queue.put_nowait(frame)
 
-    async def send_error(self, stream, exception):
+    async def send_error(self, stream: int, exception: Exception):
         error = ErrorFrame()
         error.stream_id = stream
         error.error_code = ErrorCode.APPLICATION_ERROR
@@ -117,92 +86,201 @@ class RSocket:
         response = PayloadFrame()
         response.stream_id = stream
         response.flags_complete = complete
+        response.flags_next = True
         response.data = payload.data
         response.metadata = payload.metadata
         self.send_frame(response)
 
+    @abc.abstractmethod
+    def _update_last_keepalive(self):
+        ...
+
+    def handle_keep_alive(self, frame_: KeepAliveFrame):
+        logger().debug('Received keepalive')
+
+        self._update_last_keepalive()
+
+        if frame_.flags_respond:
+            frame_.flags_respond = False
+            self.send_frame(frame_)
+            logger().debug('Responded to keepalive')
+
     async def _receiver(self):
         try:
+            async def handle_request_response(frame_: RequestResponseFrame):
+                stream_ = frame_.stream_id
+                handler = self._handler
+                response_future = await handler.request_response(Payload(frame_.data, frame_.metadata))
+                self._streams[stream_] = RequestResponseResponder(stream_, self, response_future)
+
+            async def handle_request_stream(frame_: RequestStreamFrame):
+                stream_ = frame_.stream_id
+                handler = self._handler
+                publisher = await handler.request_stream(Payload(frame_.data, frame_.metadata))
+                request_responder = RequestStreamResponder(stream_, self, publisher)
+                await request_responder.frame_received(frame_)
+                self._streams[stream_] = request_responder
+
+            async def handle_setup(frame_: SetupFrame):
+                handler = self._handler
+                try:
+                    await handler.on_setup(frame_.data_encoding,
+                                           frame_.metadata_encoding)
+                except Exception as exception:
+                    await self.send_error(frame_.stream_id, exception)
+
+                if frame_.flags_lease:
+                    await handler.supply_lease()
+
+            async def handle_fire_and_forget(frame_: RequestFireAndForgetFrame):
+                await self._handler.request_fire_and_forget(Payload(frame_.data, frame_.metadata))
+
+            async def handle_metadata_push(frame_: MetadataPushFrame):
+                await self._handler.on_metadata_push(Payload(None, frame_.metadata))
+
+            async def handle_request_channel(frame_: RequestChannelFrame):
+                stream_ = frame_.stream_id
+                handler = self._handler
+                publisher, subscriber = await handler.request_channel(Payload(frame_.data, frame_.metadata))
+                channel_responder = RequestChannelResponder(stream_, self, publisher)
+                channel_responder.subscribe(subscriber)
+                await channel_responder.frame_received(frame_)
+                self._streams[stream_] = channel_responder
+
+            async def handle_resume(frame_: ResumeFrame):
+                ...
+
+            async_frame_handler_by_type = {
+                RequestResponseFrame: handle_request_response,
+                RequestStreamFrame: handle_request_stream,
+                RequestChannelFrame: handle_request_channel,
+                SetupFrame: handle_setup,
+                RequestFireAndForgetFrame: handle_fire_and_forget,
+                MetadataPushFrame: handle_metadata_push,
+                ResumeFrame: handle_resume
+            }
             connection = Connection()
-            while True:
-                data = await self._reader.read(1024)
-                if not data:
-                    self._writer.close()
-                    break
-                frames = connection.receive_data(data)
-                for frame in frames:
-                    stream = frame.stream_id
-                    if stream and stream in self._streams:
-                        self._streams[stream].frame_received(frame)
-                        continue
-                    if isinstance(frame, CancelFrame):
-                        pass
-                    elif isinstance(frame, ErrorFrame):
-                        pass
-                    elif isinstance(frame, KeepAliveFrame):
-                        frame.flags_respond = False
-                        self.send_frame(frame)
-                    elif isinstance(frame, LeaseFrame):
-                        pass
-                    elif isinstance(frame, MetadataPushFrame):
-                        pass
-                    elif isinstance(frame, RequestChannelFrame):
-                        pass
-                    elif isinstance(frame, RequestFireAndForgetFrame):
-                        pass
-                    elif isinstance(frame, RequestResponseFrame):
-                        stream = frame.stream_id
-                        self._streams[stream] = RequestResponseResponder(
-                            stream, self, self._handler.request_response(
-                                Payload(frame.data, frame.metadata)))
-                    elif isinstance(frame, RequestStreamFrame):
-                        stream = frame.stream_id
-                        self._streams[stream] = RequestStreamResponder(
-                            stream, self, self._handler.request_stream(
-                                Payload(frame.data, frame.metadata)))
-                    elif isinstance(frame, RequestNFrame):
-                        pass
-                    elif isinstance(frame, PayloadFrame):
-                        pass
-                    elif isinstance(frame, SetupFrame):
-                        if frame.flags_lease:
-                            lease = LeaseFrame()
-                            lease.time_to_live = 10000
-                            lease.number_of_requests = 100
-                            self.send_frame(lease)
+
+            await self._receiver_listen(connection, async_frame_handler_by_type)
+
         except asyncio.CancelledError:
-            pass
+            logger().debug('Canceled')
+        except Exception:
+            logger().error('Unknown error', exc_info=True)
+            raise
+
+    @abc.abstractmethod
+    def is_server_alive(self) -> bool:
+        ...
+
+    async def _receiver_listen(self, connection, async_frame_handler_by_type):
+
+        while self.is_server_alive():
+
+            try:
+                data = await self._reader.read(1024)
+            except (ConnectionResetError, BrokenPipeError) as exception:
+                logger().debug(
+                    str(exception))
+                break  # todo: workaround to silence errors on client closing. this needs a better solution.
+
+            if not data:
+                self._writer.close()
+                break
+
+            async for frame in connection.receive_data(data):
+                stream = frame.stream_id
+
+                if stream and stream in self._streams:
+                    await self._streams[stream].frame_received(frame)
+                    continue
+
+                if isinstance(frame, KeepAliveFrame):
+                    self.handle_keep_alive(frame)
+                else:
+                    frame_handler = async_frame_handler_by_type.get(type(frame), noop_frame_handler)
+                    await frame_handler(frame)
+
+    def _send_new_keepalive(self, data: bytes = b''):
+        frame = KeepAliveFrame()
+        frame.stream_id = CONNECTION_STREAM_ID
+        frame.flags_respond = True
+        frame.data = data
+        self.send_frame(frame)
+        logger().debug('Send keepalive')
+
+    @abc.abstractmethod
+    def _before_sender(self):
+        ...
+
+    @abc.abstractmethod
+    def _finally_sender(self):
+        ...
 
     async def _sender(self):
+        self._before_sender()
+
         try:
             while True:
                 frame = await self._send_queue.get()
+
                 self._writer.write(frame.serialize())
+                self._send_queue.task_done()
+
                 if self._send_queue.empty():
                     await self._writer.drain()
+        except ConnectionResetError as exception:
+            logger().debug(str(exception))
         except asyncio.CancelledError:
-            pass
-
-    def request_response(self, payload):
-        stream = self.allocate_stream()
-        requester = RequestResponseRequester(stream, self, payload)
-        self._streams[stream] = requester
-        return requester
-
-    def request_stream(self, payload: Payload) -> Publisher:
-        stream = self.allocate_stream()
-        requester = RequestStreamRequester(stream, self, payload)
-        self._streams[stream] = requester
-        return requester
-
-    # def request_channel(self, local: Publisher) -> Publisher:
-    #     stream = self.allocate_stream()
-    #     requester = RequestChannelRequester(stream, self, publisher)
-    #     self._streams[stream] = requester
-    #     return requester
+            logger().info('Canceled')
+        except Exception:
+            logger().error('RSocket error', exc_info=True)
+            raise
+        finally:
+            self._finally_sender()
 
     async def close(self):
         self._sender_task.cancel()
         self._receiver_task.cancel()
         await self._sender_task
         await self._receiver_task
+        self._writer.close()
+        await self._writer.wait_closed()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+    def request_response(self, payload: Payload) -> Future:
+        stream = self.allocate_stream()
+
+        requester = RequestResponseRequester(stream, self, payload)
+        self._streams[stream] = requester
+        return requester
+
+    def fire_and_forget(self, payload: Payload):
+        stream = self.allocate_stream()
+        frame = RequestFireAndForgetFrame()
+        frame.stream_id = stream
+        frame.data = payload.data
+        frame.metadata = payload.metadata
+        self.send_frame(frame)
+        self.finish_stream(stream)
+
+    def request_stream(self, payload: Payload) -> Union[Stream, Publisher]:
+        stream = self.allocate_stream()
+        requester = RequestStreamRequester(stream, self, payload)
+        self._streams[stream] = requester
+        return requester
+
+    def request_channel(
+            self,
+            channel_request_payload: Payload,
+            local_publisher: Publisher) -> Union[Stream, Publisher]:
+        stream = self.allocate_stream()
+        requester = RequestChannelRequester(stream, self, local_publisher)
+        requester.send_channel_request(channel_request_payload)
+        self._streams[stream] = requester
+        return requester

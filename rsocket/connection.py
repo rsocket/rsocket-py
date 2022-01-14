@@ -9,16 +9,19 @@ class Connection:
     def __init__(self):
         self._buffer = bytearray()
 
-    def receive_data(self, data: bytes):
+    async def receive_data(self, data: bytes):
         self._buffer.extend(data)
         total = len(self._buffer)
-        events = []
 
-        while total >= 3:
-            length, = struct.unpack('>I', b'\x00' + self._buffer[:3])
-            if total < length + 3:
-                break
-            events.append(frame.parse(self._buffer[:length + 3]))
-            self._buffer = self._buffer[length + 3:]
-            total -= length + 3
-        return events
+        frame_length_byte_count = 3
+
+        while total >= frame_length_byte_count:
+            length, = struct.unpack('>I', b'\x00' + self._buffer[:frame_length_byte_count])
+
+            if total < length + frame_length_byte_count:
+                return
+
+            yield frame.parse(self._buffer[:length + frame_length_byte_count])
+
+            self._buffer = self._buffer[length + frame_length_byte_count:]
+            total -= length + frame_length_byte_count

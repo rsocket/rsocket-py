@@ -1,30 +1,34 @@
-"""The server."""
-
 import asyncio
 
-from rsocket import RSocket, BaseRequestHandler
+from reactivestreams.publisher import Publisher
+from response_stream import ResponseStream
 from rsocket.payload import Payload
+from rsocket.request_handler import BaseRequestHandler
+from rsocket.rsocket_server import RSocketServer
 
 
 class Handler(BaseRequestHandler):
-    def request_response(self, payload: Payload) -> asyncio.Future:
+    async def request_response(self, payload: Payload) -> asyncio.Future:
         future = asyncio.Future()
         future.set_result(Payload(
             b'The quick brown fox jumps over the lazy dog.',
             b'Escher are an artist.'))
         return future
 
+    async def request_stream(self, payload: Payload) -> Publisher:
+        return ResponseStream()
+
 
 def session(reader, writer):
-    RSocket(reader, writer, handler_factory=Handler)
+    RSocketServer(reader, writer, handler_factory=Handler)
+
+
+async def run_server():
+    server = await asyncio.start_server(session, 'localhost', 6565)
+
+    async with server:
+        await server.serve_forever()
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    service = loop.run_until_complete(asyncio.start_server(
-        session, 'localhost', 9898))
-    try:
-        loop.run_forever()
-    finally:
-        service.close()
-        loop.close()
+    asyncio.run(run_server())
