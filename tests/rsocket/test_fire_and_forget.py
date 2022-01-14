@@ -1,4 +1,5 @@
 import asyncio
+from typing import Optional
 
 import pytest
 
@@ -11,7 +12,7 @@ from rsocket.rsocket_server import RSocketServer
 @pytest.mark.asyncio
 async def test_request_fire_and_forget(pipe):
     fire_and_forget_received = asyncio.Event()
-    received_payload: Payload = None
+    received_payload: Optional[Payload] = None
 
     class Handler(BaseRequestHandler):
         async def request_fire_and_forget(self, payload: Payload):
