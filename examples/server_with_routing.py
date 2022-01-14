@@ -23,6 +23,7 @@ async def single_request_response(payload, composite_metadata):
 
 @router.stream('stream')
 async def stream_response(payload, composite_metadata):
+    logging.info('Got stream request')
     return ResponseStream()
 
 
@@ -33,12 +34,14 @@ async def no_response(payload, composite_metadata):
 
 @router.channel('channel')
 async def channel_response(payload, composite_metadata):
+    logging.info('Got channel request')
     channel = ResponseChannel()
     return channel, channel
 
 
 @router.stream('stream-slow')
 async def stream_slow(**kwargs):
+    logging.info('Got slow stream request')
     return ResponseStream(delay_between_messages=timedelta(seconds=2))
 
 

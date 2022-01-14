@@ -180,9 +180,7 @@ class RSocket:
                 self._writer.close()
                 break
 
-            frames = connection.receive_data(data)
-
-            for frame in frames:
+            async for frame in connection.receive_data(data):
                 stream = frame.stream_id
 
                 if stream and stream in self._streams:

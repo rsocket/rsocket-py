@@ -1,3 +1,4 @@
+import asyncstdlib
 import pytest
 
 from rsocket.connection import Connection
@@ -13,7 +14,8 @@ def decoder():
     return Connection()
 
 
-def test_setup():
+@pytest.mark.asyncio
+async def test_setup():
     connection = Connection()
     data = b'\x00\x00\x40\x00\x00\x00\x00\x05\x00\x00\x01\x00\x00\x00\x00\x00'
     data += b'\x7b\x00\x00\x01\xc8\x18\x61\x70\x70\x6c\x69\x63\x61\x74\x69\x6f'
@@ -21,7 +23,8 @@ def test_setup():
     data += b'\x65\x78\x74\x2f\x68\x74\x6d\x6c\x00\x00\x05\x04\x05\x06\x07\x08'
     data += b'\x01\x02\x03'
 
-    frame = connection.receive_data(data)[0]
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
     assert isinstance(frame, SetupFrame)
     assert frame.serialize() == data
 
@@ -33,7 +36,8 @@ def test_setup():
     assert frame.metadata == b'\x04\x05\x06\x07\x08'
 
 
-def test_setup_readable():
+@pytest.mark.asyncio
+async def test_setup_readable():
     connection = Connection()
 
     data = build_frame(
@@ -69,7 +73,8 @@ def test_setup_readable():
         data_bits(b'\x01\x02\x03'),
     )
 
-    frame = connection.receive_data(data)[0]
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
     assert isinstance(frame, SetupFrame)
     assert frame.serialize() == data
 
@@ -81,7 +86,8 @@ def test_setup_readable():
     assert frame.metadata == b'\x04\x05\x06\x07\x08'
 
 
-def test_request_with_composite_metadata():
+@pytest.mark.asyncio
+async def test_request_with_composite_metadata():
     connection = Connection()
 
     data = build_frame(
@@ -107,7 +113,8 @@ def test_request_with_composite_metadata():
         data_bits(b'\x01\x02\x03'),
     )
 
-    frame = connection.receive_data(data)[0]
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
     assert isinstance(frame, RequestResponseFrame)
     assert frame.serialize() == data
 
@@ -122,7 +129,8 @@ def test_request_with_composite_metadata():
     assert composite_metadata.serialize() == frame.metadata
 
 
-def test_composite_metadata_multiple_items():
+@pytest.mark.asyncio
+async def test_composite_metadata_multiple_items():
     data = build_frame(
 
         bits(1, 1, 'Well known metadata type'),
@@ -173,24 +181,29 @@ def test_composite_metadata_multiple_items():
     assert composite_metadata.serialize() == data
 
 
-def test_cancel():
+@pytest.mark.asyncio
+async def test_cancel():
     connection = Connection()
     data = b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
-    frame, = connection.receive_data(data)
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
     assert isinstance(frame, CancelFrame)
     assert frame.serialize() == data
 
 
-def test_error():
+@pytest.mark.asyncio
+async def test_error():
     connection = Connection()
     data = b'\x00\x00\x13\x00\x00\x26\x6a\x2c\x00\x00\x00\x02\x04\x77\x65\x69'
     data += b'\x72\x64\x6e\x65\x73\x73'
-    frame = connection.receive_data(data)[0]
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
     assert isinstance(frame, ErrorFrame)
     assert frame.serialize() == data
 
 
-def test_multiple_frames():
+@pytest.mark.asyncio
+async def test_multiple_frames():
     connection = Connection()
     data = b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
     data += b'\x00\x00\x13\x00\x00\x26\x6a\x2c\x00\x00\x00\x02\x04\x77\x65\x69'
@@ -198,11 +211,12 @@ def test_multiple_frames():
     data += b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
     data += b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
     data += b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
-    frames = connection.receive_data(data)
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     assert len(frames) == 5
 
 
-def test_request_n_frame():
+@pytest.mark.asyncio
+async def test_request_n_frame():
     connection = Connection()
 
     data = build_frame(
@@ -219,7 +233,8 @@ def test_request_n_frame():
         bits(31, 23, 'Number of frames to request'),
     )
 
-    frame = connection.receive_data(data)[0]
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
     assert isinstance(frame, RequestNFrame)
     assert frame.serialize() == data
 
