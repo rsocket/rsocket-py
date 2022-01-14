@@ -2,8 +2,8 @@ import struct
 from abc import ABCMeta
 from enum import IntEnum
 
-PROTOCOL_MAJOR_VERSION = 0
-PROTOCOL_MINOR_VERSION = 2
+PROTOCOL_MAJOR_VERSION = 1
+PROTOCOL_MINOR_VERSION = 0
 
 
 class ErrorCode(IntEnum):
