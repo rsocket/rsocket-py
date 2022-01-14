@@ -78,7 +78,7 @@ class BaseRequestHandler(RequestHandler):
     async def request_fire_and_forget(self, payload: Payload):
         """The requester isn't listening for errors.  Nothing to do."""
 
-    async def on_metadata_push(self, metadata: bytes):
+    async def on_metadata_push(self, payload: Payload):
         """Nothing by default"""
 
     async def request_response(self, payload: Payload) -> Future:

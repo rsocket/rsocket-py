@@ -149,7 +149,7 @@ class RSocket:
                 await self._handler.request_fire_and_forget(Payload(frame_.data, frame_.metadata))
 
             async def on_metadata_push(frame_: MetadataPushFrame):
-                await self._handler.on_metadata_push(frame_.metadata)
+                await self._handler.on_metadata_push(Payload(None, frame_.metadata))
 
             async def handle_request_channel(frame_: RequestChannelFrame):
                 stream_ = frame_.stream_id
