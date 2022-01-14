@@ -6,7 +6,7 @@ from typing import Union, Type
 
 from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
-from rsocket.frame import ErrorCode, RequestChannelFrame
+from rsocket.frame import ErrorCode, RequestChannelFrame, ResumeFrame
 from rsocket.frame import ErrorFrame, KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, PayloadFrame, Frame
@@ -135,7 +135,7 @@ class RSocket:
             async def handle_fire_and_forget(frame_: RequestFireAndForgetFrame):
                 await self._handler.request_fire_and_forget(Payload(frame_.data, frame_.metadata))
 
-            async def on_metadata_push(frame_: MetadataPushFrame):
+            async def handle_metadata_push(frame_: MetadataPushFrame):
                 await self._handler.on_metadata_push(Payload(None, frame_.metadata))
 
             async def handle_request_channel(frame_: RequestChannelFrame):
@@ -147,13 +147,17 @@ class RSocket:
                 await channel_responder.frame_received(frame_)
                 self._streams[stream_] = channel_responder
 
+            async def handle_resume(frame_: ResumeFrame):
+                ...
+
             async_frame_handler_by_type = {
                 RequestResponseFrame: handle_request_response,
                 RequestStreamFrame: handle_request_stream,
                 RequestChannelFrame: handle_request_channel,
                 SetupFrame: handle_setup,
                 RequestFireAndForgetFrame: handle_fire_and_forget,
-                MetadataPushFrame: on_metadata_push
+                MetadataPushFrame: handle_metadata_push,
+                ResumeFrame: handle_resume
             }
             connection = Connection()
 
