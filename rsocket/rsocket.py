@@ -91,18 +91,18 @@ class RSocket:
     def _update_last_keepalive(self):
         ...
 
+    def handle_keep_alive(self, frame_: KeepAliveFrame):
+        logger().debug('Received keepalive')
+
+        self._update_last_keepalive()
+
+        if frame_.flags_respond:
+            frame_.flags_respond = False
+            self.send_frame(frame_)
+            logger().debug('Responded to keepalive')
+
     async def _receiver(self):
         try:
-            async def handle_keep_alive(frame_: KeepAliveFrame):
-                logger().debug('Received keepalive')
-
-                self._update_last_keepalive()
-
-                if frame_.flags_respond:
-                    frame_.flags_respond = False
-                    self.send_frame(frame_)
-                    logger().debug('Responded to keepalive')
-
             async def handle_request_response(frame_: RequestResponseFrame):
                 stream_ = frame_.stream_id
                 handler = self._handler
@@ -143,8 +143,7 @@ class RSocket:
                 await channel_responder.frame_received(frame_)
                 self._streams[stream_] = channel_responder
 
-            frame_handler_by_type = {
-                KeepAliveFrame: handle_keep_alive,
+            async_frame_handler_by_type = {
                 RequestResponseFrame: handle_request_response,
                 RequestStreamFrame: handle_request_stream,
                 RequestChannelFrame: handle_request_channel,
@@ -154,7 +153,7 @@ class RSocket:
             }
             connection = Connection()
 
-            await self._receiver_listen(connection, frame_handler_by_type)
+            await self._receiver_listen(connection, async_frame_handler_by_type)
 
         except asyncio.CancelledError:
             logger().debug('Canceled')
@@ -166,7 +165,7 @@ class RSocket:
     def is_server_alive(self) -> bool:
         ...
 
-    async def _receiver_listen(self, connection, frame_handler_by_type):
+    async def _receiver_listen(self, connection, async_frame_handler_by_type):
 
         while self.is_server_alive():
 
@@ -190,8 +189,11 @@ class RSocket:
                     await self._streams[stream].frame_received(frame)
                     continue
 
-                frame_handler = frame_handler_by_type.get(type(frame), noop_frame_handler)
-                await frame_handler(frame)
+                if isinstance(frame, KeepAliveFrame):
+                    self.handle_keep_alive(frame)
+                else:
+                    frame_handler = async_frame_handler_by_type.get(type(frame), noop_frame_handler)
+                    await frame_handler(frame)
 
     def _send_new_keepalive(self, respond=True):
         frame = KeepAliveFrame()

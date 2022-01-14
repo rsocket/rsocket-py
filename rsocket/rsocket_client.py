@@ -72,9 +72,9 @@ class RSocketClient(RSocket):
             if self._last_server_keepalive - now > self._max_lifetime_period:
                 self._is_server_alive = False
 
-    async def _receiver_listen(self, connection, frame_handler_by_type):
+    async def _receiver_listen(self, connection, async_frame_handler_by_type):
         keepalive_timeout_task = asyncio.ensure_future(self._keepalive_timeout_task())
         try:
-            return await super()._receiver_listen(connection, frame_handler_by_type)
+            return await super()._receiver_listen(connection, async_frame_handler_by_type)
         finally:
             keepalive_timeout_task.cancel()
