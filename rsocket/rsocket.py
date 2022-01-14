@@ -2,7 +2,7 @@ import abc
 import asyncio
 from asyncio import Future
 from asyncio import StreamWriter, StreamReader
-from typing import Union, Type
+from typing import Union, Type, Optional
 
 from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
@@ -197,11 +197,11 @@ class RSocket:
                     frame_handler = async_frame_handler_by_type.get(type(frame), noop_frame_handler)
                     await frame_handler(frame)
 
-    def _send_new_keepalive(self, respond=True):
+    def _send_new_keepalive(self, data: Optional[bytes] = None):
         frame = KeepAliveFrame()
         frame.stream_id = CONNECTION_STREAM_ID
-        frame.flags_respond = respond
-
+        frame.flags_respond = True
+        frame.data = data
         self.send_frame(frame)
         logger().debug('Send keepalive')
 

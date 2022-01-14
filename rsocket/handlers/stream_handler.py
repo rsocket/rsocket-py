@@ -2,7 +2,7 @@ from abc import abstractmethod, ABCMeta
 
 from rsocket.exceptions import RSocketProtocolException
 from rsocket.frame import CancelFrame, RequestNFrame, \
-    RequestStreamFrame, Frame, KeepAliveFrame
+    RequestStreamFrame, Frame
 from rsocket.handlers.stream import Stream
 from rsocket.payload import Payload
 
@@ -54,11 +54,3 @@ class StreamHandler(Stream, metaclass=ABCMeta):
 
         self.socket.send_frame(request)
 
-    def send_request_keepalive(self):
-        frame = KeepAliveFrame()
-        frame.stream_id = 0
-        frame.data = b''
-        frame.metadata = b''
-        frame.flags_respond = True
-
-        self.socket.send_frame(frame)
