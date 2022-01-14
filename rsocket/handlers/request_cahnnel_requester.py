@@ -1,5 +1,4 @@
 from asyncio import ensure_future
-from typing import Union
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
@@ -10,10 +9,10 @@ from rsocket.handlers.stream_handler import StreamHandler
 from rsocket.payload import Payload
 
 
-class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
+class RequestChannelRequester(StreamHandler, Publisher, Subscription):
     class StreamSubscriber(Subscriber):
         def __init__(self, stream: int, socket,
-                     requester: 'RequestChannelRequesterResponder'):
+                     requester: 'RequestChannelRequester'):
             super().__init__()
             self._stream = stream
             self._socket = socket
@@ -41,34 +40,30 @@ class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
             # noinspection PyAttributeOutsideInit
             self.subscription = subscription
 
-    def __init__(self, stream: int, socket, channel: Union[Publisher, Subscription, Subscriber]):
+    def __init__(self, stream: int, socket, local_publisher: Publisher):
         super().__init__(stream, socket)
-        self.channel = channel
         self.subscriber = self.StreamSubscriber(stream, socket, self)
-        self.channel.subscribe(self.subscriber)
-        self.subscribe(channel)
+        self.local_publisher = local_publisher
+        local_publisher.subscribe(self.subscriber)
 
         self._sent_complete = False
         self._received_complete = False
 
     async def frame_received(self, frame: Frame):
-        if isinstance(frame, RequestChannelFrame):
-            await self.channel.request(frame.initial_request_n)
-
-        elif isinstance(frame, CancelFrame):
-            self.channel.cancel()
+        if isinstance(frame, CancelFrame):
+            self.subscriber.subscription.cancel()
         elif isinstance(frame, RequestNFrame):
-            await self.channel.request(frame.request_n)
+            await self.subscriber.subscription.request(frame.request_n)
 
         elif isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                await self.channel.on_next(Payload(frame.data, frame.metadata))
+                await self.local_subscriber.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
-                self.channel.on_complete()
+                self.local_subscriber.on_complete()
                 self._received_complete = True
                 self._finish_if_both_closed()
         elif isinstance(frame, ErrorFrame):
-            self.channel.on_error(RuntimeError(frame.data))
+            self.local_subscriber.on_error(RuntimeError(frame.data))
             self._received_complete = True
             self._finish_if_both_closed()
 
@@ -79,9 +74,9 @@ class RequestChannelRequesterResponder(StreamHandler, Publisher, Subscription):
         if self._received_complete and self._sent_complete:
             self._finish_stream()
 
-    def subscribe(self, subscriber):
-        self.subscriber = subscriber
-        self.subscriber.on_subscribe(self)
+    def subscribe(self, subscriber: Subscriber):
+        self.local_subscriber = subscriber
+        self.local_subscriber.on_subscribe(self)
 
     def cancel(self):
         self.send_cancel()

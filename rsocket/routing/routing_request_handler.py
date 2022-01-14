@@ -1,15 +1,15 @@
 import asyncio
 from asyncio import Future
-from typing import Callable, Union, Optional, Coroutine
+from typing import Callable, Union, Optional, Coroutine, Tuple
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import Subscription
 from rsocket.extensions.authentication import Authentication
 from rsocket.extensions.authentication_content import AuthenticationContent
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
+from rsocket.handlers.null_subscrier import NullSubscriber
 from rsocket.helpers import always_allow_authenticator
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -47,13 +47,11 @@ class RoutingRequestHandler(BaseRequestHandler):
             self.metadata_encoding = metadata_encoding
             await super().on_setup(data_encoding, metadata_encoding)
 
-    async def request_channel(self,
-                              payload: Payload
-                              ) -> Union[Publisher, Subscription, Subscriber]:
+    async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
         try:
             return await self._parse_and_route(payload)
         except Exception as exception:
-            return self._error_stream_handler(exception)
+            return self._error_stream_handler(exception), NullSubscriber()
 
     async def request_fire_and_forget(self, payload: Payload):
         try:
@@ -81,7 +79,7 @@ class RoutingRequestHandler(BaseRequestHandler):
         future.set_exception(exception)
         return future
 
-    async def _parse_and_route(self, payload: Payload) -> Union[Future, Publisher, None]:
+    async def _parse_and_route(self, payload: Payload) -> Union[Future, Publisher, None, Tuple[Publisher, Subscriber]]:
         composite_metadata = CompositeMetadata()
         composite_metadata.parse(payload.metadata)
         route = self._require_route(composite_metadata)

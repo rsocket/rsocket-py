@@ -1,11 +1,12 @@
 from abc import ABCMeta, abstractmethod
 
+from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 
 
 class Publisher(metaclass=ABCMeta):
     @abstractmethod
-    def subscribe(self, subscriber):
+    def subscribe(self, subscriber: Subscriber):
         ...
 
 

@@ -1,11 +1,10 @@
 import asyncio
 from abc import ABCMeta, abstractmethod
 from asyncio import Future
-from typing import Union
+from typing import Tuple
 
 from reactivestreams.publisher import Publisher, DefaultPublisher
 from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import Subscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.frame import LeaseFrame
 from rsocket.payload import Payload
@@ -33,7 +32,7 @@ class RequestHandler(metaclass=ABCMeta):
     @abstractmethod
     async def request_channel(self,
                               payload: Payload
-                              ) -> Union[Publisher, Subscription, Subscriber]:
+                              ) -> Tuple[Publisher, Subscriber]:
         """
         Bi-Directional communication.  A publisher on each end is connected
         to a subscriber on the other end.
@@ -70,9 +69,7 @@ class BaseRequestHandler(RequestHandler):
                        metadata_encoding: bytes):
         """Nothing to do on setup by default"""
 
-    async def request_channel(
-            self, payload: Payload
-    ) -> Union[Publisher, Subscription, Subscriber]:
+    async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
         raise RuntimeError("Not implemented")
 
     async def request_fire_and_forget(self, payload: Payload):

@@ -5,16 +5,16 @@ from asyncio import StreamWriter, StreamReader
 from typing import Union
 
 from reactivestreams.publisher import Publisher
-from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import Subscription
 from rsocket.connection import Connection
 from rsocket.frame import ErrorCode, RequestChannelFrame
 from rsocket.frame import ErrorFrame, KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, PayloadFrame, Frame
 from rsocket.frame import SetupFrame
+from rsocket.handlers import RequestChannelRequester
+from rsocket.handlers import RequestChannelResponder
 from rsocket.handlers import RequestResponseRequester, \
-    RequestStreamRequester, RequestChannelRequesterResponder, \
+    RequestStreamRequester, \
     Stream
 from rsocket.handlers import RequestResponseResponder, RequestStreamResponder
 from rsocket.helpers import noop_frame_handler
@@ -135,8 +135,8 @@ class RSocket:
             async def handle_request_channel(frame_: RequestChannelFrame):
                 stream_ = frame_.stream_id
                 handler = self._handler
-                channel = await handler.request_channel(Payload(frame_.data, frame_.metadata))
-                channel_responder = RequestChannelRequesterResponder(stream_, self, channel)
+                publisher, subscriber = await handler.request_channel(Payload(frame_.data, frame_.metadata))
+                channel_responder = RequestChannelResponder(stream_, self, publisher, subscriber)
                 await channel_responder.frame_received(frame_)
                 self._streams[stream_] = channel_responder
 
@@ -169,7 +169,7 @@ class RSocket:
 
             try:
                 data = await self._reader.read(1024)
-            except BrokenPipeError as exception:
+            except ConnectionResetError as exception:
                 logger().debug(
                     str(exception))
                 break  # todo: workaround to silence errors on client closing. this needs a better solution.
@@ -256,12 +256,12 @@ class RSocket:
         self._streams[stream] = requester
         return requester
 
-    async def request_channel(self,
-                              channel_request_payload: Payload,
-                              local: Union[Publisher, Subscriber, Subscription]
-                              ) -> Union[Stream, Publisher, Subscription]:
+    async def request_channel(
+            self,
+            channel_request_payload: Payload,
+            local_publisher: Publisher) -> Union[Stream, Publisher]:
         stream = self.allocate_stream()
-        requester = RequestChannelRequesterResponder(stream, self, local)
+        requester = RequestChannelRequester(stream, self, local_publisher)
         requester.send_channel_request(channel_request_payload)
         self._streams[stream] = requester
         return requester

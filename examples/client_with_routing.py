@@ -97,7 +97,7 @@ async def test_channel(socket: RSocketClient):
                               composite(route('channel'), authenticate_simple('user', '12345')))
     channel = RequestChannel(channel_completion_event, requester_completion_event)
     requested = await socket.request_channel(channel_payload, channel)
-    requested.limit_rate(1)  # .subscribe(channel)
+    requested.limit_rate(1).subscribe(channel)
 
     await channel_completion_event.wait()
     await requester_completion_event.wait()

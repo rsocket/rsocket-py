@@ -14,7 +14,7 @@ router = RequestRouter()
 
 
 @router.response('single_request')
-async def single_request(payload, composite_metadata):
+async def single_request_response(payload, composite_metadata):
     logging.info('Got single request')
     future = asyncio.Future()
     future.set_result(Payload(b'single_response'))
@@ -22,7 +22,7 @@ async def single_request(payload, composite_metadata):
 
 
 @router.stream('stream')
-async def stream(payload, composite_metadata):
+async def stream_response(payload, composite_metadata):
     return ResponseStream()
 
 
@@ -32,8 +32,9 @@ async def no_response(payload, composite_metadata):
 
 
 @router.channel('channel')
-async def channel(payload, composite_metadata):
-    return ResponseChannel()
+async def channel_response(payload, composite_metadata):
+    channel = ResponseChannel()
+    return channel, channel
 
 
 @router.stream('stream-slow')

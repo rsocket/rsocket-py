@@ -1,4 +1,5 @@
-from .request_cahnnel_requester_responder import RequestChannelRequesterResponder
+from .request_cahnnel_requester import RequestChannelRequester
+from .request_cahnnel_responder import RequestChannelResponder
 from .request_response_requester import RequestResponseRequester
 from .request_response_responder import RequestResponseResponder
 from .request_stream_requester import RequestStreamRequester
