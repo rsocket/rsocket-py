@@ -256,13 +256,22 @@ class RSocket:
         self._streams[stream] = requester
         return requester
 
+    def fire_and_forget(self, payload: Payload):
+        stream = self.allocate_stream()
+        frame = RequestFireAndForgetFrame()
+        frame.stream_id = stream
+        frame.data = payload.data
+        frame.metadata = payload.metadata
+        self.send_frame(frame)
+        self.finish_stream(stream)
+
     def request_stream(self, payload: Payload) -> Union[Stream, Publisher]:
         stream = self.allocate_stream()
         requester = RequestStreamRequester(stream, self, payload)
         self._streams[stream] = requester
         return requester
 
-    async def request_channel(
+    def request_channel(
             self,
             channel_request_payload: Payload,
             local_publisher: Publisher) -> Union[Stream, Publisher]:
