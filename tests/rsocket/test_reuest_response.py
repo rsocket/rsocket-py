@@ -76,7 +76,7 @@ async def test_request_response_bidirectional(pipe):
         @staticmethod
         def future_done(other: asyncio.Future, current: asyncio.Future):
             if current.cancelled():
-                other.set_exception(RuntimeError("Canceled."))
+                other.set_exception(RuntimeError('Canceled.'))
             elif current.exception():
                 other.set_exception(current.exception())
             else:

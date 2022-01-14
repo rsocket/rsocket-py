@@ -16,8 +16,12 @@ class ResponseStream(QueueResponseStream):
     async def generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Any, bool], None]:
         for i in range(n):
             is_complete = (self._current_response + 1) == self._response_count
+            if self._delay_between_messages.total_seconds() > 0:
+                message = 'Slow Item'
+            else:
+                message = 'Item'
 
-            yield ("Item: %s" % self._current_response), is_complete
+            yield ('%s: %s' % (message, self._current_response)), is_complete
 
             await asyncio.sleep(self._delay_between_messages.total_seconds())
 

@@ -51,7 +51,7 @@ class RSocketClient(RSocket):
     async def _keepalive_send_task(self):
         while True:
             await asyncio.sleep(self._keep_alive_period.total_seconds())
-            await self._send_keepalive()
+            self._send_new_keepalive()
 
     def _before_sender(self):
         self._keepalive_task = asyncio.ensure_future(self._keepalive_send_task())

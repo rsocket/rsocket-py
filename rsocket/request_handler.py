@@ -70,7 +70,7 @@ class BaseRequestHandler(RequestHandler):
         """Nothing to do on setup by default"""
 
     async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
-        raise RuntimeError("Not implemented")
+        raise RuntimeError('Not implemented')
 
     async def request_fire_and_forget(self, payload: Payload):
         """The requester isn't listening for errors.  Nothing to do."""
@@ -80,7 +80,7 @@ class BaseRequestHandler(RequestHandler):
 
     async def request_response(self, payload: Payload) -> Future:
         future = asyncio.Future()
-        future.set_exception(RuntimeError("Not implemented"))
+        future.set_exception(RuntimeError('Not implemented'))
         return future
 
     async def request_stream(self, payload: Payload) -> Publisher:

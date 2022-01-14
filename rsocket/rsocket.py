@@ -101,6 +101,7 @@ class RSocket:
                 if frame_.flags_respond:
                     frame_.flags_respond = False
                     self.send_frame(frame_)
+                    logger().debug('Responded to keepalive')
 
             async def handle_request_response(frame_: RequestResponseFrame):
                 stream_ = frame_.stream_id
@@ -192,12 +193,13 @@ class RSocket:
                 frame_handler = frame_handler_by_type.get(type(frame), noop_frame_handler)
                 await frame_handler(frame)
 
-    async def _send_keepalive(self, respond=True):
+    def _send_new_keepalive(self, respond=True):
         frame = KeepAliveFrame()
         frame.stream_id = CONNECTION_STREAM_ID
         frame.flags_respond = respond
 
         self.send_frame(frame)
+        logger().debug('Send keepalive')
 
     @abc.abstractmethod
     def _before_sender(self):
