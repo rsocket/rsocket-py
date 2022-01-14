@@ -6,5 +6,9 @@ class RSocketApplicationError(RSocketError):
     pass
 
 
-class RsocketAuthenticationError(RSocketError):
+class RSocketAuthenticationError(RSocketError):
+    pass
+
+
+class RSocketProtocolException(RSocketError):
     pass

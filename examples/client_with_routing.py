@@ -77,10 +77,18 @@ async def communicate(reader, writer):
     async with RSocket(reader, writer,
                        server=False,
                        metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as socket:
+        await test_request_response(socket)
         await test_stream(socket)
         await test_slow_stream(socket)
         await test_channel(socket)
         await test_stream_invalid_login(socket)
+
+
+async def test_request_response(socket: RSocket):
+    payload = Payload(b'The quick brown fox',
+                      composite(route('single_request'), authenticate_simple('user', '12345')))
+
+    await socket.request_response(payload)
 
 
 async def test_channel(socket: RSocket):
@@ -99,7 +107,7 @@ async def test_channel(socket: RSocket):
 async def test_stream_invalid_login(socket: RSocket):
     payload = Payload(b'The quick brown fox', composite(route('stream'), authenticate_simple('user', 'wrong_password')))
     completion_event = Event()
-    socket.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+    socket.request_stream(payload).limit_rate(1).subscribe(StreamSubscriber(completion_event))
     await completion_event.wait()
 
 
