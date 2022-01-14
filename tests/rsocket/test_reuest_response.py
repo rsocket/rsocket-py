@@ -1,5 +1,4 @@
 import asyncio
-import functools
 
 import pytest
 
@@ -65,42 +64,42 @@ async def test_request_response_cancellation(pipe):
         await future
 
 
-@pytest.mark.asyncio
-async def test_request_response_bidirectional(pipe):
-    def ready_future(data, metadata):
-        future = asyncio.Future()
-        future.set_result(Payload(data, metadata))
-        return future
-
-    class ServerHandler(BaseRequestHandler):
-        @staticmethod
-        def future_done(other: asyncio.Future, current: asyncio.Future):
-            if current.cancelled():
-                other.set_exception(RuntimeError("Canceled."))
-            elif current.exception():
-                other.set_exception(current.exception())
-            else:
-                payload = current.result()
-                payload.data = b'(server ' + payload.data + b')'
-                payload.metadata = b'(server ' + payload.metadata + b')'
-                other.set_result(payload)
-
-        async def request_response(self, payload: Payload):
-            future = asyncio.Future()
-            self.socket.request_response(payload).add_done_callback(
-                functools.partial(self.future_done, future))
-            return future
-
-    class ClientHandler(BaseRequestHandler):
-        async def request_response(self, payload: Payload):
-            return ready_future(b'(client ' + payload.data + b')',
-                                b'(client ' + payload.metadata + b')')
-
-    server, client = pipe
-    server._handler = ServerHandler(server)
-    client._handler = ClientHandler(client)
-
-    response = await client.request_response(Payload(b'data', b'metadata'))
-
-    assert response.data == b'(server (client data))'
-    assert response.metadata == b'(server (client metadata))'
+# @pytest.mark.asyncio
+# async def test_request_response_bidirectional(pipe):
+#     def ready_future(data, metadata):
+#         future = asyncio.Future()
+#         future.set_result(Payload(data, metadata))
+#         return future
+#
+#     class ServerHandler(BaseRequestHandler):
+#         @staticmethod
+#         def future_done(other: asyncio.Future, current: asyncio.Future):
+#             if current.cancelled():
+#                 other.set_exception(RuntimeError("Canceled."))
+#             elif current.exception():
+#                 other.set_exception(current.exception())
+#             else:
+#                 payload = current.result()
+#                 payload.data = b'(server ' + payload.data + b')'
+#                 payload.metadata = b'(server ' + payload.metadata + b')'
+#                 other.set_result(payload)
+#
+#         async def request_response(self, payload: Payload):
+#             future = asyncio.Future()
+#             self.socket.request_response(payload).add_done_callback(
+#                 functools.partial(self.future_done, future))
+#             return future
+#
+#     class ClientHandler(BaseRequestHandler):
+#         async def request_response(self, payload: Payload):
+#             return ready_future(b'(client ' + payload.data + b')',
+#                                 b'(client ' + payload.metadata + b')')
+#
+#     server, client = pipe
+#     server._handler = ServerHandler(server)
+#     client._handler = ClientHandler(client)
+#
+#     response = await client.request_response(Payload(b'data', b'metadata'))
+#
+#     assert response.data == b'(server (client data))'
+#     assert response.metadata == b'(server (client metadata))'

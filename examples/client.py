@@ -4,7 +4,7 @@ from asyncio import Event
 
 from reactivestreams.subscriber import Subscriber
 from rsocket.payload import Payload
-from rsocket.rsocket import RSocket
+from rsocket.rsocket_client import RSocketClient
 
 
 class StreamSubscriber(Subscriber):
@@ -30,7 +30,7 @@ class StreamSubscriber(Subscriber):
 
 
 async def download(reader, writer):
-    socket = RSocket(reader, writer, server=False)
+    socket = RSocketClient(reader, writer)
 
     payload = Payload(b'The quick brown fox', b'meta')
 

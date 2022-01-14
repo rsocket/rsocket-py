@@ -9,7 +9,7 @@ from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
 from rsocket.payload import Payload
-from rsocket.rsocket import RSocket
+from rsocket.rsocket_client import RSocketClient
 
 
 async def example():
@@ -34,10 +34,9 @@ async def example():
             completion_event.set()
 
     connection = await asyncio.open_connection('localhost', 6565)
-    client = RSocket(*connection,
-                     server=False,
-                     metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name,
-                     data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value.name)
+    client = RSocketClient(*connection,
+                           metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name,
+                           data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value.name)
 
     metadata = CompositeMetadata()
     metadata.append(RoutingMetadata(['investigation.getInvestigationByContext']))

@@ -1,26 +1,20 @@
+import abc
 import asyncio
-from asyncio import Future, StreamWriter, StreamReader
-from datetime import timedelta, datetime
-from typing import Union, Optional
+from asyncio import StreamWriter, StreamReader
 
-from reactivestreams.publisher import Publisher
-from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import Subscription
 from rsocket.connection import Connection
-from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import ErrorCode, RequestChannelFrame
 from rsocket.frame import ErrorFrame, KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, PayloadFrame, SetupFrame, Frame
-from rsocket.handlers import RequestResponseRequester, \
-    RequestResponseResponder, RequestStreamRequester, RequestStreamResponder, RequestChannelRequesterResponder, \
-    Stream
-from rsocket.helpers import to_milliseconds, noop_frame_handler
+from rsocket.handlers import RequestResponseResponder, RequestStreamResponder, RequestChannelRequesterResponder
+from rsocket.helpers import noop_frame_handler
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
 MAX_STREAM_ID = 0x7FFFFFFF
+CONNECTION_STREAM_ID = 0
 
 _not_provided = object()
 
@@ -29,60 +23,35 @@ class RSocket:
     def __init__(self,
                  reader: StreamReader, writer: StreamWriter, *,
                  handler_factory=BaseRequestHandler,
-                 loop=_not_provided,
-                 server=True,
-                 data_encoding: bytes = b'utf-8',
-                 metadata_encoding: Union[bytes, WellKnownMimeTypes] = b'utf-8',
-                 keep_alive_period: timedelta = timedelta(milliseconds=500),
-                 max_lifetime_period: timedelta = timedelta(minutes=10),
-                 honor_lease=False):
-        self._honor_lease = honor_lease
-        self._max_lifetime_period = max_lifetime_period
-        self._keep_alive_period = keep_alive_period
+                 loop=_not_provided):
+
         self._reader = reader
         self._writer = writer
-        self._is_server = server
         self._handler = handler_factory(self)
-        self._last_server_keepalive: Optional[datetime] = None
-        self._is_server_alive = True
+        self._next_stream = self._get_first_stream_id()
 
-        self._next_stream = 2 if self._is_server else 1
         self._streams = {}
 
         self._send_queue = asyncio.Queue()
 
         if loop is _not_provided:
-            loop = asyncio.get_event_loop()  # TODO: get running loop ?
-
-        if isinstance(metadata_encoding, WellKnownMimeTypes):
-            metadata_encoding = metadata_encoding.value.name
-
-        if not self._is_server:
-            self._send_setup_frame(data_encoding, metadata_encoding)
+            loop = asyncio.get_event_loop()
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
-
-    def _send_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes):
-        self.send_frame(self._create_setup_frame(data_encoding, metadata_encoding))
-
-    def _create_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes) -> SetupFrame:
-        setup = SetupFrame()
-        setup.flags_lease = self._honor_lease
-        setup.keep_alive_milliseconds = to_milliseconds(self._keep_alive_period)
-        setup.max_lifetime_milliseconds = to_milliseconds(self._max_lifetime_period)
-        setup.data_encoding = data_encoding
-        setup.metadata_encoding = metadata_encoding
-        return setup
 
     def allocate_stream(self) -> int:
         stream = self._next_stream
         self._increment_next_stream()
 
-        while self._next_stream == 0 or self._next_stream in self._streams:
+        while self._next_stream == CONNECTION_STREAM_ID or self._next_stream in self._streams:
             self._increment_next_stream()
 
         return stream
+
+    @abc.abstractmethod
+    def _get_first_stream_id(self) -> int:
+        ...
 
     def _increment_next_stream(self):
         self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
@@ -109,13 +78,16 @@ class RSocket:
         response.metadata = payload.metadata
         self.send_frame(response)
 
+    @abc.abstractmethod
+    def _update_last_keepalive(self):
+        ...
+
     async def _receiver(self):
         try:
             async def handle_keep_alive(frame_: KeepAliveFrame):
                 logger().debug('Received keepalive')
 
-                if not self._is_server:
-                    self._last_server_keepalive = datetime.now()
+                self._update_last_keepalive()
 
                 frame_.flags_respond = False
                 self.send_frame(frame_)
@@ -178,64 +150,56 @@ class RSocket:
             logger().error('Unknown error', exc_info=True)
             raise
 
+    @abc.abstractmethod
+    def is_server_alive(self) -> bool:
+        ...
+
     async def _receiver_listen(self, connection, frame_handler_by_type):
-        keepalive_receive_task = None
 
-        if self._is_server:
-            keepalive_receive_task = asyncio.ensure_future(self._keepalive_receive_task())
+        while self.is_server_alive():
 
-        try:
-            while self._is_server or self._is_server_alive:
+            try:
+                data = await self._reader.read(1024)
+            except BrokenPipeError as exception:
+                logger().debug(
+                    str(exception))
+                break  # todo: workaround to silence errors on client closing. this needs a better solution.
 
-                try:
-                    data = await self._reader.read(1024)
-                except BrokenPipeError as exception:
-                    logger().debug(
-                        str(exception))
-                    break  # todo: workaround to silence errors on client closing. this needs a better solution.
+            if not data:
+                self._writer.close()
+                break
 
-                if not data:
-                    self._writer.close()
-                    break
+            frames = connection.receive_data(data)
 
-                frames = connection.receive_data(data)
+            for frame in frames:
+                stream = frame.stream_id
 
-                for frame in frames:
-                    stream = frame.stream_id
+                if stream and stream in self._streams:
+                    await self._streams[stream].frame_received(frame)
+                    continue
 
-                    if stream and stream in self._streams:
-                        await self._streams[stream].frame_received(frame)
-                        continue
-
-                    frame_handler = frame_handler_by_type.get(type(frame), noop_frame_handler)
-                    await frame_handler(frame)
-        finally:
-            if keepalive_receive_task is not None:
-                keepalive_receive_task.cancel()
+                frame_handler = frame_handler_by_type.get(type(frame), noop_frame_handler)
+                await frame_handler(frame)
 
     async def _send_keepalive(self, respond=True):
         frame = KeepAliveFrame()
-        frame.stream_id = 0
+        frame.stream_id = CONNECTION_STREAM_ID
         frame.data = b''
         frame.metadata = b''
         frame.flags_respond = respond
 
         self.send_frame(frame)
 
-    async def _keepalive_send_task(self):
-        while True:
-            await asyncio.sleep(self._keep_alive_period.total_seconds())
-            await self._send_keepalive()
+    @abc.abstractmethod
+    def _before_sender(self):
+        ...
 
-    async def _keepalive_receive_task(self):
-        while True:
-            await asyncio.sleep(self._max_lifetime_period.total_seconds())
-            now = datetime.now()
-            if self._last_server_keepalive - now > self._max_lifetime_period:
-                self._is_server_alive = False
+    @abc.abstractmethod
+    def _finally_sender(self):
+        ...
 
     async def _sender(self):
-        keepalive_task = asyncio.ensure_future(self._keepalive_send_task())
+        self._before_sender()
 
         try:
             while True:
@@ -254,29 +218,7 @@ class RSocket:
             logger().error('RSocket error', exc_info=True)
             raise
         finally:
-            keepalive_task.cancel()
-
-    def request_response(self, payload: Payload) -> Future:
-        stream = self.allocate_stream()
-        requester = RequestResponseRequester(stream, self, payload)
-        self._streams[stream] = requester
-        return requester
-
-    def request_stream(self, payload: Payload) -> Union[Stream, Publisher]:
-        stream = self.allocate_stream()
-        requester = RequestStreamRequester(stream, self, payload)
-        self._streams[stream] = requester
-        return requester
-
-    async def request_channel(self,
-                              channel_request_payload: Payload,
-                              local: Union[Publisher, Subscriber, Subscription]
-                              ) -> Union[Stream, Publisher, Subscription]:
-        stream = self.allocate_stream()
-        requester = RequestChannelRequesterResponder(stream, self, local)
-        requester.send_channel_request(channel_request_payload)
-        self._streams[stream] = requester
-        return requester
+            self._finally_sender()
 
     async def close(self):
         self._sender_task.cancel()

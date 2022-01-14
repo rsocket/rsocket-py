@@ -8,7 +8,7 @@ from rsocket.extensions.authentication import Authentication, AuthenticationSimp
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
-from rsocket.rsocket import RSocket
+from rsocket.rsocket_server import RSocketServer
 
 router = RequestRouter()
 
@@ -54,7 +54,7 @@ def handler_factory(socket):
 
 
 def handle_client(reader, writer):
-    RSocket(reader, writer, handler_factory=handler_factory, server=True)
+    RSocketServer(reader, writer, handler_factory=handler_factory)
 
 
 async def run_server():

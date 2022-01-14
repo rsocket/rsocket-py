@@ -4,7 +4,7 @@ from reactivestreams.publisher import Publisher
 from response_stream import ResponseStream
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from rsocket.rsocket import RSocket
+from rsocket.rsocket_server import RSocketServer
 
 
 class Handler(BaseRequestHandler):
@@ -20,7 +20,7 @@ class Handler(BaseRequestHandler):
 
 
 def session(reader, writer):
-    RSocket(reader, writer, handler_factory=Handler)
+    RSocketServer(reader, writer, handler_factory=Handler)
 
 
 async def run_server():
