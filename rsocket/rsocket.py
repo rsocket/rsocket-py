@@ -136,7 +136,8 @@ class RSocket:
                 stream_ = frame_.stream_id
                 handler = self._handler
                 publisher, subscriber = await handler.request_channel(Payload(frame_.data, frame_.metadata))
-                channel_responder = RequestChannelResponder(stream_, self, publisher, subscriber)
+                channel_responder = RequestChannelResponder(stream_, self, publisher)
+                channel_responder.subscribe(subscriber)
                 await channel_responder.frame_received(frame_)
                 self._streams[stream_] = channel_responder
 
@@ -169,7 +170,7 @@ class RSocket:
 
             try:
                 data = await self._reader.read(1024)
-            except ConnectionResetError as exception:
+            except (ConnectionResetError, BrokenPipeError) as exception:
                 logger().debug(
                     str(exception))
                 break  # todo: workaround to silence errors on client closing. this needs a better solution.

@@ -40,13 +40,11 @@ class RequestChannelResponder(StreamHandler, Publisher, Subscription):
             # noinspection PyAttributeOutsideInit
             self.subscription = subscription
 
-    def __init__(self, stream: int, socket, requester_publisher: Publisher, subscriber: Subscriber):
+    def __init__(self, stream: int, socket, requester_publisher: Publisher):
         super().__init__(stream, socket)
         self.requester_publisher = requester_publisher
         self.subscriber = self.StreamSubscriber(stream, socket, self)
         self.requester_publisher.subscribe(self.subscriber)
-        self.responder_subscriber = subscriber
-        self.responder_subscriber.on_subscribe(self)
         self._sent_complete = False
         self._received_complete = False
 
@@ -61,13 +59,13 @@ class RequestChannelResponder(StreamHandler, Publisher, Subscription):
 
         elif isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                await self.responder_subscriber.on_next(Payload(frame.data, frame.metadata))
+                await self.local_subscriber.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
-                self.responder_subscriber.on_complete()
+                self.local_subscriber.on_complete()
                 self._received_complete = True
                 self._finish_if_both_closed()
         elif isinstance(frame, ErrorFrame):
-            self.responder_subscriber.on_error(RuntimeError(frame.data))
+            self.local_subscriber.on_error(RuntimeError(frame.data))
             self._received_complete = True
             self._finish_if_both_closed()
 
@@ -79,8 +77,8 @@ class RequestChannelResponder(StreamHandler, Publisher, Subscription):
             self._finish_stream()
 
     def subscribe(self, subscriber: Subscriber):
-        self.subscriber = subscriber
-        self.subscriber.on_subscribe(self)
+        self.local_subscriber = subscriber
+        self.local_subscriber.on_subscribe(self)
 
     def cancel(self):
         self.send_cancel()

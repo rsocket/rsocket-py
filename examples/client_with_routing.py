@@ -27,7 +27,7 @@ class RequestChannel(QueueResponseStream, Subscriber):
         for i in range(n):
             is_complete = (self._current_response + 1) == self._response_count
 
-            yield ("Item to server from client: %s" % self._current_response), is_complete
+            yield ("Item to server from client on channel: %s" % self._current_response), is_complete
 
             await self.subscription.request(1)
             if is_complete:
@@ -40,14 +40,14 @@ class RequestChannel(QueueResponseStream, Subscriber):
         self.subscription = subscription
 
     async def on_next(self, value: Payload, is_complete=False):
-        logging.info("From server: " + value.data.decode('utf-8'))
+        logging.info("From server on channel: " + value.data.decode('utf-8'))
 
     def on_error(self, exception: Exception):
-        logging.error("Error from server" + str(exception))
+        logging.error("Error from server on channel" + str(exception))
         self._wait_for_responder_complete.set()
 
     def on_complete(self, value=None):
-        logging.info("Completed from server")
+        logging.info("Completed from server on channel")
         self._wait_for_responder_complete.set()
 
 
