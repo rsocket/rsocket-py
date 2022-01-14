@@ -3,8 +3,9 @@ from abc import ABCMeta, abstractmethod
 from asyncio import Future
 from typing import Tuple
 
-from reactivestreams.publisher import Publisher, DefaultPublisher
+from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.frame import LeaseFrame
 from rsocket.payload import Payload
@@ -26,7 +27,7 @@ class RequestHandler(metaclass=ABCMeta):
         """Not implemented by default"""
 
     @abstractmethod
-    async def on_metadata_push(self, metadata: bytes):
+    async def on_metadata_push(self, metadata: Payload):
         ...
 
     @abstractmethod
@@ -64,6 +65,12 @@ class RequestHandler(metaclass=ABCMeta):
 
 
 class BaseRequestHandler(RequestHandler):
+    class UnimplementedPublisher(Publisher, DefaultSubscription):
+
+        def subscribe(self, subscriber: Subscriber):
+            subscriber.on_subscribe(self)
+            subscriber.on_error(RuntimeError('Not implemented'))
+
     async def on_setup(self,
                        data_encoding: bytes,
                        metadata_encoding: bytes):
@@ -84,4 +91,4 @@ class BaseRequestHandler(RequestHandler):
         return future
 
     async def request_stream(self, payload: Payload) -> Publisher:
-        return DefaultPublisher()
+        return self.UnimplementedPublisher()

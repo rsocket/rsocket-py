@@ -2,7 +2,7 @@ import abc
 import asyncio
 from asyncio import Future
 from asyncio import StreamWriter, StreamReader
-from typing import Union
+from typing import Union, Type
 
 from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
@@ -20,7 +20,7 @@ from rsocket.handlers import RequestResponseResponder, RequestStreamResponder
 from rsocket.helpers import noop_frame_handler
 from rsocket.logger import logger
 from rsocket.payload import Payload
-from rsocket.request_handler import BaseRequestHandler
+from rsocket.request_handler import BaseRequestHandler, RequestHandler
 
 MAX_STREAM_ID = 0x7FFFFFFF
 CONNECTION_STREAM_ID = 0
@@ -31,7 +31,7 @@ _not_provided = object()
 class RSocket:
     def __init__(self,
                  reader: StreamReader, writer: StreamWriter, *,
-                 handler_factory=BaseRequestHandler,
+                 handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  loop=_not_provided):
 
         self._reader = reader
@@ -48,6 +48,10 @@ class RSocket:
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
+
+    def set_handler_using_factory(self, handler_factory) -> RequestHandler:
+        self._handler = handler_factory(self)
+        return self._handler
 
     def allocate_stream(self) -> int:
         stream = self._next_stream

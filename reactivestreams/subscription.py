@@ -9,3 +9,11 @@ class Subscription(metaclass=ABCMeta):
     @abstractmethod
     def cancel(self):
         ...
+
+
+class DefaultSubscription(Subscription):
+    async def request(self, n: int):
+        pass
+
+    def cancel(self):
+        pass

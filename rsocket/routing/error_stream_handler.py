@@ -1,14 +1,11 @@
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import Subscription
+from reactivestreams.subscription import DefaultSubscription
 
 
-class ErrorStreamHandler(Publisher, Subscription):
+class ErrorStreamHandler(Publisher, DefaultSubscription):
     async def request(self, n: int):
         self._subscriber.on_error(self._exception)
-
-    def cancel(self):
-        pass
 
     def __init__(self, exception: Exception):
         self._exception = exception
