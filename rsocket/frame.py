@@ -246,8 +246,8 @@ class SetupFrame(Frame):
             self.keep_alive_milliseconds, self.max_lifetime_milliseconds)
         if self.flags_resume:
             middle += struct.pack('>H', self.token_length)
-            assert len(self.resume_identification_token) == self.token_length
-            assert isinstance(self.resume_identification_token, bytes)
+            # assert len(self.resume_identification_token) == self.token_length
+            # assert isinstance(self.resume_identification_token, bytes)
             middle += self.resume_identification_token
         middle += self.pack_string(self.metadata_encoding)
         middle += self.pack_string(self.data_encoding)
@@ -295,7 +295,7 @@ class LeaseFrame(Frame):
 
 
 class KeepAliveFrame(Frame):
-    __slots__ = 'flags_respond'
+    __slots__ = ('flags_respond', 'last_received_position')
 
     _FLAG_RESPOND_BIT = 0x80
 
@@ -305,15 +305,17 @@ class KeepAliveFrame(Frame):
         self.data = data
         self.metadata = metadata
 
-    def parse(self, buffer, offset):
+    def parse(self, buffer: bytes, offset: int):
         offset += self.parse_header(buffer, offset)
         self.flags_respond = (self.flags & self._FLAG_RESPOND_BIT) != 0
         offset += self.parse_data(buffer, offset)
+        # self.last_received_position = struct.unpack('>Q', buffer[offset:])[0]
 
-    def serialize(self, middle=b''):
+    def serialize(self, middle=b'') -> bytes:
         self.flags &= ~self._FLAG_RESPOND_BIT
         if self.flags_respond:
             self.flags |= self._FLAG_RESPOND_BIT
+        # middle += struct.pack('>Q', self.last_received_position)
         return Frame.serialize(self, middle)
 
 
@@ -492,6 +494,61 @@ class MetadataPushFrame(Frame):
         offset += self.parse_metadata(buffer, offset)
 
 
+class ResumeFrame(Frame):
+    __slots__ = (
+        'major_version',
+        'minor_version',
+        'token_length',
+        'resume_identification_token',
+        'last_server_position',
+        'first_client_position'
+    )
+
+    _FLAG_LEASE_BIT = 0x40
+    _FLAG_RESUME_BIT = 0x80
+
+    def __init__(self):
+        super().__init__(Type.RESUME)
+        self.major_version = PROTOCOL_MAJOR_VERSION
+        self.minor_version = PROTOCOL_MINOR_VERSION
+
+    # noinspection PyAttributeOutsideInit
+    def parse(self, buffer: bytes, offset: int):
+        offset += self.parse_header(buffer, offset)
+
+        (self.major_version, self.minor_version) = (
+            struct.unpack_from('>HH', buffer, offset))
+
+        offset += 4
+
+        self.token_length = struct.unpack_from('>H', buffer, offset)[0]
+        offset += 2
+        self.resume_identification_token = (
+            buffer[offset:offset + self.token_length])
+        offset += self.token_length
+
+        self.last_server_position = struct.unpack('>Q', buffer[offset:offset + 8])[0]
+        offset += 8
+        self.first_client_position = struct.unpack('>Q', buffer[offset:])[0]
+
+    def serialize(self, middle=b'') -> bytes:
+        self.flags &= ~(self._FLAG_LEASE_BIT | self._FLAG_RESUME_BIT)
+
+        middle = struct.pack('>HH', self.major_version, self.minor_version)
+        middle += struct.pack('>H', len(self.resume_identification_token))
+        # assert len(self.resume_identification_token) == self.token_length
+        # assert isinstance(self.resume_identification_token, bytes)
+        middle += self.resume_identification_token
+        middle += struct.pack('>Q', self.last_server_position)
+        middle += struct.pack('>Q', self.first_client_position)
+
+        return Frame.serialize(self, middle)
+
+
+class ResumeOKFrame(Frame):
+    ...
+
+
 _frame_class_by_id = {
     Type.SETUP: SetupFrame,
     Type.LEASE: LeaseFrame,
@@ -505,8 +562,8 @@ _frame_class_by_id = {
     Type.PAYLOAD: PayloadFrame,
     Type.ERROR: ErrorFrame,
     Type.METADATA_PUSH: MetadataPushFrame,
-    # Type.RESUME: ResumeFrame,
-    # Type.RESUME_OK: ResumeOKFrame,
+    Type.RESUME: ResumeFrame,
+    Type.RESUME_OK: ResumeOKFrame,
 }
 
 

@@ -1,22 +1,15 @@
 import asyncstdlib
 import pytest
 
-from rsocket.connection import Connection
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type, RequestResponseFrame, RequestNFrame)
+from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type, RequestResponseFrame, RequestNFrame, ResumeFrame)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
-@pytest.fixture()
-def decoder():
-    return Connection()
-
-
 @pytest.mark.asyncio
-async def test_setup():
-    connection = Connection()
+async def test_setup(connection):
     data = b'\x00\x00\x40\x00\x00\x00\x00\x05\x00\x00\x01\x00\x00\x00\x00\x00'
     data += b'\x7b\x00\x00\x01\xc8\x18\x61\x70\x70\x6c\x69\x63\x61\x74\x69\x6f'
     data += b'\x6e\x2f\x6f\x63\x74\x65\x74\x2d\x73\x74\x72\x65\x61\x6d\x09\x74'
@@ -37,9 +30,7 @@ async def test_setup():
 
 
 @pytest.mark.asyncio
-async def test_setup_readable():
-    connection = Connection()
-
+async def test_setup_readable(connection):
     data = build_frame(
         bits(24, 64, 'Frame size'),
         bits(1, 0, 'Padding'),
@@ -87,9 +78,7 @@ async def test_setup_readable():
 
 
 @pytest.mark.asyncio
-async def test_request_with_composite_metadata():
-    connection = Connection()
-
+async def test_request_with_composite_metadata(connection):
     data = build_frame(
         bits(24, 28, 'Frame size'),
         bits(1, 0, 'Padding'),
@@ -182,8 +171,7 @@ async def test_composite_metadata_multiple_items():
 
 
 @pytest.mark.asyncio
-async def test_cancel():
-    connection = Connection()
+async def test_cancel(connection):
     data = b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     frame = frames[0]
@@ -192,8 +180,7 @@ async def test_cancel():
 
 
 @pytest.mark.asyncio
-async def test_error():
-    connection = Connection()
+async def test_error(connection):
     data = b'\x00\x00\x13\x00\x00\x26\x6a\x2c\x00\x00\x00\x02\x04\x77\x65\x69'
     data += b'\x72\x64\x6e\x65\x73\x73'
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
@@ -203,8 +190,7 @@ async def test_error():
 
 
 @pytest.mark.asyncio
-async def test_multiple_frames():
-    connection = Connection()
+async def test_multiple_frames(connection):
     data = b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
     data += b'\x00\x00\x13\x00\x00\x26\x6a\x2c\x00\x00\x00\x02\x04\x77\x65\x69'
     data += b'\x72\x64\x6e\x65\x73\x73'
@@ -216,9 +202,7 @@ async def test_multiple_frames():
 
 
 @pytest.mark.asyncio
-async def test_request_n_frame():
-    connection = Connection()
-
+async def test_request_n_frame(connection):
     data = build_frame(
         bits(24, 10, 'Frame size'),
         bits(1, 0, 'Padding'),
@@ -239,3 +223,34 @@ async def test_request_n_frame():
     assert frame.serialize() == data
 
     assert frame.request_n == 23
+
+
+@pytest.mark.asyncio
+async def test_resume_frame(connection):
+    data = build_frame(
+        bits(24, 40, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, Type.RESUME, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        # Version
+        bits(16, 1, 'Major version'),
+        bits(16, 0, 'Minor version'),
+        # Resume token
+        bits(16, 12, 'Token length'),
+        data_bits(b'resume_token'),
+        bits(1, 0, 'placeholder'),
+        bits(63, 123, 'last server position'),
+        bits(1, 0, 'placeholder'),
+        bits(63, 456, 'first client position'),
+    )
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
+    assert isinstance(frame, ResumeFrame)
+    assert frame.last_server_position == 123
+    assert frame.first_client_position == 456
+    assert frame.serialize() == data

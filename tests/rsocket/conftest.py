@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 
+from rsocket.connection import Connection
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 
@@ -30,3 +31,8 @@ def pipe(unused_tcp_port, event_loop):
     event_loop.run_until_complete(start())
     yield server, client
     event_loop.run_until_complete(finish())
+
+
+@pytest.fixture
+def connection():
+    return Connection()
