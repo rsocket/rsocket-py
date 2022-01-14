@@ -65,7 +65,7 @@ class RSocketClient(RSocket):
     def is_server_alive(self) -> bool:
         return self._is_server_alive
 
-    async def _keepalive_receive_task(self):
+    async def _keepalive_timeout_task(self):
         while True:
             await asyncio.sleep(self._max_lifetime_period.total_seconds())
             now = datetime.now()
@@ -73,8 +73,8 @@ class RSocketClient(RSocket):
                 self._is_server_alive = False
 
     async def _receiver_listen(self, connection, frame_handler_by_type):
-        keepalive_receive_task = asyncio.ensure_future(self._keepalive_receive_task())
+        keepalive_timeout_task = asyncio.ensure_future(self._keepalive_timeout_task())
         try:
             return await super()._receiver_listen(connection, frame_handler_by_type)
         finally:
-            keepalive_receive_task.cancel()
+            keepalive_timeout_task.cancel()

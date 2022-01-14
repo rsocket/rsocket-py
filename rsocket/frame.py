@@ -299,9 +299,11 @@ class KeepAliveFrame(Frame):
 
     _FLAG_RESPOND_BIT = 0x80
 
-    def __init__(self):
+    def __init__(self, data=b'', metadata=b''):
         super().__init__(Type.KEEPALIVE)
         self.flags_respond = False
+        self.data = data
+        self.metadata = metadata
 
     def parse(self, buffer, offset):
         offset += self.parse_header(buffer, offset)

@@ -98,8 +98,9 @@ class RSocket:
 
                 self._update_last_keepalive()
 
-                frame_.flags_respond = False
-                self.send_frame(frame_)
+                if frame_.flags_respond:
+                    frame_.flags_respond = False
+                    self.send_frame(frame_)
 
             async def handle_request_response(frame_: RequestResponseFrame):
                 stream_ = frame_.stream_id
@@ -194,8 +195,6 @@ class RSocket:
     async def _send_keepalive(self, respond=True):
         frame = KeepAliveFrame()
         frame.stream_id = CONNECTION_STREAM_ID
-        frame.data = b''
-        frame.metadata = b''
         frame.flags_respond = respond
 
         self.send_frame(frame)
