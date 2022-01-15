@@ -112,59 +112,60 @@ class RSocket:
             self.send_frame(frame_)
             logger().debug('Responded to keepalive')
 
+    async def handle_request_response(self, frame_: RequestResponseFrame):
+        stream_ = frame_.stream_id
+        handler = self._handler
+        response_future = await handler.request_response(Payload(frame_.data, frame_.metadata))
+        self._streams[stream_] = RequestResponseResponder(stream_, self, response_future)
+
+    async def handle_request_stream(self, frame_: RequestStreamFrame):
+        stream_ = frame_.stream_id
+        handler = self._handler
+        publisher = await handler.request_stream(Payload(frame_.data, frame_.metadata))
+        request_responder = RequestStreamResponder(stream_, self, publisher)
+        await request_responder.frame_received(frame_)
+        self._streams[stream_] = request_responder
+
+    async def handle_setup(self, frame_: SetupFrame):
+        handler = self._handler
+        try:
+            await handler.on_setup(frame_.data_encoding,
+                                   frame_.metadata_encoding)
+        except Exception as exception:
+            await self.send_error(frame_.stream_id, exception)
+
+        if frame_.flags_lease:
+            await handler.supply_lease()
+
+    async def handle_fire_and_forget(self, frame_: RequestFireAndForgetFrame):
+        await self._handler.request_fire_and_forget(Payload(frame_.data, frame_.metadata))
+
+    async def handle_metadata_push(self, frame_: MetadataPushFrame):
+        await self._handler.on_metadata_push(Payload(None, frame_.metadata))
+
+    async def handle_request_channel(self, frame_: RequestChannelFrame):
+        stream_ = frame_.stream_id
+        handler = self._handler
+        publisher, subscriber = await handler.request_channel(Payload(frame_.data, frame_.metadata))
+        channel_responder = RequestChannelResponder(stream_, self, publisher)
+        channel_responder.subscribe(subscriber)
+        await channel_responder.frame_received(frame_)
+        self._streams[stream_] = channel_responder
+
+    async def handle_resume(self, frame_: ResumeFrame):
+        ...
+
     async def _receiver(self):
         try:
-            async def handle_request_response(frame_: RequestResponseFrame):
-                stream_ = frame_.stream_id
-                handler = self._handler
-                response_future = await handler.request_response(Payload(frame_.data, frame_.metadata))
-                self._streams[stream_] = RequestResponseResponder(stream_, self, response_future)
-
-            async def handle_request_stream(frame_: RequestStreamFrame):
-                stream_ = frame_.stream_id
-                handler = self._handler
-                publisher = await handler.request_stream(Payload(frame_.data, frame_.metadata))
-                request_responder = RequestStreamResponder(stream_, self, publisher)
-                await request_responder.frame_received(frame_)
-                self._streams[stream_] = request_responder
-
-            async def handle_setup(frame_: SetupFrame):
-                handler = self._handler
-                try:
-                    await handler.on_setup(frame_.data_encoding,
-                                           frame_.metadata_encoding)
-                except Exception as exception:
-                    await self.send_error(frame_.stream_id, exception)
-
-                if frame_.flags_lease:
-                    await handler.supply_lease()
-
-            async def handle_fire_and_forget(frame_: RequestFireAndForgetFrame):
-                await self._handler.request_fire_and_forget(Payload(frame_.data, frame_.metadata))
-
-            async def handle_metadata_push(frame_: MetadataPushFrame):
-                await self._handler.on_metadata_push(Payload(None, frame_.metadata))
-
-            async def handle_request_channel(frame_: RequestChannelFrame):
-                stream_ = frame_.stream_id
-                handler = self._handler
-                publisher, subscriber = await handler.request_channel(Payload(frame_.data, frame_.metadata))
-                channel_responder = RequestChannelResponder(stream_, self, publisher)
-                channel_responder.subscribe(subscriber)
-                await channel_responder.frame_received(frame_)
-                self._streams[stream_] = channel_responder
-
-            async def handle_resume(frame_: ResumeFrame):
-                ...
 
             async_frame_handler_by_type = {
-                RequestResponseFrame: handle_request_response,
-                RequestStreamFrame: handle_request_stream,
-                RequestChannelFrame: handle_request_channel,
-                SetupFrame: handle_setup,
-                RequestFireAndForgetFrame: handle_fire_and_forget,
-                MetadataPushFrame: handle_metadata_push,
-                ResumeFrame: handle_resume
+                RequestResponseFrame: self.handle_request_response,
+                RequestStreamFrame: self.handle_request_stream,
+                RequestChannelFrame: self.handle_request_channel,
+                SetupFrame: self.handle_setup,
+                RequestFireAndForgetFrame: self.handle_fire_and_forget,
+                MetadataPushFrame: self.handle_metadata_push,
+                ResumeFrame: self.handle_resume
             }
             connection = Connection()
 
