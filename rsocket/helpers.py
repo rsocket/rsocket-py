@@ -4,7 +4,6 @@ from io import BytesIO
 from typing import Union, Callable, Optional, TypeVar, Tuple
 
 from rsocket.fragment import Fragment
-from rsocket.payload import Payload
 
 
 def to_milliseconds(period: timedelta) -> int:
@@ -102,11 +101,3 @@ async def payload_to_n_size_fragments(data_reader: BytesIO,
         else:
             if not last_fragment_sent:
                 yield Fragment(b'', None, is_last=True)
-
-
-def add_fragment_to_payload(payload: Payload, fragment: Fragment) -> Payload:
-    return Payload(payload.data + fragment.data, payload.metadata + fragment.metadata)
-
-
-def fragment_to_payload(fragment: Fragment) -> Payload:
-    return add_fragment_to_payload(Payload(b'', b''), fragment)
