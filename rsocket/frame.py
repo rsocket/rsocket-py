@@ -490,7 +490,8 @@ class MetadataPushFrame(Frame):
         self.flags_metadata = True
 
     def parse(self, buffer, offset):
-        offset += self.parse_header(buffer, offset)
+        header = self.parse_header(buffer, offset)
+        offset += header[0]
         offset += self.parse_metadata(buffer, offset)
 
 

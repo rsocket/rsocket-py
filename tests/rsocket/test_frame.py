@@ -4,7 +4,9 @@ import pytest
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type, RequestResponseFrame, RequestNFrame, ResumeFrame)
+from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type,
+                           RequestResponseFrame, RequestNFrame, ResumeFrame,
+                           MetadataPushFrame, PayloadFrame)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -253,4 +255,49 @@ async def test_resume_frame(connection):
     assert isinstance(frame, ResumeFrame)
     assert frame.last_server_position == 123
     assert frame.first_client_position == 456
+    assert frame.serialize() == data
+
+
+@pytest.mark.asyncio
+async def test_metadata_push_frame(connection):
+    data = build_frame(
+        bits(24, 14, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, Type.METADATA_PUSH, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 1, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        data_bits(b'metadata')
+    )
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
+    assert isinstance(frame, MetadataPushFrame)
+    assert frame.metadata == b'metadata'
+    assert frame.serialize() == data
+
+
+@pytest.mark.asyncio
+async def test_payload_frame(connection):
+    data = build_frame(
+        bits(24, 28, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, Type.PAYLOAD, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 1, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        bits(24, 8, 'Metadata length'),
+        data_bits(b'metadata'),
+        data_bits(b'actual_data'),
+    )
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
+    assert isinstance(frame, PayloadFrame)
+    assert frame.metadata == b'metadata'
+    assert frame.data == b'actual_data'
     assert frame.serialize() == data
