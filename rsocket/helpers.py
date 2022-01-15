@@ -1,6 +1,10 @@
 import struct
 from datetime import timedelta
+from io import BytesIO
 from typing import Union, Callable, Optional, TypeVar, Tuple
+
+from rsocket.fragment import Fragment
+from rsocket.payload import Payload
 
 
 def to_milliseconds(period: timedelta) -> int:
@@ -57,3 +61,52 @@ def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[T
         offset = 1 + mime_length_or_type
 
     return metadata_encoding, offset
+
+
+async def payload_to_n_size_fragments(data_reader: BytesIO,
+                                      metadata_reader: BytesIO,
+                                      fragment_size: int):
+    while True:
+        metadata_fragment = metadata_reader.read(fragment_size)
+
+        if len(metadata_fragment) < fragment_size:
+            last_metadata_fragment = metadata_fragment
+            break
+        else:
+            yield Fragment(None, metadata_fragment, is_last=False)
+
+    expected_data_fragment_length = fragment_size - len(last_metadata_fragment)
+    data_fragment = data_reader.read(expected_data_fragment_length)
+
+    metadata_fragment = None
+
+    if len(last_metadata_fragment) > 0:
+        metadata_fragment = last_metadata_fragment
+
+    yield Fragment(data_fragment, metadata_fragment, is_last=len(data_fragment) < expected_data_fragment_length)
+
+    if len(data_fragment) == 0:
+        yield Fragment(None, None, is_last=True)
+        return
+
+    last_fragment_sent = False
+    while True:
+        if last_fragment_sent:
+            return
+
+        data_fragment = data_reader.read(fragment_size)
+
+        if len(data_fragment) > 0:
+            last_fragment_sent = len(data_fragment) < fragment_size
+            yield Fragment(data_fragment, None, is_last=last_fragment_sent)
+        else:
+            if not last_fragment_sent:
+                yield Fragment(b'', None, is_last=True)
+
+
+def add_fragment_to_payload(payload: Payload, fragment: Fragment) -> Payload:
+    return Payload(payload.data + fragment.data, payload.metadata + fragment.metadata)
+
+
+def fragment_to_payload(fragment: Fragment) -> Payload:
+    return add_fragment_to_payload(Payload(b'', b''), fragment)

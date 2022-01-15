@@ -14,7 +14,7 @@ class RequestResponseResponder(StreamHandler):
         if self.future.cancelled():
             pass
         elif not future.exception():
-            ensure_future(self.socket.send_response(
+            ensure_future(self.socket.send_payload(
                 self.stream, future.result(), complete=True))
         else:
             ensure_future(self.socket.send_error(

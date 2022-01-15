@@ -30,7 +30,7 @@ class RoutingRequestHandler(BaseRequestHandler):
                  socket,
                  router: RequestRouter,
                  authentication_verifier: Optional[
-                     Callable[[Authentication], Coroutine[None, None, None]]] = always_allow_authenticator):
+                     Callable[[str, Authentication], Coroutine[None, None, None]]] = always_allow_authenticator):
         super().__init__(socket)
         self.authentication_verifier = authentication_verifier
         self.router = router
@@ -83,7 +83,7 @@ class RoutingRequestHandler(BaseRequestHandler):
         composite_metadata = CompositeMetadata()
         composite_metadata.parse(payload.metadata)
         route = self._require_route(composite_metadata)
-        await self._verify_authentication(composite_metadata)
+        await self._verify_authentication(route, composite_metadata)
         return await self.router.route(route, payload, composite_metadata)
 
     def _require_route(self, composite_metadata: CompositeMetadata) -> Optional[str]:
@@ -93,11 +93,11 @@ class RoutingRequestHandler(BaseRequestHandler):
 
         raise Exception('No route found in request')
 
-    async def _verify_authentication(self, composite_metadata: CompositeMetadata):
+    async def _verify_authentication(self, route: str, composite_metadata: CompositeMetadata):
         if self.authentication_verifier is not None:
             for item in composite_metadata.items:
                 if isinstance(item, AuthenticationContent):
-                    await self.authentication_verifier(item.authentication)
+                    await self.authentication_verifier(route, item.authentication)
                     return
 
             raise Exception('Authentication required but not provided')

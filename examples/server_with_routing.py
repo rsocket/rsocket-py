@@ -27,6 +27,12 @@ async def stream_response(payload, composite_metadata):
     return ResponseStream()
 
 
+@router.stream('fragmented_stream')
+async def fragmented_stream(payload, composite_metadata):
+    logging.info('Got fragmented stream request')
+    return ResponseStream(fragment_size=6)
+
+
 @router.fire_and_forget('no_response')
 async def no_response(payload, composite_metadata):
     logging.info('No response sent to client')
@@ -39,13 +45,13 @@ async def channel_response(payload, composite_metadata):
     return channel, channel
 
 
-@router.stream('stream-slow')
+@router.stream('slow_stream')
 async def stream_slow(**kwargs):
     logging.info('Got slow stream request')
     return ResponseStream(delay_between_messages=timedelta(seconds=2))
 
 
-async def authenticator(authentication: Authentication):
+async def authenticator(route: str, authentication: Authentication):
     if isinstance(authentication, AuthenticationSimple):
         if authentication.password != b'12345':
             raise Exception('Authentication error')

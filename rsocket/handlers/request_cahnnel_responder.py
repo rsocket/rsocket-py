@@ -19,14 +19,14 @@ class RequestChannelResponder(StreamHandler, Publisher, Subscription):
             self._requester = requester
 
         async def on_next(self, value, is_complete=False):
-            ensure_future(self._socket.send_response(
+            ensure_future(self._socket.send_payload(
                 self._stream, value, complete=is_complete))
 
         def on_complete(self, value=None):
             if value is None:
                 value = Payload(b'', b'')
 
-            ensure_future(self._socket.send_response(
+            ensure_future(self._socket.send_payload(
                 self._stream, value, complete=True))
             self._requester._sent_complete = True
             self._requester._finish_if_both_closed()

@@ -2,6 +2,7 @@ from asyncio import ensure_future
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
 from rsocket.handlers.stream_handler import StreamHandler
@@ -15,24 +16,24 @@ class RequestStreamResponder(StreamHandler):
             self.stream = stream
             self.socket = socket
 
-        async def on_next(self, value, is_complete=False):
-            ensure_future(self.socket.send_response(
+        async def on_next(self, value: Payload, is_complete=False):
+            ensure_future(self.socket.send_payload(
                 self.stream, value, complete=is_complete))
 
-        def on_complete(self, value=None):
+        def on_complete(self, value: Payload = None):
             if value is None:
                 value = Payload(b'', b'')
 
-            ensure_future(self.socket.send_response(
+            ensure_future(self.socket.send_payload(
                 self.stream, value, complete=True))
 
             self.socket.finish_stream(self.stream)
 
-        def on_error(self, exception):
+        def on_error(self, exception: Exception):
             ensure_future(self.socket.send_error(self.stream, exception))
             self.socket.finish_stream(self.stream)
 
-        def on_subscribe(self, subscription):
+        def on_subscribe(self, subscription: Subscription):
             # noinspection PyAttributeOutsideInit
             self.subscription = subscription
 

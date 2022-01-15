@@ -6,11 +6,13 @@ from typing import Union, Type
 
 from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
+from rsocket.fragment import Fragment
 from rsocket.frame import ErrorCode, RequestChannelFrame, ResumeFrame
 from rsocket.frame import ErrorFrame, KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, PayloadFrame, Frame
 from rsocket.frame import SetupFrame
+from rsocket.frame_fragment_cache import FrameFragmentCache
 from rsocket.handlers import RequestChannelRequester
 from rsocket.handlers import RequestChannelResponder
 from rsocket.handlers import RequestResponseRequester, \
@@ -82,14 +84,19 @@ class RSocket:
         error.data = str(exception).encode()
         self.send_frame(error)
 
-    async def send_response(self, stream, payload, complete=False):
-        response = PayloadFrame()
-        response.stream_id = stream
-        response.flags_complete = complete
-        response.flags_next = True
-        response.data = payload.data
-        response.metadata = payload.metadata
-        self.send_frame(response)
+    async def send_payload(self, stream: int, payload: Payload, complete=False):
+        frame = PayloadFrame()
+        frame.stream_id = stream
+        frame.flags_complete = complete
+        frame.flags_next = True
+
+        if isinstance(payload, Fragment):
+            frame.flags_follows = not payload.is_last
+
+        frame.data = payload.data
+        frame.metadata = payload.metadata
+
+        self.send_frame(frame)
 
     @abc.abstractmethod
     def _update_last_keepalive(self):
@@ -174,6 +181,7 @@ class RSocket:
         ...
 
     async def _receiver_listen(self, connection, async_frame_handler_by_type):
+        frame_fragment_cache = FrameFragmentCache()
 
         while self.is_server_alive():
 
@@ -189,6 +197,11 @@ class RSocket:
                 break
 
             async for frame in connection.receive_data(data):
+                if isinstance(frame, PayloadFrame):
+                    frame = frame_fragment_cache.append(frame)
+                    if frame is None:
+                        continue
+
                 stream = frame.stream_id
 
                 if stream and stream in self._streams:
