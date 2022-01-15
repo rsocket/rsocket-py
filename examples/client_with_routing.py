@@ -78,15 +78,15 @@ class StreamSubscriber(Subscriber):
 async def communicate(reader, writer):
     async with RSocketClient(reader, writer,
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as socket:
-        await test_request_response(socket)
-        await test_stream(socket)
-        await test_slow_stream(socket)
-        await test_channel(socket)
-        await test_stream_invalid_login(socket)
-        await test_fragmented_stream(socket)
+        await request_response(socket)
+        await request_stream(socket)
+        await request_slow_stream(socket)
+        await request_channel(socket)
+        await request_stream_invalid_login(socket)
+        await request_fragmented_stream(socket)
 
 
-async def test_request_response(socket: RSocketClient):
+async def request_response(socket: RSocketClient):
     payload = Payload(b'The quick brown fox',
                       composite(route('single_request'),
                                 authenticate_simple('user', '12345')))
@@ -94,7 +94,7 @@ async def test_request_response(socket: RSocketClient):
     await socket.request_response(payload)
 
 
-async def test_channel(socket: RSocketClient):
+async def request_channel(socket: RSocketClient):
     channel_completion_event = Event()
     requester_completion_event = Event()
     channel_payload = Payload(b'The quick brown fox',
@@ -108,7 +108,7 @@ async def test_channel(socket: RSocketClient):
     await requester_completion_event.wait()
 
 
-async def test_stream_invalid_login(socket: RSocketClient):
+async def request_stream_invalid_login(socket: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(route('stream'),
                                                         authenticate_simple('user', 'wrong_password')))
     completion_event = Event()
@@ -116,7 +116,7 @@ async def test_stream_invalid_login(socket: RSocketClient):
     await completion_event.wait()
 
 
-async def test_stream(socket: RSocketClient):
+async def request_stream(socket: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(route('stream'),
                                                         authenticate_simple('user', '12345')))
     completion_event = Event()
@@ -124,7 +124,7 @@ async def test_stream(socket: RSocketClient):
     await completion_event.wait()
 
 
-async def test_slow_stream(socket: RSocketClient):
+async def request_slow_stream(socket: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(route('slow_stream'),
                                                         authenticate_simple('user', '12345')))
     completion_event = Event()
@@ -132,7 +132,7 @@ async def test_slow_stream(socket: RSocketClient):
     await completion_event.wait()
 
 
-async def test_fragmented_stream(socket: RSocketClient):
+async def request_fragmented_stream(socket: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(route('fragmented_stream'),
                                                         authenticate_simple('user', '12345')))
     completion_event = Event()

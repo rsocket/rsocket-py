@@ -275,7 +275,6 @@ class LeaseFrame(Frame):
         super().__init__(Type.LEASE)
         super().metadata_only = True
 
-    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         offset += self.parse_header(buffer, offset)
         self.time_to_live, self.number_of_requests = struct.unpack_from(
