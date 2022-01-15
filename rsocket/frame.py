@@ -256,7 +256,6 @@ class ErrorFrame(Frame):
     def parse(self, buffer: bytes, offset: int):
         header = self.parse_header(buffer, offset)
         offset += header[0]
-        flags = header[1]
         self.error_code, = struct.unpack_from('>I', buffer, offset)
         offset += 4
         offset += self.parse_data(buffer, offset)
@@ -352,7 +351,6 @@ class RequestResponseFrame(RequestFrame):
     def parse(self, buffer, offset):
         header = RequestFrame.parse(self, buffer, offset)
         offset += header[0]
-        flags = header[1]
         self._parse_payload(buffer, offset)
 
 
