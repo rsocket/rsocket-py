@@ -22,6 +22,15 @@ class ErrorCode(IntEnum):
     RESERVED = 0xFFFFFFFF
 
 
+_FLAG_METADATA_BIT = 0x100
+_FLAG_IGNORE_BIT = 0x200
+_FLAG_COMPLETE_BIT = 0x40
+_FLAG_FOLLOWS_BIT = 0x80
+_FLAG_LEASE_BIT = 0x40
+_FLAG_RESUME_BIT = 0x80
+_FLAG_RESPOND_BIT = 0x80
+
+
 class ParseError(ValueError):
     pass
 
@@ -58,9 +67,6 @@ class Frame(metaclass=ABCMeta):
         'metadata_only'
     )
 
-    _FLAG_IGNORE_BIT = 0x200
-    _FLAG_METADATA_BIT = 0x100
-
     def __init__(self, frame_type: Type):
         self.length = 0
         self.frame_type = frame_type
@@ -75,30 +81,14 @@ class Frame(metaclass=ABCMeta):
 
         self.metadata_only = False
 
-    class Parser:
-
-        def __init__(self, buffer: bytes, offset: int, limit: int):
-            self.buffer = buffer
-            self.offset = offset
-            self.limit = limit
-
-        def parse_header(self):
-            available = self.limit - self.offset
-            if available < 12:
-                raise ParseError('Not enough bytes: {} vs 12'.format(available))
-            length, frame_type, flags, stream_id = struct.unpack_from(
-                '>IHHI', self.buffer, self.offset)
-            self.offset += 12
-            return length, frame_type, flags, stream_id
-
     def parse_header(self, buffer: bytes, offset: int) -> Tuple[int, int]:
         self.length, = struct.unpack('>I', b'\x00' + buffer[offset:offset + 3])
         self.stream_id, self.frame_type, flags = struct.unpack_from(
             '>IBB', buffer, offset + 3)
         flags |= (self.frame_type & 3) << 8
         self.frame_type >>= 2
-        self.flags_ignore = self._is_flag_set(flags, self._FLAG_IGNORE_BIT)
-        self.flags_metadata = self._is_flag_set(flags, self._FLAG_METADATA_BIT)
+        self.flags_ignore = self._is_flag_set(flags, _FLAG_IGNORE_BIT)
+        self.flags_metadata = self._is_flag_set(flags, _FLAG_METADATA_BIT)
         return 9, flags
 
     def _is_flag_set(self, flags: int, bit: int) -> bool:
@@ -128,12 +118,12 @@ class Frame(metaclass=ABCMeta):
         return struct.pack('b', len(buffer)) + buffer
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
-        flags &= ~(self._FLAG_IGNORE_BIT | self._FLAG_METADATA_BIT)
+        flags &= ~(_FLAG_IGNORE_BIT | _FLAG_METADATA_BIT)
         if self.flags_ignore:
-            flags |= self._FLAG_IGNORE_BIT
+            flags |= _FLAG_IGNORE_BIT
         if self.metadata:
             self.flags_metadata = True
-            flags |= self._FLAG_METADATA_BIT
+            flags |= _FLAG_METADATA_BIT
 
         self.length = self._compute_frame_length(middle)
 
@@ -196,9 +186,6 @@ class SetupFrame(Frame):
         'flags_resume'
     )
 
-    _FLAG_LEASE_BIT = 0x40
-    _FLAG_RESUME_BIT = 0x80
-
     def __init__(self):
         super().__init__(Type.SETUP)
         self.major_version = PROTOCOL_MAJOR_VERSION
@@ -211,8 +198,8 @@ class SetupFrame(Frame):
         header = self.parse_header(buffer, offset)
         offset += header[0]
         flags = header[1]
-        self.flags_lease = self._is_flag_set(flags, self._FLAG_LEASE_BIT)
-        self.flags_resume = self._is_flag_set(flags, self._FLAG_RESUME_BIT)
+        self.flags_lease = self._is_flag_set(flags, _FLAG_LEASE_BIT)
+        self.flags_resume = self._is_flag_set(flags, _FLAG_RESUME_BIT)
 
         (self.major_version, self.minor_version,
          self.keep_alive_milliseconds, self.max_lifetime_milliseconds) = (
@@ -241,11 +228,11 @@ class SetupFrame(Frame):
         offset += self.parse_data(buffer, offset)
 
     def serialize(self, middle=b'', flags=0) -> bytes:
-        flags &= ~(self._FLAG_LEASE_BIT | self._FLAG_RESUME_BIT)
+        flags &= ~(_FLAG_LEASE_BIT | _FLAG_RESUME_BIT)
         if self.flags_lease:
-            flags |= self._FLAG_LEASE_BIT
+            flags |= _FLAG_LEASE_BIT
         if self.flags_resume:
-            flags |= self._FLAG_RESUME_BIT
+            flags |= _FLAG_RESUME_BIT
         middle = struct.pack(
             '>HHII', self.major_version, self.minor_version,
             self.keep_alive_milliseconds, self.max_lifetime_milliseconds)
@@ -304,8 +291,6 @@ class LeaseFrame(Frame):
 class KeepAliveFrame(Frame):
     __slots__ = ('flags_respond', 'last_received_position')
 
-    _FLAG_RESPOND_BIT = 0x80
-
     def __init__(self, data=b'', metadata=b''):
         super().__init__(Type.KEEPALIVE)
         self.flags_respond = False
@@ -316,14 +301,14 @@ class KeepAliveFrame(Frame):
         header = self.parse_header(buffer, offset)
         offset += header[0]
         flags = header[1]
-        self.flags_respond = self._is_flag_set(flags, self._FLAG_RESPOND_BIT)
+        self.flags_respond = self._is_flag_set(flags, _FLAG_RESPOND_BIT)
         offset += self.parse_data(buffer, offset)
         # self.last_received_position = struct.unpack('>Q', buffer[offset:])[0]
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
-        flags &= ~self._FLAG_RESPOND_BIT
+        flags &= ~_FLAG_RESPOND_BIT
         if self.flags_respond:
-            flags |= self._FLAG_RESPOND_BIT
+            flags |= _FLAG_RESPOND_BIT
         # middle += struct.pack('>Q', self.last_received_position)
         return Frame.serialize(self, middle, flags)
 
@@ -410,9 +395,6 @@ class RequestChannelFrame(RequestFrame):
         'flags_initial'
     )
 
-    _FLAG_COMPLETE_BIT = 0x40
-    _FLAG_FOLLOWS_BIT = 0x80
-
     def __init__(self):
         super().__init__(Type.REQUEST_CHANNEL)
         self.flags_complete = False
@@ -423,8 +405,8 @@ class RequestChannelFrame(RequestFrame):
         header = RequestFrame.parse(self, buffer, offset)
         offset += header[0]
         flags = header[1]
-        self.flags_complete = self._is_flag_set(flags, self._FLAG_COMPLETE_BIT)
-        self.flags_follows = self._is_flag_set(flags, self._FLAG_FOLLOWS_BIT)
+        self.flags_complete = self._is_flag_set(flags, _FLAG_COMPLETE_BIT)
+        self.flags_follows = self._is_flag_set(flags, _FLAG_FOLLOWS_BIT)
         self.initial_request_n, = struct.unpack_from('>I', buffer, offset)
         offset += 4
         self._parse_payload(buffer, offset)
@@ -522,9 +504,6 @@ class ResumeFrame(Frame):
         'first_client_position'
     )
 
-    _FLAG_LEASE_BIT = 0x40
-    _FLAG_RESUME_BIT = 0x80
-
     def __init__(self):
         super().__init__(Type.RESUME)
         self.major_version = PROTOCOL_MAJOR_VERSION
@@ -551,7 +530,7 @@ class ResumeFrame(Frame):
         self.first_client_position = struct.unpack('>Q', buffer[offset:])[0] & bits_63_mask
 
     def serialize(self, middle=b'', flags=0) -> bytes:
-        flags &= ~(self._FLAG_LEASE_BIT | self._FLAG_RESUME_BIT)
+        flags &= ~(_FLAG_LEASE_BIT | _FLAG_RESUME_BIT)
 
         middle = struct.pack('>HH', self.major_version, self.minor_version)
         middle += struct.pack('>H', len(self.resume_identification_token))
