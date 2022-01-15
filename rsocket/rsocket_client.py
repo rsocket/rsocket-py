@@ -20,7 +20,8 @@ class RSocketClient(RSocket):
                  data_encoding: bytes = b'utf-8',
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = b'utf-8',
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
-                 max_lifetime_period: timedelta = timedelta(minutes=10), honor_lease=False):
+                 max_lifetime_period: timedelta = timedelta(minutes=10),
+                 honor_lease=False):
         self._is_server_alive = True
         self._max_lifetime_period = max_lifetime_period
         self._last_server_keepalive: Optional[datetime] = None
@@ -28,6 +29,7 @@ class RSocketClient(RSocket):
         self._honor_lease = honor_lease
 
         super().__init__(reader, writer, handler_factory=handler_factory, loop=loop)
+
         if isinstance(metadata_encoding, WellKnownMimeTypes):
             metadata_encoding = metadata_encoding.value.name
 
@@ -72,9 +74,9 @@ class RSocketClient(RSocket):
             if self._last_server_keepalive - now > self._max_lifetime_period:
                 self._is_server_alive = False
 
-    async def _receiver_listen(self, connection, async_frame_handler_by_type):
+    async def _receiver_listen(self):
         keepalive_timeout_task = asyncio.ensure_future(self._keepalive_timeout_task())
         try:
-            return await super()._receiver_listen(connection, async_frame_handler_by_type)
+            return await super()._receiver_listen()
         finally:
             keepalive_timeout_task.cancel()

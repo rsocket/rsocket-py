@@ -4,15 +4,15 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
-    PayloadFrame, Frame, RequestChannelFrame
+    PayloadFrame, Frame, RequestChannelFrame, error_frame_to_exception
 from rsocket.handlers.stream_handler import StreamHandler
 from rsocket.payload import Payload
 
 
-class RequestChannelRequester(StreamHandler, Publisher, Subscription):
+class RequestChannelCommon(StreamHandler, Publisher, Subscription):
     class StreamSubscriber(Subscriber):
         def __init__(self, stream: int, socket,
-                     requester: 'RequestChannelRequester'):
+                     requester: 'RequestChannelCommon'):
             super().__init__()
             self._stream = stream
             self._socket = socket
@@ -42,10 +42,9 @@ class RequestChannelRequester(StreamHandler, Publisher, Subscription):
 
     def __init__(self, stream: int, socket, local_publisher: Publisher):
         super().__init__(stream, socket)
-        self.subscriber = self.StreamSubscriber(stream, socket, self)
         self.local_publisher = local_publisher
-        local_publisher.subscribe(self.subscriber)
-
+        self.subscriber = self.StreamSubscriber(stream, socket, self)
+        self.local_publisher.subscribe(self.subscriber)
         self._sent_complete = False
         self._received_complete = False
 
@@ -63,7 +62,7 @@ class RequestChannelRequester(StreamHandler, Publisher, Subscription):
                 self._received_complete = True
                 self._finish_if_both_closed()
         elif isinstance(frame, ErrorFrame):
-            self.local_subscriber.on_error(RuntimeError(frame.data))
+            self.local_subscriber.on_error(error_frame_to_exception(frame))
             self._received_complete = True
             self._finish_if_both_closed()
 

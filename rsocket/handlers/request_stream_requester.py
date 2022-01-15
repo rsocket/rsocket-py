@@ -1,7 +1,6 @@
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscription import Subscription
-from rsocket.exceptions import RSocketApplicationError
-from rsocket.frame import ErrorFrame, PayloadFrame, Frame
+from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception
 from rsocket.handlers.stream_handler import StreamHandler
 from rsocket.payload import Payload
 
@@ -32,5 +31,5 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
                 self.subscriber.on_complete()
                 self.socket.finish_stream(self.stream)
         elif isinstance(frame, ErrorFrame):
-            self.subscriber.on_error(RSocketApplicationError(frame.data))
+            self.subscriber.on_error(error_frame_to_exception(frame))
             self.socket.finish_stream(self.stream)

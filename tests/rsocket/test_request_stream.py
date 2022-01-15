@@ -7,7 +7,6 @@ import pytest
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
-from rsocket.exceptions import RSocketApplicationError
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
@@ -17,10 +16,10 @@ async def test_request_stream_not_implemented_by_server(pipe):
     payload = Payload(b'abc', b'def')
     server, client = pipe
 
-    with pytest.raises(RSocketApplicationError):
+    with pytest.raises(RuntimeError):
         await client.request_response(payload)
 
-    with pytest.raises(RSocketApplicationError):
+    with pytest.raises(RuntimeError):
         class Receiver(DefaultSubscriber):
             def on_error(self, exception):
                 error.set_exception(exception)

@@ -1,8 +1,10 @@
 import asyncio
+from asyncio.base_events import Server
+from typing import Optional
 
 import pytest
 
-from rsocket.connection import Connection
+from rsocket.frame_parser import FrameParser
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 
@@ -24,7 +26,9 @@ def pipe(unused_tcp_port, event_loop):
         await client.close()
         await server.close()
 
-    service, server, client = None, None, None
+    service: Optional[Server] = None
+    server: Optional[RSocketServer] = None
+    client: Optional[RSocketClient] = None
     port = unused_tcp_port
     host = 'localhost'
 
@@ -35,4 +39,4 @@ def pipe(unused_tcp_port, event_loop):
 
 @pytest.fixture
 def connection():
-    return Connection()
+    return FrameParser()

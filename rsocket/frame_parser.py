@@ -2,10 +2,10 @@ import struct
 
 from rsocket import frame
 
-__all__ = ['Connection']
+__all__ = ['FrameParser']
 
 
-class Connection:
+class FrameParser:
     def __init__(self):
         self._buffer = bytearray()
 

@@ -3,7 +3,6 @@ import functools
 
 import pytest
 
-from rsocket.exceptions import RSocketApplicationError
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
@@ -35,7 +34,7 @@ async def test_request_response_failure(pipe):
     server, client = pipe
     server._handler = Handler(server)
 
-    with pytest.raises(RSocketApplicationError):
+    with pytest.raises(RuntimeError):
         await client.request_response(Payload(b''))
 
 

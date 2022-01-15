@@ -3,7 +3,7 @@ from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
 
 
-class ErrorStreamHandler(Publisher, DefaultSubscription):
+class ErrorStream(Publisher, DefaultSubscription):
     async def request(self, n: int):
         self._subscriber.on_error(self._exception)
 

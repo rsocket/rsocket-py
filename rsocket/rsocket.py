@@ -2,30 +2,31 @@ import abc
 import asyncio
 from asyncio import Future
 from asyncio import StreamWriter, StreamReader
-from typing import Union, Type
+from datetime import timedelta, datetime
+from typing import Union, Type, Optional, Dict, Any
 
 from reactivestreams.publisher import Publisher
-from rsocket.connection import Connection
 from rsocket.fragment import Fragment
-from rsocket.frame import ErrorCode, RequestChannelFrame, ResumeFrame, is_fragmentable_frame
-from rsocket.frame import ErrorFrame, KeepAliveFrame, \
+from rsocket.frame import KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
-    RequestStreamFrame, PayloadFrame, Frame
+    RequestStreamFrame, PayloadFrame, Frame, exception_to_error_frame
+from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_frame, CONNECTION_STREAM_ID
 from rsocket.frame import SetupFrame
 from rsocket.frame_fragment_cache import FrameFragmentCache
-from rsocket.handlers import RequestChannelRequester
-from rsocket.handlers import RequestChannelResponder
-from rsocket.handlers import RequestResponseRequester, \
-    RequestStreamRequester, \
-    Stream
-from rsocket.handlers import RequestResponseResponder, RequestStreamResponder
+from rsocket.frame_parser import FrameParser
+from rsocket.handlers.request_cahnnel_common import RequestChannelCommon
+from rsocket.handlers.request_cahnnel_responder import RequestChannelResponder
+from rsocket.handlers.request_response_requester import RequestResponseRequester
+from rsocket.handlers.request_response_responder import RequestResponseResponder
+from rsocket.handlers.request_stream_requester import RequestStreamRequester
+from rsocket.handlers.request_stream_responder import RequestStreamResponder
+from rsocket.handlers.stream import Stream
 from rsocket.helpers import noop_frame_handler
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
 
 MAX_STREAM_ID = 0x7FFFFFFF
-CONNECTION_STREAM_ID = 0
 
 _not_provided = object()
 
@@ -41,7 +42,13 @@ class RSocket:
         self._handler = handler_factory(self)
         self._next_stream = self._get_first_stream_id()
 
+        self._max_requests: Optional[int] = None
+        self._max_requests_ttl: Optional[timedelta] = None
+        self._connected_at: Optional[datetime] = None
+        self._request_count: int = 0
+
         self._streams = {}
+        self._frame_fragment_cache = FrameFragmentCache()
 
         self._send_queue = asyncio.Queue()
 
@@ -50,6 +57,16 @@ class RSocket:
 
         self._receiver_task = loop.create_task(self._receiver())
         self._sender_task = loop.create_task(self._sender())
+
+        self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
+            RequestResponseFrame: self.handle_request_response,
+            RequestStreamFrame: self.handle_request_stream,
+            RequestChannelFrame: self.handle_request_channel,
+            SetupFrame: self.handle_setup,
+            RequestFireAndForgetFrame: self.handle_fire_and_forget,
+            MetadataPushFrame: self.handle_metadata_push,
+            ResumeFrame: self.handle_resume
+        }
 
     def set_handler_using_factory(self, handler_factory) -> RequestHandler:
         self._handler = handler_factory(self)
@@ -78,11 +95,7 @@ class RSocket:
         self._send_queue.put_nowait(frame)
 
     async def send_error(self, stream: int, exception: Exception):
-        error = ErrorFrame()
-        error.stream_id = stream
-        error.error_code = ErrorCode.APPLICATION_ERROR
-        error.data = str(exception).encode()
-        self.send_frame(error)
+        self.send_frame(exception_to_error_frame(stream, exception))
 
     async def send_payload(self, stream: int, payload: Payload, complete=False):
         frame = PayloadFrame()
@@ -98,9 +111,8 @@ class RSocket:
 
         self.send_frame(frame)
 
-    @abc.abstractmethod
     def _update_last_keepalive(self):
-        ...
+        pass
 
     def handle_keep_alive(self, frame_: KeepAliveFrame):
         logger().debug('Received keepalive')
@@ -158,18 +170,7 @@ class RSocket:
     async def _receiver(self):
         try:
 
-            async_frame_handler_by_type = {
-                RequestResponseFrame: self.handle_request_response,
-                RequestStreamFrame: self.handle_request_stream,
-                RequestChannelFrame: self.handle_request_channel,
-                SetupFrame: self.handle_setup,
-                RequestFireAndForgetFrame: self.handle_fire_and_forget,
-                MetadataPushFrame: self.handle_metadata_push,
-                ResumeFrame: self.handle_resume
-            }
-            connection = Connection()
-
-            await self._receiver_listen(connection, async_frame_handler_by_type)
+            await self._receiver_listen()
 
         except asyncio.CancelledError:
             logger().debug('Canceled')
@@ -181,16 +182,15 @@ class RSocket:
     def is_server_alive(self) -> bool:
         ...
 
-    async def _receiver_listen(self, connection, async_frame_handler_by_type):
-        frame_fragment_cache = FrameFragmentCache()
+    async def _receiver_listen(self):
+        frame_parser = FrameParser()
 
         while self.is_server_alive():
 
             try:
                 data = await self._reader.read(1024)
             except (ConnectionResetError, BrokenPipeError) as exception:
-                logger().debug(
-                    str(exception))
+                logger().debug(str(exception))
                 break  # todo: workaround to silence errors on client closing. this needs a better solution.
 
             if not data:
@@ -198,26 +198,36 @@ class RSocket:
                 break
 
             try:
-                async for frame in connection.receive_data(data):
-                    if is_fragmentable_frame(frame):
-                        frame = frame_fragment_cache.append(frame)
-                        if frame is None:
-                            continue
-
-                    stream = frame.stream_id
-
-                    if stream and stream in self._streams:
-                        await self._streams[stream].frame_received(frame)
-                        continue
-
-                    if isinstance(frame, KeepAliveFrame):
-                        self.handle_keep_alive(frame)
-                    else:
-                        frame_handler = async_frame_handler_by_type.get(type(frame), noop_frame_handler)
-                        await frame_handler(frame)
+                await self._handle_next_frames(data, frame_parser)
             except Exception as exception:
                 logger().error('Error', exc_info=True)
                 await self.send_error(CONNECTION_STREAM_ID, exception)
+
+    async def _handle_next_frames(self, data: bytes, frame_parser: FrameParser):
+        async for frame in frame_parser.receive_data(data):
+            if is_fragmentable_frame(frame):
+                frame = self._frame_fragment_cache.append(frame)
+                if frame is None:
+                    continue
+
+            stream = frame.stream_id
+
+            if stream and stream in self._streams:
+                await self._streams[stream].frame_received(frame)
+                continue
+
+            await self._handle_frame_by_type(frame)
+
+    async def _handle_frame_by_type(self, frame: Frame):
+        if isinstance(frame, KeepAliveFrame):
+            self.handle_keep_alive(frame)
+        else:
+            if self._is_allowed_to_handle_request(frame):
+                frame_handler = self._async_frame_handler_by_type.get(type(frame),
+                                                                      noop_frame_handler)
+                await frame_handler(frame)
+            else:
+                await self._handle_disallowed_request(frame)
 
     def _send_new_keepalive(self, data: bytes = b''):
         frame = KeepAliveFrame()
@@ -227,13 +237,11 @@ class RSocket:
         self.send_frame(frame)
         logger().debug('Sent keepalive')
 
-    @abc.abstractmethod
     def _before_sender(self):
-        ...
+        pass
 
-    @abc.abstractmethod
     def _finally_sender(self):
-        ...
+        pass
 
     async def _sender(self):
         self._before_sender()
@@ -272,6 +280,9 @@ class RSocket:
         await self.close()
 
     def request_response(self, payload: Payload) -> Future:
+        if not self._is_request_sending_allowed():
+            raise Exception
+
         stream = self.allocate_stream()
 
         requester = RequestResponseRequester(stream, self, payload)
@@ -279,6 +290,9 @@ class RSocket:
         return requester
 
     def fire_and_forget(self, payload: Payload):
+        if not self._is_request_sending_allowed():
+            raise Exception
+
         stream = self.allocate_stream()
         frame = RequestFireAndForgetFrame()
         frame.stream_id = stream
@@ -288,6 +302,9 @@ class RSocket:
         self.finish_stream(stream)
 
     def request_stream(self, payload: Payload) -> Union[Stream, Publisher]:
+        if not self._is_request_sending_allowed():
+            raise Exception
+
         stream = self.allocate_stream()
         requester = RequestStreamRequester(stream, self, payload)
         self._streams[stream] = requester
@@ -297,8 +314,24 @@ class RSocket:
             self,
             channel_request_payload: Payload,
             local_publisher: Publisher) -> Union[Stream, Publisher]:
+        if not self._is_request_sending_allowed():
+            raise Exception
+
         stream = self.allocate_stream()
-        requester = RequestChannelRequester(stream, self, local_publisher)
+        requester = RequestChannelCommon(stream, self, local_publisher)
         requester.send_channel_request(channel_request_payload)
         self._streams[stream] = requester
         return requester
+
+    def _is_request_sending_allowed(self) -> bool:
+        if self._max_requests is None:
+            return True
+        self._request_count += 1
+        if self._request_count >= self._max_requests:
+            return False
+
+    def _is_allowed_to_handle_request(self, frame: Frame) -> bool:
+        return True
+
+    async def _handle_disallowed_request(self, frame: Frame):
+        pass

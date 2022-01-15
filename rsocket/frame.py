@@ -3,24 +3,13 @@ from abc import ABCMeta
 from enum import IntEnum
 from typing import Tuple
 
+from rsocket.error_codes import ErrorCode
+from rsocket.exceptions import RSocketProtocolException
+
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
-bits_63_mask = 0x7FFFFFFFFFFFFFFF
-
-
-class ErrorCode(IntEnum):
-    INVALID_SETUP = 0x001,
-    UNSUPPORTED_SETUP = 0x002,
-    REJECTED_SETUP = 0x003,
-    REJECTED_RESUME = 0x004,
-    CONNECTION_ERROR = 0x101,
-    CONNECTION_ERROR_NO_RETRY = 0x102,
-    APPLICATION_ERROR = 0x201,
-    REJECTED = 0x202,
-    CANCELED = 0x203,
-    INVALID = 0x204,
-    RESERVED = 0xFFFFFFFF
-
+MASK_63_BITS = 0x7FFFFFFFFFFFFFFF
+CONNECTION_STREAM_ID = 0
 
 _FLAG_METADATA_BIT = 0x100
 _FLAG_IGNORE_BIT = 0x200
@@ -53,15 +42,34 @@ class Type(IntEnum):
     EXT = 0xFFFF
 
 
-class Frame(metaclass=ABCMeta):
+HEADER_LENGTH = 9
+
+
+class Header:
     __slots__ = (
         'length',
         'frame_type',
         'stream_id',
+        'flags_ignore',
+        'flags_metadata'
+    )
+
+
+def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
+    frame.length, = struct.unpack('>I', b'\x00' + buffer[offset:offset + 3])
+    frame.stream_id, frame.frame_type, flags = struct.unpack_from(
+        '>IBB', buffer, offset + 3)
+    flags |= (frame.frame_type & 3) << 8
+    frame.frame_type >>= 2
+    frame.flags_ignore = is_flag_set(flags, _FLAG_IGNORE_BIT)
+    frame.flags_metadata = is_flag_set(flags, _FLAG_METADATA_BIT)
+    return flags
+
+
+class Frame(Header, metaclass=ABCMeta):
+    __slots__ = (
         'metadata',
         'data',
-        'flags_ignore',
-        'flags_metadata',
         'flags_follows',
         'flags_complete',
         'metadata_only'
@@ -70,7 +78,7 @@ class Frame(metaclass=ABCMeta):
     def __init__(self, frame_type: Type):
         self.length = 0
         self.frame_type = frame_type
-        self.stream_id = 0
+        self.stream_id = CONNECTION_STREAM_ID
         self.metadata = b''
         self.data = b''
 
@@ -80,19 +88,6 @@ class Frame(metaclass=ABCMeta):
         self.flags_complete = False
 
         self.metadata_only = False
-
-    def parse_header(self, buffer: bytes, offset: int) -> Tuple[int, int]:
-        self.length, = struct.unpack('>I', b'\x00' + buffer[offset:offset + 3])
-        self.stream_id, self.frame_type, flags = struct.unpack_from(
-            '>IBB', buffer, offset + 3)
-        flags |= (self.frame_type & 3) << 8
-        self.frame_type >>= 2
-        self.flags_ignore = self._is_flag_set(flags, _FLAG_IGNORE_BIT)
-        self.flags_metadata = self._is_flag_set(flags, _FLAG_METADATA_BIT)
-        return 9, flags
-
-    def _is_flag_set(self, flags: int, bit: int) -> bool:
-        return (flags & bit) != 0
 
     def parse_metadata(self, buffer: bytes, offset: int) -> int:
         if not self.flags_metadata:
@@ -195,11 +190,10 @@ class SetupFrame(Frame):
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer: bytes, offset: int):
-        header = self.parse_header(buffer, offset)
-        offset += header[0]
-        flags = header[1]
-        self.flags_lease = self._is_flag_set(flags, _FLAG_LEASE_BIT)
-        self.flags_resume = self._is_flag_set(flags, _FLAG_RESUME_BIT)
+        flags = parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
+        self.flags_lease = is_flag_set(flags, _FLAG_LEASE_BIT)
+        self.flags_resume = is_flag_set(flags, _FLAG_RESUME_BIT)
 
         (self.major_version, self.minor_version,
          self.keep_alive_milliseconds, self.max_lifetime_milliseconds) = (
@@ -254,8 +248,8 @@ class ErrorFrame(Frame):
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer: bytes, offset: int):
-        header = self.parse_header(buffer, offset)
-        offset += header[0]
+        parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
         self.error_code, = struct.unpack_from('>I', buffer, offset)
         offset += 4
         offset += self.parse_data(buffer, offset)
@@ -275,8 +269,9 @@ class LeaseFrame(Frame):
         super().__init__(Type.LEASE)
         super().metadata_only = True
 
-    def parse(self, buffer, offset):
-        offset += self.parse_header(buffer, offset)
+    def parse(self, buffer: bytes, offset: int):
+        parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
         self.time_to_live, self.number_of_requests = struct.unpack_from(
             '>II', buffer, offset)
         offset += self.parse_metadata(buffer, offset)
@@ -296,10 +291,9 @@ class KeepAliveFrame(Frame):
         self.metadata = metadata
 
     def parse(self, buffer: bytes, offset: int):
-        header = self.parse_header(buffer, offset)
-        offset += header[0]
-        flags = header[1]
-        self.flags_respond = self._is_flag_set(flags, _FLAG_RESPOND_BIT)
+        flags = parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
+        self.flags_respond = is_flag_set(flags, _FLAG_RESPOND_BIT)
         offset += self.parse_data(buffer, offset)
         # self.last_received_position = struct.unpack('>Q', buffer[offset:])[0]
 
@@ -323,9 +317,9 @@ class RequestFrame(Frame):
         self.flags_follows = False
 
     def parse(self, buffer, offset: int) -> Tuple[int, int]:
-        length, flags = self.parse_header(buffer, offset)
-        self.flags_follows = self._is_flag_set(flags, self._FLAG_FOLLOWS_BIT)
-        return length, flags
+        flags = parse_header(self, buffer, offset)
+        self.flags_follows = is_flag_set(flags, self._FLAG_FOLLOWS_BIT)
+        return HEADER_LENGTH, flags
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
         flags &= ~self._FLAG_FOLLOWS_BIT
@@ -402,8 +396,8 @@ class RequestChannelFrame(RequestFrame):
         header = RequestFrame.parse(self, buffer, offset)
         offset += header[0]
         flags = header[1]
-        self.flags_complete = self._is_flag_set(flags, _FLAG_COMPLETE_BIT)
-        self.flags_follows = self._is_flag_set(flags, _FLAG_FOLLOWS_BIT)
+        self.flags_complete = is_flag_set(flags, _FLAG_COMPLETE_BIT)
+        self.flags_follows = is_flag_set(flags, _FLAG_FOLLOWS_BIT)
         self.initial_request_n, = struct.unpack_from('>I', buffer, offset)
         offset += 4
         self._parse_payload(buffer, offset)
@@ -421,8 +415,8 @@ class RequestNFrame(RequestFrame):
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
-        header = self.parse_header(buffer, offset)
-        offset += header[0]
+        parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
         self.request_n, = struct.unpack_from('>I', buffer, offset)
 
     def serialize(self, middle=b'', flags=0):
@@ -436,7 +430,7 @@ class CancelFrame(Frame):
         super().__init__(Type.CANCEL)
 
     def parse(self, buffer, offset):
-        self.parse_header(buffer, offset)
+        parse_header(self, buffer, offset)
 
 
 class PayloadFrame(Frame):
@@ -457,12 +451,11 @@ class PayloadFrame(Frame):
         self.flags_next = False
 
     def parse(self, buffer, offset):
-        header = self.parse_header(buffer, offset)
-        offset += header[0]
-        flags = header[1]
-        self.flags_follows = self._is_flag_set(flags, self._FLAG_FOLLOWS_BIT)
-        self.flags_complete = self._is_flag_set(flags, self._FLAG_COMPLETE_BIT)
-        self.flags_next = self._is_flag_set(flags, self._FLAG_NEXT_BIT)
+        flags = parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
+        self.flags_follows = is_flag_set(flags, self._FLAG_FOLLOWS_BIT)
+        self.flags_complete = is_flag_set(flags, self._FLAG_COMPLETE_BIT)
+        self.flags_next = is_flag_set(flags, self._FLAG_NEXT_BIT)
         offset += self.parse_metadata(buffer, offset)
         offset += self.parse_data(buffer, offset)
 
@@ -487,8 +480,8 @@ class MetadataPushFrame(Frame):
         self.flags_metadata = True
 
     def parse(self, buffer, offset):
-        header = self.parse_header(buffer, offset)
-        offset += header[0]
+        parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
         offset += self.parse_metadata(buffer, offset)
 
 
@@ -509,8 +502,8 @@ class ResumeFrame(Frame):
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer: bytes, offset: int):
-        header = self.parse_header(buffer, offset)
-        offset += header[0]
+        parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
 
         (self.major_version, self.minor_version) = (
             struct.unpack_from('>HH', buffer, offset))
@@ -523,9 +516,9 @@ class ResumeFrame(Frame):
             buffer[offset:offset + self.token_length])
         offset += self.token_length
 
-        self.last_server_position = struct.unpack('>Q', buffer[offset:offset + 8])[0] & bits_63_mask
+        self.last_server_position = struct.unpack('>Q', buffer[offset:offset + 8])[0] & MASK_63_BITS
         offset += 8
-        self.first_client_position = struct.unpack('>Q', buffer[offset:])[0] & bits_63_mask
+        self.first_client_position = struct.unpack('>Q', buffer[offset:])[0] & MASK_63_BITS
 
     def serialize(self, middle=b'', flags=0) -> bytes:
         flags &= ~(_FLAG_LEASE_BIT | _FLAG_RESUME_BIT)
@@ -536,8 +529,8 @@ class ResumeFrame(Frame):
         # assert isinstance(self.resume_identification_token, bytes)
         middle += self.resume_identification_token
 
-        middle += struct.pack('>Q', self.last_server_position & bits_63_mask)
-        middle += struct.pack('>Q', self.first_client_position & bits_63_mask)
+        middle += struct.pack('>Q', self.last_server_position & MASK_63_BITS)
+        middle += struct.pack('>Q', self.first_client_position & MASK_63_BITS)
 
         return Frame.serialize(self, middle)
 
@@ -564,18 +557,24 @@ _frame_class_by_id = {
 }
 
 
-def parse(buffer: bytes, offset=0) -> Frame:
-    if len(buffer) < 9:  # A full header is 3 (length) + 4 (stream) + 2 (type, flags) bytes.
+def parse(buffer: bytes) -> Frame:
+    if len(buffer) < HEADER_LENGTH:  # A full header is 3 (length) + 4 (stream) + 2 (type, flags) bytes.
         raise ParseError('Frame too short: {} bytes'.format(len(buffer)))
 
-    frame_type = struct.unpack_from('>B', buffer, offset + 7)[0] >> 2
+    header = Header()
+    parse_header(header, buffer, 0)
 
     try:
-        frame = _frame_class_by_id[frame_type]()
-        frame.parse(buffer, offset)
-        return frame
+        frame = _frame_class_by_id[header.frame_type]()
     except KeyError:
-        raise ParseError('Wrong frame type: {}'.format(frame_type))
+        raise ParseError('Unknown frame type: {}'.format(header.frame_type))
+
+    try:
+        frame.parse(buffer, 0)
+        return frame
+    except Exception as exception:
+        if not header.flags_ignore:
+            raise RSocketProtocolException(ErrorCode.CONNECTION_ERROR, str(exception))
 
 
 def is_fragmentable_frame(frame: Frame) -> bool:
@@ -586,3 +585,27 @@ def is_fragmentable_frame(frame: Frame) -> bool:
         RequestStreamFrame,
         RequestFireAndForgetFrame
     ))
+
+
+def exception_to_error_frame(stream_id: int, exception: Exception) -> ErrorFrame:
+    frame = ErrorFrame()
+    frame.stream_id = stream_id
+    frame.data = str(exception).encode()
+
+    if isinstance(exception, RSocketProtocolException):
+        frame.error_code = exception.error_code
+    else:
+        frame.error_code = ErrorCode.APPLICATION_ERROR
+
+    return frame
+
+
+def error_frame_to_exception(frame: ErrorFrame) -> Exception:
+    if frame.error_code != ErrorCode.APPLICATION_ERROR:
+        return RSocketProtocolException(frame.error_code)
+
+    return RuntimeError(frame.data.decode('utf-8'))
+
+
+def is_flag_set(flags: int, bit: int) -> bool:
+    return (flags & bit) != 0
