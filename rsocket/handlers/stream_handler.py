@@ -53,4 +53,3 @@ class StreamHandler(Stream, metaclass=ABCMeta):
         request.metadata = payload.metadata
 
         self.socket.send_frame(request)
-
