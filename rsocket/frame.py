@@ -256,7 +256,7 @@ class SetupFrame(Frame):
             middle += self.resume_identification_token
         middle += self.pack_string(self.metadata_encoding)
         middle += self.pack_string(self.data_encoding)
-        return Frame.serialize(self, middle)
+        return Frame.serialize(self, middle, flags)
 
 
 class ErrorFrame(Frame):
@@ -276,7 +276,7 @@ class ErrorFrame(Frame):
 
     def serialize(self, middle=b'', flags=0) -> bytes:
         middle = struct.pack('>I', self.error_code)
-        return Frame.serialize(self, middle)
+        return Frame.serialize(self, middle, flags)
 
 
 class LeaseFrame(Frame):
@@ -298,7 +298,7 @@ class LeaseFrame(Frame):
 
     def serialize(self, middle=b'', flags=0):
         middle = struct.pack('>II', self.time_to_live, self.number_of_requests)
-        return Frame.serialize(self, middle)
+        return Frame.serialize(self, middle, flags)
 
 
 class KeepAliveFrame(Frame):
@@ -325,7 +325,7 @@ class KeepAliveFrame(Frame):
         if self.flags_respond:
             flags |= self._FLAG_RESPOND_BIT
         # middle += struct.pack('>Q', self.last_received_position)
-        return Frame.serialize(self, middle)
+        return Frame.serialize(self, middle, flags)
 
 
 class RequestFrame(Frame):
@@ -599,3 +599,13 @@ def parse(buffer: bytes, offset=0) -> Frame:
         return frame
     except KeyError:
         raise ParseError('Wrong frame type: {}'.format(frame_type))
+
+
+def is_fragmentable_frame(frame: Frame) -> bool:
+    return isinstance(frame, (
+        PayloadFrame,
+        RequestResponseFrame,
+        RequestChannelFrame,
+        RequestStreamFrame,
+        RequestFireAndForgetFrame
+    ))

@@ -12,3 +12,7 @@ class RSocketAuthenticationError(RSocketError):
 
 class RSocketProtocolException(RSocketError):
     pass
+
+
+class RSocketFrameFragmentDifferentType(RSocketError):
+    pass

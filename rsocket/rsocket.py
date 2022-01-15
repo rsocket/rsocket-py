@@ -7,7 +7,7 @@ from typing import Union, Type
 from reactivestreams.publisher import Publisher
 from rsocket.connection import Connection
 from rsocket.fragment import Fragment
-from rsocket.frame import ErrorCode, RequestChannelFrame, ResumeFrame
+from rsocket.frame import ErrorCode, RequestChannelFrame, ResumeFrame, is_fragmentable_frame
 from rsocket.frame import ErrorFrame, KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, PayloadFrame, Frame
@@ -196,23 +196,27 @@ class RSocket:
                 self._writer.close()
                 break
 
-            async for frame in connection.receive_data(data):
-                if isinstance(frame, PayloadFrame):
-                    frame = frame_fragment_cache.append(frame)
-                    if frame is None:
+            try:
+                async for frame in connection.receive_data(data):
+                    if is_fragmentable_frame(frame):
+                        frame = frame_fragment_cache.append(frame)
+                        if frame is None:
+                            continue
+
+                    stream = frame.stream_id
+
+                    if stream and stream in self._streams:
+                        await self._streams[stream].frame_received(frame)
                         continue
 
-                stream = frame.stream_id
-
-                if stream and stream in self._streams:
-                    await self._streams[stream].frame_received(frame)
-                    continue
-
-                if isinstance(frame, KeepAliveFrame):
-                    self.handle_keep_alive(frame)
-                else:
-                    frame_handler = async_frame_handler_by_type.get(type(frame), noop_frame_handler)
-                    await frame_handler(frame)
+                    if isinstance(frame, KeepAliveFrame):
+                        self.handle_keep_alive(frame)
+                    else:
+                        frame_handler = async_frame_handler_by_type.get(type(frame), noop_frame_handler)
+                        await frame_handler(frame)
+            except Exception as exception:
+                logger().error('Error', exc_info=True)
+                await self.send_error(CONNECTION_STREAM_ID, exception)
 
     def _send_new_keepalive(self, data: bytes = b''):
         frame = KeepAliveFrame()
@@ -220,7 +224,7 @@ class RSocket:
         frame.flags_respond = True
         frame.data = data
         self.send_frame(frame)
-        logger().debug('Send keepalive')
+        logger().debug('Sent keepalive')
 
     @abc.abstractmethod
     def _before_sender(self):

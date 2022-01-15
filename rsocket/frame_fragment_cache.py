@@ -1,5 +1,6 @@
 from typing import Optional
 
+from rsocket.exceptions import RSocketFrameFragmentDifferentType
 from rsocket.frame import Frame, PayloadFrame
 
 
@@ -21,6 +22,10 @@ class FrameFragmentCache:
 
     def frame_fragment_builder(self, next_frame: PayloadFrame) -> PayloadFrame:
         current_frame_from_fragments = self.frame_by_stream_id.get(next_frame.stream_id, next_frame)
+
+        if type(current_frame_from_fragments) != type(next_frame):
+            raise RSocketFrameFragmentDifferentType()
+
         current_frame_from_fragments.flags_complete = next_frame.flags_complete
         current_frame_from_fragments.flags_next = next_frame.flags_next
 
