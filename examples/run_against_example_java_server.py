@@ -27,7 +27,7 @@ async def example():
             self.values.append(value)
             await self._subscription.request(1)
 
-        def on_complete(self, value=None):
+        def on_complete(self):
             completion_event.set()
 
         def on_error(self, exception: Exception):

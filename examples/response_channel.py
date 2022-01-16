@@ -36,5 +36,5 @@ class ResponseChannel(StreamFromGenerator, Subscriber):
     def on_error(self, exception: Exception):
         logging.error('Error on channel ' + str(exception))
 
-    def on_complete(self, value=None):
+    def on_complete(self):
         logging.info('Completed on channel')

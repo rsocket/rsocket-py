@@ -48,7 +48,7 @@ class RequestChannel(StreamFromGenerator, Subscriber):
         logging.error('Error from server on channel' + str(exception))
         self._wait_for_responder_complete.set()
 
-    def on_complete(self, value=None):
+    def on_complete(self):
         logging.info('Completed from server on channel')
         self._wait_for_responder_complete.set()
 
@@ -62,7 +62,7 @@ class StreamSubscriber(Subscriber):
         logging.info('RS: {}'.format(value))
         await self.subscription.request(1)
 
-    def on_complete(self, value=None):
+    def on_complete(self):
         logging.info('RS: Complete')
         self._wait_for_complete.set()
 

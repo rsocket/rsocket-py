@@ -17,7 +17,7 @@ class Subscriber(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def on_complete(self, value=None):
+    def on_complete(self):
         ...
 
 
@@ -31,5 +31,5 @@ class DefaultSubscriber(Subscriber):
     def on_subscribe(self, subscription: Subscription):
         pass
 
-    def on_complete(self, value=None):
+    def on_complete(self):
         pass

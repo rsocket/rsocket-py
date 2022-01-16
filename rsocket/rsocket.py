@@ -274,7 +274,7 @@ class RSocket:
         self._writer.close()
         await self._writer.wait_closed()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'RSocket':
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

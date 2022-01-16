@@ -9,7 +9,7 @@ class NullSubscriber(Subscriber):
     def on_error(self, exception: Exception):
         pass
 
-    def on_complete(self, value=None):
+    def on_complete(self):
         pass
 
     def on_subscribe(self, subscription: Subscription):

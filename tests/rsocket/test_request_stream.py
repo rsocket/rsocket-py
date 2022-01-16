@@ -72,7 +72,7 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
             self.received_messages.append(value)
             logging.info(value)
 
-        def on_complete(self, value=None):
+        def on_complete(self):
             logging.info('Complete')
             stream_finished.set()
 
@@ -183,7 +183,7 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
             await self.subscription.request(1)
             logging.info(value)
 
-        def on_complete(self, value=None):
+        def on_complete(self):
             logging.info('Complete')
             stream_completed.set()
 
@@ -238,7 +238,7 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
             self.received_messages.append(value)
             logging.info(value)
 
-        def on_complete(self, value=None):
+        def on_complete(self):
             logging.info('Complete')
             stream_completed.set()
 

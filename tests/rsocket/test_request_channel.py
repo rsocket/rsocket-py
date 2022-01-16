@@ -47,7 +47,7 @@ async def test_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSoc
             self.received_messages.append(value)
             logging.info(value)
 
-        def on_complete(self, value=None):
+        def on_complete(self):
             logging.info('Complete')
             stream_finished.set()
 

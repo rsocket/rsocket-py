@@ -17,8 +17,8 @@ class RSocketClient(RSocket):
                  writer: StreamWriter, *,
                  handler_factory=BaseRequestHandler,
                  loop=_not_provided,
-                 data_encoding: bytes = b'utf-8',
-                 metadata_encoding: Union[bytes, WellKnownMimeTypes] = b'utf-8',
+                 data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
+                 metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  honor_lease=False):
@@ -32,6 +32,9 @@ class RSocketClient(RSocket):
 
         if isinstance(metadata_encoding, WellKnownMimeTypes):
             metadata_encoding = metadata_encoding.value.name
+
+        if isinstance(data_encoding, WellKnownMimeTypes):
+            data_encoding = data_encoding.value.name
 
         self._send_setup_frame(data_encoding, metadata_encoding)
 

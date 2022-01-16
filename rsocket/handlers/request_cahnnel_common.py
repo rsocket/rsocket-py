@@ -22,12 +22,9 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             ensure_future(self._socket.send_payload(
                 self._stream, value, complete=is_complete))
 
-        def on_complete(self, value=None):
-            if value is None:
-                value = Payload(b'', b'')
-
+        def on_complete(self):
             ensure_future(self._socket.send_payload(
-                self._stream, value, complete=True))
+                self._stream, Payload(b'', b''), complete=True))
             self._requester._sent_complete = True
             self._requester._finish_if_both_closed()
 
