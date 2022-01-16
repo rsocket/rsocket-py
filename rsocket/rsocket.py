@@ -6,6 +6,7 @@ from datetime import timedelta, datetime
 from typing import Union, Type, Optional, Dict, Any
 
 from reactivestreams.publisher import Publisher
+from rsocket.empty_publisher import EmptyPublisher
 from rsocket.fragment import Fragment
 from rsocket.frame import KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
@@ -313,9 +314,12 @@ class RSocket:
     def request_channel(
             self,
             channel_request_payload: Payload,
-            local_publisher: Publisher) -> Union[Stream, Publisher]:
+            local_publisher: Optional[Publisher] = None) -> Union[Stream, Publisher]:
         if not self._is_request_sending_allowed():
             raise Exception
+
+        if local_publisher is None:
+            local_publisher = EmptyPublisher()
 
         stream = self.allocate_stream()
         requester = RequestChannelCommon(stream, self, local_publisher)

@@ -42,11 +42,11 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
 
     def __init__(self, stream: int, socket, local_publisher: Publisher):
         super().__init__(stream, socket)
+        self._sent_complete = False
+        self._received_complete = False
         self.local_publisher = local_publisher
         self.subscriber = self.StreamSubscriber(stream, socket, self)
         self.local_publisher.subscribe(self.subscriber)
-        self._sent_complete = False
-        self._received_complete = False
 
     async def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):

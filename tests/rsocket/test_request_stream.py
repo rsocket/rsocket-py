@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import List
+from typing import List, Tuple
 
 import pytest
 
@@ -130,9 +130,6 @@ async def test_request_stream_and_cancel_after_first_message(pipe):
             self.subscription.cancel()
             logging.info(value)
 
-        def on_complete(self, value=None):
-            logging.info('Complete')
-
         def on_subscribe(self, subscription):
             self.subscription = subscription
 
@@ -149,9 +146,9 @@ async def test_request_stream_and_cancel_after_first_message(pipe):
 
 
 @pytest.mark.asyncio
-async def test_request_stream_with_back_pressure(pipe):
-    server: RSocketServer = pipe[0]
-    client: RSocketClient = pipe[1]
+async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+
     stream_completed = asyncio.Event()
     requests_received = 0
 

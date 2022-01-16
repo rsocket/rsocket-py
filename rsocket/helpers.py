@@ -18,13 +18,14 @@ async def always_allow_authenticator(authentication):
     pass
 
 
-def str_to_bytes(route_path: str):
-    return bytes(bytearray(map(ord, route_path)))
+def str_to_bytes(route_path: str) -> bytes:
+    return route_path.encode('utf-8')
 
 
 def ensure_bytes(item: Union[bytes, str]) -> bytes:
     if isinstance(item, str):
         return str_to_bytes(item)
+
     return item
 
 
