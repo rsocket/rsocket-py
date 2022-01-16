@@ -1,15 +1,18 @@
 import struct
+from typing import AsyncGenerator
 
 from rsocket import frame
 
-__all__ = ['Connection']
+__all__ = ['FrameParser']
+
+from rsocket.frame import Frame
 
 
-class Connection:
+class FrameParser:
     def __init__(self):
         self._buffer = bytearray()
 
-    async def receive_data(self, data: bytes):
+    async def receive_data(self, data: bytes) -> AsyncGenerator[Frame, None]:
         self._buffer.extend(data)
         total = len(self._buffer)
 

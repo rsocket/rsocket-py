@@ -5,7 +5,7 @@ from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
-from rsocket.handlers.stream_handler import StreamHandler
+from rsocket.streams.stream_handler import StreamHandler
 from rsocket.payload import Payload
 
 
@@ -20,12 +20,9 @@ class RequestStreamResponder(StreamHandler):
             ensure_future(self.socket.send_payload(
                 self.stream, value, complete=is_complete))
 
-        def on_complete(self, value: Payload = None):
-            if value is None:
-                value = Payload(b'', b'')
-
+        def on_complete(self):
             ensure_future(self.socket.send_payload(
-                self.stream, value, complete=True))
+                self.stream, Payload(b'', b''), complete=True))
 
             self.socket.finish_stream(self.stream)
 

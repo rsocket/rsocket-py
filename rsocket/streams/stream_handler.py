@@ -1,9 +1,9 @@
 from abc import abstractmethod, ABCMeta
 
-from rsocket.exceptions import RSocketProtocolException
+from rsocket.exceptions import RSocketValueErrorException
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
-from rsocket.handlers.stream import Stream
+from rsocket.streams.stream import Stream
 from rsocket.payload import Payload
 
 MAX_REQUEST_N = 0x7FFFFFFF
@@ -18,7 +18,7 @@ class StreamHandler(Stream, metaclass=ABCMeta):
 
     def limit_rate(self, n: int):
         if n <= 0:
-            raise RSocketProtocolException('Initial request N must be > 0')
+            raise RSocketValueErrorException('Initial request N must be > 0')
 
         self._initial_request_n = n
         return self

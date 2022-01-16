@@ -16,7 +16,7 @@ class StreamSubscriber(Subscriber):
         logging.info('RS: {}'.format(value))
         await self.subscription.request(1)
 
-    def on_complete(self, value=None):
+    def on_complete(self):
         logging.info('RS: Complete')
         self._wait_for_complete.set()
 

@@ -1,8 +1,7 @@
 from asyncio import Future
 
-from rsocket.exceptions import RSocketApplicationError
-from rsocket.frame import ErrorFrame, RequestResponseFrame, PayloadFrame, Frame
-from rsocket.handlers.stream_handler import StreamHandler
+from rsocket.frame import ErrorFrame, RequestResponseFrame, PayloadFrame, Frame, error_frame_to_exception
+from rsocket.streams.stream_handler import StreamHandler
 from rsocket.payload import Payload
 
 
@@ -20,7 +19,7 @@ class RequestResponseRequester(StreamHandler, Future):
             self.set_result(Payload(frame.data, frame.metadata))
             self.socket.finish_stream(self.stream)
         elif isinstance(frame, ErrorFrame):
-            self.set_exception(RSocketApplicationError(frame.data))
+            self.set_exception(error_frame_to_exception(frame))
             self.socket.finish_stream(self.stream)
 
     def cancel(self, *args, **kwargs):

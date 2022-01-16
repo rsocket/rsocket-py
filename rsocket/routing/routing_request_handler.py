@@ -1,5 +1,6 @@
 import asyncio
 from asyncio import Future
+from datetime import timedelta
 from typing import Callable, Union, Optional, Coroutine, Tuple
 
 from reactivestreams.publisher import Publisher
@@ -9,13 +10,18 @@ from rsocket.extensions.authentication_content import AuthenticationContent
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
-from rsocket.handlers.null_subscrier import NullSubscriber
-from rsocket.helpers import always_allow_authenticator
+from rsocket.frame import LeaseFrame
+from rsocket.helpers import to_milliseconds
 from rsocket.logger import logger
 from rsocket.payload import Payload
-from rsocket.routing.error_stream_handler import ErrorStreamHandler
 from rsocket.routing.request_router import RequestRouter
 from rsocket.rsocket import BaseRequestHandler
+from rsocket.streams.error_stream import ErrorStream
+from rsocket.streams.null_subscrier import NullSubscriber
+
+
+async def always_allow_authenticator(route: str, authentication: Authentication):
+    pass
 
 
 class RoutingRequestHandler(BaseRequestHandler):
@@ -23,17 +29,30 @@ class RoutingRequestHandler(BaseRequestHandler):
         'router',
         'data_encoding',
         'metadata_encoding',
-        'authentication_verifier'
+        'authentication_verifier',
+        '_lease_ttl',
+        '_lease_max_requests'
     )
 
     def __init__(self,
                  socket,
                  router: RequestRouter,
                  authentication_verifier: Optional[
-                     Callable[[str, Authentication], Coroutine[None, None, None]]] = always_allow_authenticator):
+                     Callable[[str, Authentication], Coroutine[None, None, None]]] = always_allow_authenticator,
+                 lease_ttl: Optional[timedelta] = None,
+                 lease_max_requests: Optional[int] = None):
         super().__init__(socket)
-        self.authentication_verifier = authentication_verifier
         self.router = router
+        self.authentication_verifier = authentication_verifier
+        self._lease_ttl = lease_ttl
+        self._lease_max_requests = lease_max_requests
+
+    async def supply_lease(self):
+        if self._lease_ttl is not None and self._lease_max_requests is not None:
+            frame = LeaseFrame()
+            frame.number_of_requests = self._lease_max_requests
+            frame.time_to_live = to_milliseconds(self._lease_ttl)
+            self.socket.send_frame(frame)
 
     # noinspection PyAttributeOutsideInit
     async def on_setup(self,
@@ -72,7 +91,7 @@ class RoutingRequestHandler(BaseRequestHandler):
             return self._error_stream_handler(exception)
 
     def _error_stream_handler(self, exception):
-        return ErrorStreamHandler(exception)
+        return ErrorStream(exception)
 
     def _error_future(self, exception):
         future = asyncio.Future()

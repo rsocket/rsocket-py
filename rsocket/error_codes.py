@@ -1,0 +1,16 @@
+from enum import IntEnum, unique
+
+
+@unique
+class ErrorCode(IntEnum):
+    INVALID_SETUP = 0x001,
+    UNSUPPORTED_SETUP = 0x002,
+    REJECTED_SETUP = 0x003,
+    REJECTED_RESUME = 0x004,
+    CONNECTION_ERROR = 0x101,
+    CONNECTION_ERROR_NO_RETRY = 0x102,
+    APPLICATION_ERROR = 0x201,
+    REJECTED = 0x202,
+    CANCELED = 0x203,
+    INVALID = 0x204,
+    RESERVED = 0xFFFFFFFF
