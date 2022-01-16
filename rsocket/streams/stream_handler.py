@@ -3,7 +3,7 @@ from abc import abstractmethod, ABCMeta
 from rsocket.exceptions import RSocketValueErrorException
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
-from rsocket.handlers.stream import Stream
+from rsocket.streams.stream import Stream
 from rsocket.payload import Payload
 
 MAX_REQUEST_N = 0x7FFFFFFF

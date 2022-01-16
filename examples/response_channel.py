@@ -5,10 +5,10 @@ from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.fragment import Fragment
 from rsocket.payload import Payload
-from rsocket.response_stream_from_generator import ResponseStreamFromGenerator
+from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
-class ResponseChannel(ResponseStreamFromGenerator, Subscriber):
+class ResponseChannel(StreamFromGenerator, Subscriber):
     def __init__(self, response_count: int = 3):
         super().__init__()
         self._response_count = response_count

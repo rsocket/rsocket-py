@@ -11,13 +11,17 @@ from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
 from rsocket.frame import LeaseFrame
-from rsocket.handlers.error_stream import ErrorStream
-from rsocket.handlers.null_subscrier import NullSubscriber
-from rsocket.helpers import always_allow_authenticator, to_milliseconds
+from rsocket.helpers import to_milliseconds
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.rsocket import BaseRequestHandler
+from rsocket.streams.error_stream import ErrorStream
+from rsocket.streams.null_subscrier import NullSubscriber
+
+
+async def always_allow_authenticator(route: str, authentication: Authentication):
+    pass
 
 
 class RoutingRequestHandler(BaseRequestHandler):

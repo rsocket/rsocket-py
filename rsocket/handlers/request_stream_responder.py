@@ -5,7 +5,7 @@ from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
-from rsocket.handlers.stream_handler import StreamHandler
+from rsocket.streams.stream_handler import StreamHandler
 from rsocket.payload import Payload
 
 

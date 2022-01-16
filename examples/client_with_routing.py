@@ -8,12 +8,12 @@ from reactivestreams.subscription import Subscription
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.fragment import Fragment
 from rsocket.payload import Payload
-from rsocket.response_stream_from_generator import ResponseStreamFromGenerator
+from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.routing.helpers import route, composite, authenticate_simple
 from rsocket.rsocket_client import RSocketClient
 
 
-class RequestChannel(ResponseStreamFromGenerator, Subscriber):
+class RequestChannel(StreamFromGenerator, Subscriber):
     def __init__(self,
                  wait_for_responder_complete: Event,
                  wait_for_requester_complete: Event,

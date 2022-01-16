@@ -1,7 +1,7 @@
 from asyncio import Future
 
 from rsocket.frame import ErrorFrame, RequestResponseFrame, PayloadFrame, Frame, error_frame_to_exception
-from rsocket.handlers.stream_handler import StreamHandler
+from rsocket.streams.stream_handler import StreamHandler
 from rsocket.payload import Payload
 
 

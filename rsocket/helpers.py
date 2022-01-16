@@ -1,7 +1,7 @@
 import struct
 from datetime import timedelta
 from io import BytesIO
-from typing import Union, Callable, Optional, TypeVar, Tuple
+from typing import Union, Callable, Optional, TypeVar, Tuple, AsyncGenerator
 
 from rsocket.fragment import Fragment
 
@@ -11,10 +11,6 @@ def to_milliseconds(period: timedelta) -> int:
 
 
 async def noop_frame_handler(frame):
-    pass
-
-
-async def always_allow_authenticator(authentication):
     pass
 
 
@@ -65,7 +61,8 @@ def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[T
 
 async def payload_to_n_size_fragments(data_reader: BytesIO,
                                       metadata_reader: BytesIO,
-                                      fragment_size: int):
+                                      fragment_size: int
+                                      ) -> AsyncGenerator[Fragment, None]:
     while True:
         metadata_fragment = metadata_reader.read(fragment_size)
 

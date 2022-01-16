@@ -21,7 +21,7 @@ from rsocket.handlers.request_response_requester import RequestResponseRequester
 from rsocket.handlers.request_response_responder import RequestResponseResponder
 from rsocket.handlers.request_stream_requester import RequestStreamRequester
 from rsocket.handlers.request_stream_responder import RequestStreamResponder
-from rsocket.handlers.stream import Stream
+from rsocket.streams.stream import Stream
 from rsocket.helpers import noop_frame_handler
 from rsocket.logger import logger
 from rsocket.payload import Payload

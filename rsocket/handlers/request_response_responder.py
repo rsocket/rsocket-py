@@ -1,7 +1,7 @@
 from asyncio import Future, ensure_future
 
 from rsocket.frame import CancelFrame, Frame
-from rsocket.handlers.stream_handler import StreamHandler
+from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestResponseResponder(StreamHandler):

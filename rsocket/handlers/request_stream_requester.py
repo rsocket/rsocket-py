@@ -1,7 +1,7 @@
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscription import Subscription
 from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception
-from rsocket.handlers.stream_handler import StreamHandler
+from rsocket.streams.stream_handler import StreamHandler
 from rsocket.payload import Payload
 
 

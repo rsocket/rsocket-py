@@ -1,20 +1,22 @@
 import asyncio
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, AsyncGenerator
 
 import pytest
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
 from reactivestreams.subscription import DefaultSubscription
+from rsocket.helpers import ensure_bytes
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
 @pytest.mark.asyncio
-async def test_request_stream_not_implemented_by_server(pipe):
+async def test_request_stream_not_implemented_by_server(pipe: Tuple[RSocketServer, RSocketClient]):
     payload = Payload(b'abc', b'def')
     server, client = pipe
 
@@ -36,7 +38,7 @@ async def test_request_stream_not_implemented_by_server(pipe):
 
 
 @pytest.mark.asyncio
-async def test_request_stream_properly_finished(pipe):
+async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_finished = asyncio.Event()
 
@@ -93,7 +95,7 @@ async def test_request_stream_properly_finished(pipe):
 
 
 @pytest.mark.asyncio
-async def test_request_stream_and_cancel_after_first_message(pipe):
+async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_canceled = asyncio.Event()
 
@@ -148,7 +150,6 @@ async def test_request_stream_and_cancel_after_first_message(pipe):
 @pytest.mark.asyncio
 async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
-
     stream_completed = asyncio.Event()
     requests_received = 0
 
@@ -203,3 +204,56 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
     assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
 
     assert requests_received == 3
+
+
+@pytest.mark.asyncio
+async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+    stream_completed = asyncio.Event()
+    fragments_sent = 0
+
+    class FragmentedPublisher(StreamFromGenerator):
+        async def generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Payload, bool], None]:
+            for i in range(3):
+                yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
+
+        async def _send_to_subscriber(self, payload: Payload, is_complete=False):
+            nonlocal fragments_sent
+            fragments_sent += 1
+            return await super()._send_to_subscriber(payload, is_complete)
+
+    class Handler(BaseRequestHandler, Publisher):
+
+        def subscribe(self, subscriber: Subscriber):
+            FragmentedPublisher(fragment_size=6).subscribe(subscriber)
+
+        async def request_stream(self, payload: Payload) -> Publisher:
+            return self
+
+    class StreamSubscriber(DefaultSubscriber):
+        def __init__(self):
+            self.received_messages: List[Payload] = []
+
+        async def on_next(self, value, is_complete=False):
+            self.received_messages.append(value)
+            logging.info(value)
+
+        def on_complete(self, value=None):
+            logging.info('Complete')
+            stream_completed.set()
+
+        def on_subscribe(self, subscription):
+            self.subscription = subscription
+
+    server.set_handler_using_factory(Handler)
+    subscriber = StreamSubscriber()
+    client.request_stream(Payload(b'')).subscribe(subscriber)
+
+    await stream_completed.wait()
+
+    assert len(subscriber.received_messages) == 3
+    assert subscriber.received_messages[0].data == b'some long data which should be fragmented 0'
+    assert subscriber.received_messages[1].data == b'some long data which should be fragmented 1'
+    assert subscriber.received_messages[2].data == b'some long data which should be fragmented 2'
+
+    assert fragments_sent == 24
