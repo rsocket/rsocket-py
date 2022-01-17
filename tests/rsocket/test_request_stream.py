@@ -246,14 +246,14 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
             self.subscription = subscription
 
     server.set_handler_using_factory(Handler)
-    subscriber = StreamSubscriber()
-    client.request_stream(Payload(b'')).subscribe(subscriber)
+    stream_subscriber = StreamSubscriber()
+    client.request_stream(Payload(b'')).subscribe(stream_subscriber)
 
     await stream_completed.wait()
 
-    assert len(subscriber.received_messages) == 3
-    assert subscriber.received_messages[0].data == b'some long data which should be fragmented 0'
-    assert subscriber.received_messages[1].data == b'some long data which should be fragmented 1'
-    assert subscriber.received_messages[2].data == b'some long data which should be fragmented 2'
+    assert len(stream_subscriber.received_messages) == 3
+    assert stream_subscriber.received_messages[0].data == b'some long data which should be fragmented 0'
+    assert stream_subscriber.received_messages[1].data == b'some long data which should be fragmented 1'
+    assert stream_subscriber.received_messages[2].data == b'some long data which should be fragmented 2'
 
     assert fragments_sent == 24
