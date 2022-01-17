@@ -95,6 +95,54 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
 
 
 @pytest.mark.asyncio
+async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+    stream_finished = asyncio.Event()
+
+    class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
+
+        def subscribe(self, subscriber):
+            subscriber.on_subscribe(self)
+            self._subscriber = subscriber
+
+        async def request(self, n: int):
+            await self._subscriber.on_next(Payload(b'success'))
+            await self._subscriber.on_error(Exception('error message from handler'))
+
+        async def request_stream(self, payload: Payload) -> Publisher:
+            return self
+
+    class StreamSubscriber(DefaultSubscriber):
+        def __init__(self):
+            self.received_messages: List[Payload] = []
+            self.error = None
+
+        async def on_next(self, value, is_complete=False):
+            self.received_messages.append(value)
+            logging.info(value)
+
+        def on_error(self, exception: Exception):
+            self.error = exception
+            stream_finished.set()
+
+        def on_subscribe(self, subscription):
+            self.subscription = subscription
+
+    server.set_handler_using_factory(Handler)
+
+    stream_subscriber = StreamSubscriber()
+
+    client.request_stream(Payload(b'')).subscribe(stream_subscriber)
+
+    await stream_finished.wait()
+
+    assert len(stream_subscriber.received_messages) == 1
+    assert stream_subscriber.received_messages[0].data == b'success'
+    assert type(stream_subscriber.error) == RuntimeError
+    assert str(stream_subscriber.error) == 'error message from handler'
+
+
+@pytest.mark.asyncio
 async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_canceled = asyncio.Event()
