@@ -1,6 +1,5 @@
 import asyncio
 from asyncio import Future
-from datetime import timedelta
 from typing import Callable, Union, Optional, Coroutine, Tuple
 
 from reactivestreams.publisher import Publisher
@@ -10,7 +9,6 @@ from rsocket.extensions.authentication_content import AuthenticationContent
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
-from rsocket.lease import DefinedLease
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
@@ -37,20 +35,10 @@ class RoutingRequestHandler(BaseRequestHandler):
                  socket,
                  router: RequestRouter,
                  authentication_verifier: Optional[
-                     Callable[[str, Authentication], Coroutine[None, None, None]]] = None,
-                 lease_ttl: Optional[timedelta] = None,
-                 lease_max_requests: Optional[int] = None):
+                     Callable[[str, Authentication], Coroutine[None, None, None]]] = None):
         super().__init__(socket)
         self.router = router
         self.authentication_verifier = authentication_verifier
-        self._lease_ttl = lease_ttl
-        self._lease_max_requests = lease_max_requests
-
-    async def supply_lease(self) -> DefinedLease:
-        return DefinedLease(
-            self._lease_max_requests,
-            self._lease_ttl
-        )
 
     # noinspection PyAttributeOutsideInit
     async def on_setup(self,

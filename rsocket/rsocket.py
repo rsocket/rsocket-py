@@ -5,8 +5,10 @@ from asyncio import StreamWriter, StreamReader
 from datetime import timedelta
 from typing import Union, Type, Optional, Dict, Any
 
-from reactivestreams.publisher import Publisher
+from reactivestreams.publisher import Publisher, AsyncPublisher
+from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.empty_publisher import EmptyPublisher
+from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketLeaseNotReceivedTimeoutError, RSocketProtocolException, RSocketConnectionRejected, \
     RSocketRejected
 from rsocket.fragment import Fragment
@@ -24,7 +26,7 @@ from rsocket.handlers.request_response_responder import RequestResponseResponder
 from rsocket.handlers.request_stream_requester import RequestStreamRequester
 from rsocket.handlers.request_stream_responder import RequestStreamResponder
 from rsocket.helpers import noop_frame_handler
-from rsocket.lease import DefinedLease, NullLease
+from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
@@ -36,12 +38,20 @@ _not_provided = object()
 
 
 class RSocket:
+    class LeaseSubscriber(DefaultSubscriber):
+        def __init__(self, socket: 'RSocket'):
+            self._socket = socket
+
+        async def on_next(self, value, is_complete=False):
+            await self._socket.send_lease(value)
+
     def __init__(self,
                  reader: StreamReader, writer: StreamWriter, *,
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  loop=_not_provided,
                  lease_receive_timeout=timedelta(seconds=15),
-                 honor_lease=False):
+                 honor_lease=False,
+                 lease_publisher: Optional[AsyncPublisher] = None):
 
         self._reader = reader
         self._writer = writer
@@ -53,6 +63,7 @@ class RSocket:
         self._lease_request_rejected: Optional[bool] = False
         self._requester_lease = NullLease()
         self._responder_lease = NullLease()
+        self._lease_publisher = lease_publisher
 
         self._streams = {}
         self._frame_fragment_cache = FrameFragmentCache()
@@ -163,12 +174,18 @@ class RSocket:
             await self.send_error(frame_.stream_id, exception)
 
         if frame_.flags_lease:
-            try:
-                self._responder_lease = await handler.supply_lease()
-                logger().debug('Sending lease %s' % self._responder_lease)
-                self.send_frame(self._responder_lease.to_frame())
-            except Exception as exception:
-                await self.send_error(CONNECTION_STREAM_ID, exception)
+            if self._lease_publisher is None:
+                await self.send_error(CONNECTION_STREAM_ID, RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP))
+            else:
+                await self._lease_publisher.subscribe(self.LeaseSubscriber(self))
+
+    async def send_lease(self, lease: Lease):
+        try:
+            self._responder_lease = lease
+            logger().debug('Sending lease %s' % self._responder_lease)
+            self.send_frame(self._responder_lease.to_frame())
+        except Exception as exception:
+            await self.send_error(CONNECTION_STREAM_ID, exception)
 
     async def handle_fire_and_forget(self, frame_: RequestFireAndForgetFrame):
         await self._handler.request_fire_and_forget(Payload(frame_.data, frame_.metadata))

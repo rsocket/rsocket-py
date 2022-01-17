@@ -2,6 +2,7 @@ import asyncio
 import logging
 from datetime import timedelta
 
+from rsocket.lease import SingleLeasePublisher
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
@@ -19,13 +20,14 @@ async def single_request_response(payload, composite_metadata):
 
 
 def handler_factory(socket):
-    return RoutingRequestHandler(socket, router,
-                                 lease_max_requests=5,
-                                 lease_ttl=timedelta(seconds=2))
+    return RoutingRequestHandler(socket, router)
 
 
 def handle_client(reader, writer):
-    RSocketServer(reader, writer, handler_factory=handler_factory)
+    RSocketServer(reader, writer, handler_factory=handler_factory, lease_publisher=SingleLeasePublisher(
+        maximum_request_count=5,
+        maximum_lease_time=timedelta(seconds=2)
+    ))
 
 
 async def run_server():

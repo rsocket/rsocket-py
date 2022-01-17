@@ -1,7 +1,10 @@
 import abc
+import time
 from datetime import timedelta, datetime
 from typing import Optional
 
+from reactivestreams.publisher import AsyncPublisher
+from reactivestreams.subscriber import Subscriber
 from rsocket.exceptions import RSocketRejected
 from rsocket.frame import LeaseFrame
 from rsocket.helpers import to_milliseconds
@@ -69,3 +72,27 @@ class DefinedLease(Lease):
         frame.number_of_requests = self._maximum_request_count
         frame.time_to_live = to_milliseconds(self._maximum_lease_time)
         return frame
+
+
+class LeasePublisher(AsyncPublisher):
+    async def subscribe(self, subscriber: Subscriber):
+        pass
+
+
+class SingleLeasePublisher(LeasePublisher):
+    def __init__(self,
+                 maximum_request_count: int = MAX_31_BIT,
+                 maximum_lease_time: timedelta = timedelta(milliseconds=MAX_31_BIT),
+                 sleep_time=timedelta(seconds=0)
+                 ):
+        self.sleep_time = sleep_time
+        self.maximum_lease_time = maximum_lease_time
+        self.maximum_request_count = maximum_request_count
+
+    async def subscribe(self, subscriber: Subscriber):
+        time.sleep(self.sleep_time.total_seconds())
+
+        await subscriber.on_next(DefinedLease(
+            maximum_request_count=self.maximum_request_count,
+            maximum_lease_time=self.maximum_lease_time
+        ))

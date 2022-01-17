@@ -11,6 +11,8 @@ import io.rsocket.metadata.TaggingMetadataCodec;
 import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.transport.netty.client.TcpClientTransport;
 import io.rsocket.util.DefaultPayload;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.util.List;
@@ -20,7 +22,7 @@ public class ClientWithLease {
 
     public static void main(String[] args) throws InterruptedException {
         final var rSocket = RSocketConnector.create()
-                .lease()
+                .lease(c -> c.maxPendingRequests(0))
                 .dataMimeType(WellKnownMimeType.TEXT_PLAIN.getString())
                 .metadataMimeType(WellKnownMimeType.MESSAGE_RSOCKET_COMPOSITE_METADATA.getString())
                 .connect(TcpClientTransport.create("localhost", 6565))
@@ -33,7 +35,6 @@ public class ClientWithLease {
         tryIgnoringLease(rSocket);
 
         rSocket.dispose();
-
     }
 
     private static void tryIgnoringLease(RSocket rSocket) throws InterruptedException {
@@ -53,10 +54,11 @@ public class ClientWithLease {
     }
 
     private static void testSingleRequest(RSocket rSocket) {
-        rSocket.requestResponse(DefaultPayload.create(getPayload("simple stream"),
-                        composite(route("single_request"))))
+        Mono.defer(() -> rSocket.requestResponse(DefaultPayload.create(getPayload("simple stream"),
+                        composite(route("single_request")))))
                 .doOnNext(response -> System.out.println("Response from server : " + response.getDataUtf8()))
-                .doOnError(error -> System.out.println("Error from server : " + error.getMessage()))
+                .doOnError(error -> System.out.println(error.getMessage()))
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)).maxBackoff(Duration.ofSeconds(5)))
                 .block(Duration.ofMinutes(5));
     }
 

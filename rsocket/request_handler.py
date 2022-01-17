@@ -6,10 +6,7 @@ from typing import Tuple
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
-from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.lease import Lease
 from rsocket.payload import Payload
 
 
@@ -23,10 +20,6 @@ class RequestHandler(metaclass=ABCMeta):
     async def on_setup(self,
                        data_encoding: bytes,
                        metadata_encoding: bytes):
-        ...
-
-    @abstractmethod
-    async def supply_lease(self) -> Lease:
         ...
 
     @abstractmethod
@@ -71,9 +64,6 @@ class BaseRequestHandler(RequestHandler):
                        data_encoding: bytes,
                        metadata_encoding: bytes):
         """Nothing to do on setup by default"""
-
-    async def supply_lease(self) -> Lease:
-        raise RSocketProtocolException(error_code=ErrorCode.UNSUPPORTED_SETUP)
 
     async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
         raise RuntimeError('Not implemented')

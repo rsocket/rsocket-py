@@ -4,7 +4,7 @@ from datetime import timedelta
 import pytest
 
 from rsocket.exceptions import RSocketRejected, RSocketLeaseNotReceivedTimeoutError
-from rsocket.lease import Lease, DefinedLease, NullLease
+from rsocket.lease import SingleLeasePublisher
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
@@ -18,11 +18,11 @@ async def test_request_response_with_lease_client_side_exception_too_many_reques
                                       b'meta: ' + request.metadata))
             return future
 
-        async def supply_lease(self) -> Lease:
-            return DefinedLease(maximum_request_count=2)
-
     async with lazy_pipe(client_arguments={'honor_lease': True},
-                         server_arguments={'handler_factory': Handler}) as (server, client):
+                         server_arguments={'handler_factory': Handler,
+                                           'lease_publisher': SingleLeasePublisher(
+                                               maximum_request_count=2
+                                           )}) as (server, client):
         for x in range(2):
             response = await client.request_response(Payload(b'dog', b'cat'))
             assert response == Payload(b'data: dog', b'meta: cat')
@@ -40,11 +40,11 @@ async def test_request_response_with_lease_client_side_exception_requests_late(l
                                       b'meta: ' + request.metadata))
             return future
 
-        async def supply_lease(self) -> Lease:
-            return DefinedLease(maximum_lease_time=timedelta(seconds=3))
-
     async with lazy_pipe(client_arguments={'honor_lease': True},
-                         server_arguments={'handler_factory': Handler}) as (server, client):
+                         server_arguments={'handler_factory': Handler,
+                                           'lease_publisher': SingleLeasePublisher(
+                                               maximum_lease_time=timedelta(seconds=3)
+                                           )}) as (server, client):
         for x in range(2):
             response = await client.request_response(Payload(b'dog', b'cat'))
             assert response == Payload(b'data: dog', b'meta: cat')
@@ -64,15 +64,12 @@ async def test_server_rejects_connection_if_no_lease_supported(lazy_pipe):
 
 @pytest.mark.asyncio
 async def test_server_rejects_connection_lease_response_timeout(lazy_pipe):
-    class Handler(BaseRequestHandler):
-        async def supply_lease(self) -> Lease:
-            await asyncio.sleep(3)
-            return NullLease()
-
     with pytest.raises(RSocketLeaseNotReceivedTimeoutError):
         async with lazy_pipe(client_arguments={'honor_lease': True,
                                                'lease_receive_timeout': timedelta(seconds=2)},
-                             server_arguments={'handler_factory': Handler}) as (server, client):
+                             server_arguments={'lease_publisher': SingleLeasePublisher(
+                                 sleep_time=timedelta(seconds=3)
+                             )}) as (server, client):
             pass
 
 
@@ -85,11 +82,11 @@ async def test_request_response_with_lease_server_side_exception(lazy_pipe):
                                       b'meta: ' + request.metadata))
             return future
 
-        async def supply_lease(self) -> Lease:
-            return DefinedLease(maximum_request_count=2)
-
     async with lazy_pipe(client_arguments={'honor_lease': True},
-                         server_arguments={'handler_factory': Handler}) as (server, client):
+                         server_arguments={'handler_factory': Handler,
+                                           'lease_publisher': SingleLeasePublisher(
+                                               maximum_request_count=2
+                                           )}) as (server, client):
         for x in range(2):
             response = await client._request_response(Payload(b'dog', b'cat'))
             assert response == Payload(b'data: dog', b'meta: cat')
