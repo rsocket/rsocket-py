@@ -1,3 +1,4 @@
+import math
 import struct
 from datetime import timedelta
 from io import BytesIO
@@ -7,7 +8,7 @@ from rsocket.fragment import Fragment
 
 
 def to_milliseconds(period: timedelta) -> int:
-    return round(period.total_seconds() * 1000) + round(period.microseconds / 1000)
+    return math.floor(period.total_seconds() * 1000)
 
 
 async def noop_frame_handler(frame):

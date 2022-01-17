@@ -12,7 +12,7 @@ class RequestResponseRequester(StreamHandler, Future):
         request.stream_id = self.stream
         request.data = payload.data
         request.metadata = payload.metadata
-        self.socket.send_frame(request)
+        self.socket.send_request(request)
 
     async def frame_received(self, frame: Frame):
         if isinstance(frame, PayloadFrame):

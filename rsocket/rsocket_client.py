@@ -3,9 +3,8 @@ from asyncio import StreamWriter, StreamReader
 from datetime import timedelta, datetime
 from typing import Union, Optional
 
-from rsocket.exceptions import RSocketRejected
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import SetupFrame, CONNECTION_STREAM_ID
+from rsocket.frame import SetupFrame
 from rsocket.helpers import to_milliseconds
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket import RSocket, _not_provided
@@ -22,8 +21,7 @@ class RSocketClient(RSocket):
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
-                 honor_lease=False,
-                 lease_receive_timeout=timedelta(seconds=15)):
+                 honor_lease=False):
         self._is_server_alive = True
         self._max_lifetime_period = max_lifetime_period
         self._last_server_keepalive: Optional[datetime] = None
@@ -32,8 +30,7 @@ class RSocketClient(RSocket):
         super().__init__(reader, writer,
                          handler_factory=handler_factory,
                          loop=loop,
-                         honor_lease=honor_lease,
-                         lease_receive_timeout=lease_receive_timeout)
+                         honor_lease=honor_lease)
 
         self._data_encoding = self._ensure_encoding_name(data_encoding)
         self._metadata_encoding = self._ensure_encoding_name(metadata_encoding)
@@ -52,12 +49,6 @@ class RSocketClient(RSocket):
 
     async def connect(self):
         self.send_frame(self._create_setup_frame(self._data_encoding, self._metadata_encoding))
-
-        if self._honor_lease:
-            await self._wait_for_lease()
-            if self._lease_request_rejected:
-                raise RSocketRejected(CONNECTION_STREAM_ID)
-
         return self
 
     def _create_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes) -> SetupFrame:

@@ -5,7 +5,6 @@ from typing import Optional
 
 from reactivestreams.publisher import AsyncPublisher
 from reactivestreams.subscriber import Subscriber
-from rsocket.exceptions import RSocketRejected
 from rsocket.frame import LeaseFrame
 from rsocket.helpers import to_milliseconds
 
@@ -14,7 +13,7 @@ MAX_31_BIT = pow(2, 31) - 1
 
 class Lease(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def assert_request_allowed(self, stream_id: Optional[int] = None):
+    def is_request_allowed(self, stream_id: Optional[int] = None) -> bool:
         ...
 
     @abc.abstractmethod
@@ -23,8 +22,8 @@ class Lease(metaclass=abc.ABCMeta):
 
 
 class NullLease(Lease):
-    def assert_request_allowed(self, stream_id: Optional[int] = None):
-        pass
+    def is_request_allowed(self, stream_id: Optional[int] = None) -> bool:
+        return True
 
     def to_frame(self) -> LeaseFrame:
         frame = LeaseFrame()
@@ -35,42 +34,41 @@ class NullLease(Lease):
 
 class DefinedLease(Lease):
     __slots__ = (
-        '_maximum_request_count',
+        'maximum_request_count',
         '_request_counter',
-        '_maximum_lease_time',
+        'maximum_lease_time',
         '_lease_created_at'
     )
 
     def __str__(self) -> str:
-        return '{maximum_request_count: %s, lease_ttl: %s}' % (self._maximum_request_count, self._maximum_lease_time)
+        return '{maximum_request_count: %s, lease_ttl: %s}' % (self.maximum_request_count, self.maximum_lease_time)
 
     def __init__(self,
                  maximum_request_count: int = MAX_31_BIT,
                  maximum_lease_time: timedelta = timedelta(milliseconds=MAX_31_BIT)):
-        self._maximum_request_count = maximum_request_count
-        self._maximum_lease_time = maximum_lease_time
+        self.maximum_request_count = maximum_request_count
+        self.maximum_lease_time = maximum_lease_time
         self._lease_created_at = datetime.now()
         self._request_counter = 0
 
-    def assert_request_allowed(self, stream_id: Optional[int] = None):
-        if not self._is_request_allowed():
-            raise RSocketRejected(stream_id)
+    def is_request_allowed(self, stream_id: Optional[int] = None):
+        return self._is_request_allowed()
 
     def _is_request_allowed(self) -> bool:
-        if self._lease_created_at + self._maximum_lease_time <= datetime.now():
+        if self._lease_created_at + self.maximum_lease_time <= datetime.now():
             return False
 
         self._request_counter += 1
 
-        if self._request_counter > self._maximum_request_count:
+        if self._request_counter > self.maximum_request_count:
             return False
 
         return True
 
     def to_frame(self) -> LeaseFrame:
         frame = LeaseFrame()
-        frame.number_of_requests = self._maximum_request_count
-        frame.time_to_live = to_milliseconds(self._maximum_lease_time)
+        frame.number_of_requests = self.maximum_request_count
+        frame.time_to_live = to_milliseconds(self.maximum_lease_time)
         return frame
 
 

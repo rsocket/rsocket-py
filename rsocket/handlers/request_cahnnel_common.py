@@ -86,4 +86,4 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
         request.stream_id = self.stream
         request.data = payload.data
         request.metadata = payload.metadata
-        self.socket.send_frame(request)
+        self.socket.send_request(request)
