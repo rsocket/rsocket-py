@@ -9,6 +9,7 @@ from rsocket.exceptions import RSocketProtocolException
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
 MASK_63_BITS = 0x7FFFFFFFFFFFFFFF
+MASK_31_BITS = 0x7FFFFFFF
 CONNECTION_STREAM_ID = 0
 
 _FLAG_METADATA_BIT = 0x100
@@ -267,17 +268,20 @@ class LeaseFrame(Frame):
 
     def __init__(self):
         super().__init__(Type.LEASE)
-        super().metadata_only = True
+        self.metadata_only = True
 
     def parse(self, buffer: bytes, offset: int):
         parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.time_to_live, self.number_of_requests = struct.unpack_from(
-            '>II', buffer, offset)
-        offset += self.parse_metadata(buffer, offset)
+        time_to_live, number_of_requests = struct.unpack_from('>II', buffer, offset)
+        self.time_to_live = time_to_live & MASK_31_BITS
+        self.number_of_requests = number_of_requests & MASK_31_BITS
+        offset += self.parse_metadata(buffer, offset + 8)
 
     def serialize(self, middle=b'', flags=0):
-        middle = struct.pack('>II', self.time_to_live, self.number_of_requests)
+        middle = struct.pack('>II',
+                             self.time_to_live & MASK_31_BITS,
+                             self.number_of_requests & MASK_31_BITS)
         return Frame.serialize(self, middle, flags)
 
 

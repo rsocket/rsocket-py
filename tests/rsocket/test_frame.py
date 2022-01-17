@@ -6,7 +6,7 @@ from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
-                           MetadataPushFrame, PayloadFrame)
+                           MetadataPushFrame, PayloadFrame, LeaseFrame)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -300,4 +300,31 @@ async def test_payload_frame(connection):
     assert isinstance(frame, PayloadFrame)
     assert frame.metadata == b'metadata'
     assert frame.data == b'actual_data'
+    assert frame.serialize() == data
+
+
+@pytest.mark.asyncio
+async def test_lease_frame(connection):
+    data = build_frame(
+        bits(24, 37, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, Type.LEASE, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 1, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        bits(1, 0, 'Padding'),
+        bits(31, 456, 'Time to live'),
+        bits(1, 0, 'Padding'),
+        bits(31, 123, 'Number of requests'),
+        data_bits(b'Metadata on lease frame')
+    )
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
+    assert isinstance(frame, LeaseFrame)
+    assert frame.number_of_requests == 123
+    assert frame.time_to_live == 456
+    assert frame.metadata == b'Metadata on lease frame'
     assert frame.serialize() == data
