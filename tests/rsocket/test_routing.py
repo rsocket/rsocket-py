@@ -16,7 +16,7 @@ from rsocket.rsocket_server import RSocketServer
 
 
 @pytest.mark.asyncio
-async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
+async def test_routed_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_finished = asyncio.Event()
 

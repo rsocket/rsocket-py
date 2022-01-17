@@ -6,8 +6,10 @@ from typing import Tuple
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
+from rsocket.error_codes import ErrorCode
+from rsocket.exceptions import RSocketProtocolException
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.frame import LeaseFrame
+from rsocket.lease import Lease
 from rsocket.payload import Payload
 
 
@@ -23,8 +25,9 @@ class RequestHandler(metaclass=ABCMeta):
                        metadata_encoding: bytes):
         ...
 
-    async def supply_lease(self):
-        """Not implemented by default"""
+    @abstractmethod
+    async def supply_lease(self) -> Lease:
+        ...
 
     @abstractmethod
     async def on_metadata_push(self, metadata: Payload):
@@ -56,13 +59,6 @@ class RequestHandler(metaclass=ABCMeta):
         composite_metadata.parse(metadata)
         return composite_metadata
 
-    def _send_lease(self, stream: int, time_to_live: int, number_of_requests: int):
-        lease = LeaseFrame()
-        lease.stream_id = stream
-        lease.time_to_live = time_to_live
-        lease.number_of_requests = number_of_requests
-        self.socket.send_frame(lease)
-
 
 class BaseRequestHandler(RequestHandler):
     class UnimplementedPublisher(Publisher, DefaultSubscription):
@@ -75,6 +71,9 @@ class BaseRequestHandler(RequestHandler):
                        data_encoding: bytes,
                        metadata_encoding: bytes):
         """Nothing to do on setup by default"""
+
+    async def supply_lease(self) -> Lease:
+        raise RSocketProtocolException(error_code=ErrorCode.UNSUPPORTED_SETUP)
 
     async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
         raise RuntimeError('Not implemented')

@@ -4,7 +4,7 @@ from enum import IntEnum
 from typing import Tuple
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException
+from rsocket.exceptions import RSocketProtocolException, RSocketRejected
 
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
@@ -605,6 +605,9 @@ def exception_to_error_frame(stream_id: int, exception: Exception) -> ErrorFrame
 
 
 def error_frame_to_exception(frame: ErrorFrame) -> Exception:
+    if frame.error_code == ErrorCode.REJECTED:
+        return RSocketRejected(frame.stream_id)
+
     if frame.error_code != ErrorCode.APPLICATION_ERROR:
         return RSocketProtocolException(frame.error_code)
 

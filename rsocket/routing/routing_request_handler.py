@@ -10,8 +10,7 @@ from rsocket.extensions.authentication_content import AuthenticationContent
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
-from rsocket.frame import LeaseFrame
-from rsocket.helpers import to_milliseconds
+from rsocket.lease import DefinedLease
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
@@ -47,12 +46,11 @@ class RoutingRequestHandler(BaseRequestHandler):
         self._lease_ttl = lease_ttl
         self._lease_max_requests = lease_max_requests
 
-    async def supply_lease(self):
-        if self._lease_ttl is not None and self._lease_max_requests is not None:
-            frame = LeaseFrame()
-            frame.number_of_requests = self._lease_max_requests
-            frame.time_to_live = to_milliseconds(self._lease_ttl)
-            self.socket.send_frame(frame)
+    async def supply_lease(self) -> DefinedLease:
+        return DefinedLease(
+            self._lease_max_requests,
+            self._lease_ttl
+        )
 
     # noinspection PyAttributeOutsideInit
     async def on_setup(self,
