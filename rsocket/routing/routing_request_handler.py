@@ -38,7 +38,7 @@ class RoutingRequestHandler(BaseRequestHandler):
                  socket,
                  router: RequestRouter,
                  authentication_verifier: Optional[
-                     Callable[[str, Authentication], Coroutine[None, None, None]]] = always_allow_authenticator,
+                     Callable[[str, Authentication], Coroutine[None, None, None]]] = None,
                  lease_ttl: Optional[timedelta] = None,
                  lease_max_requests: Optional[int] = None):
         super().__init__(socket)
