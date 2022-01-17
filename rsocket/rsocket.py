@@ -105,6 +105,7 @@ class RSocket:
         self._send_queue.put_nowait(frame)
 
     async def send_error(self, stream: int, exception: Exception):
+        logger().debug('Sending error: %s', str(exception))
         self.send_frame(exception_to_error_frame(stream, exception))
 
     async def send_payload(self, stream: int, payload: Payload, complete=False):
@@ -164,6 +165,7 @@ class RSocket:
         if frame_.flags_lease:
             try:
                 self._responder_lease = await handler.supply_lease()
+                logger().debug('Sending lease %s' % self._responder_lease)
                 self.send_frame(self._responder_lease.to_frame())
             except Exception as exception:
                 await self.send_error(CONNECTION_STREAM_ID, exception)

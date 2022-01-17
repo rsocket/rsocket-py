@@ -38,6 +38,9 @@ class DefinedLease(Lease):
         '_lease_created_at'
     )
 
+    def __str__(self) -> str:
+        return '{maximum_request_count: %s, lease_ttl: %s}' % (self._maximum_request_count, self._maximum_lease_time)
+
     def __init__(self,
                  maximum_request_count: int = MAX_31_BIT,
                  maximum_lease_time: timedelta = timedelta(milliseconds=MAX_31_BIT)):
