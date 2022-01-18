@@ -26,23 +26,30 @@ class RSocketClient(RSocket):
         self._max_lifetime_period = max_lifetime_period
         self._last_server_keepalive: Optional[datetime] = None
         self._keep_alive_period = keep_alive_period
-        self._honor_lease = honor_lease
 
-        super().__init__(reader, writer, handler_factory=handler_factory, loop=loop)
+        super().__init__(reader, writer,
+                         handler_factory=handler_factory,
+                         loop=loop,
+                         honor_lease=honor_lease)
 
-        if isinstance(metadata_encoding, WellKnownMimeTypes):
-            metadata_encoding = metadata_encoding.value.name
+        self._data_encoding = self._ensure_encoding_name(data_encoding)
+        self._metadata_encoding = self._ensure_encoding_name(metadata_encoding)
 
-        if isinstance(data_encoding, WellKnownMimeTypes):
-            data_encoding = data_encoding.value.name
+    def _ensure_encoding_name(self, encoding) -> bytes:
+        if isinstance(encoding, WellKnownMimeTypes):
+            return encoding.value.name
+        return encoding
 
-        self._send_setup_frame(data_encoding, metadata_encoding)
+    async def __aenter__(self) -> 'RSocketClient':
+        await self.connect()
+        return await super().__aenter__()
 
     def _get_first_stream_id(self) -> int:
         return 1
 
-    def _send_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes):
-        self.send_frame(self._create_setup_frame(data_encoding, metadata_encoding))
+    async def connect(self):
+        self.send_frame(self._create_setup_frame(self._data_encoding, self._metadata_encoding))
+        return self
 
     def _create_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes) -> SetupFrame:
         setup = SetupFrame()

@@ -29,20 +29,17 @@ class StreamSubscriber(Subscriber):
         self.subscription = subscription
 
 
-async def download(reader, writer):
-    socket = RSocketClient(reader, writer)
+async def communicate(reader, writer):
+    async with RSocketClient(reader, writer) as client:
+        payload = Payload(b'The quick brown fox', b'meta')
 
-    payload = Payload(b'The quick brown fox', b'meta')
+        result = await client.request_response(payload)
+        logging.info('RR: {}'.format(result))
 
-    result = await socket.request_response(payload)
-    logging.info('RR: {}'.format(result))
+        completion_event = Event()
+        client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
 
-    completion_event = Event()
-    socket.request_stream(payload).subscribe(StreamSubscriber(completion_event))
-
-    await completion_event.wait()
-
-    await socket.close()
+        await completion_event.wait()
 
 
 if __name__ == '__main__':
@@ -51,6 +48,6 @@ if __name__ == '__main__':
     try:
         connection = loop.run_until_complete(asyncio.open_connection(
             'localhost', 6565))
-        loop.run_until_complete(download(*connection))
+        loop.run_until_complete(communicate(*connection))
     finally:
         loop.close()

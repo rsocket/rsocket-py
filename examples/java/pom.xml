@@ -18,6 +18,11 @@
     </build>
     <dependencies>
         <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.2.10</version>
+        </dependency>
+        <dependency>
             <groupId>io.rsocket</groupId>
             <artifactId>rsocket-core</artifactId>
             <version>1.1.1</version>
