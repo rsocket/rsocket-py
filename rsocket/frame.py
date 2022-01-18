@@ -1,3 +1,4 @@
+import abc
 import struct
 from abc import ABCMeta
 from enum import IntEnum
@@ -112,6 +113,10 @@ class Frame(Header, metaclass=ABCMeta):
     @staticmethod
     def pack_string(buffer):
         return struct.pack('b', len(buffer)) + buffer
+
+    @abc.abstractmethod
+    def parse(self, buffer: bytes, offset: int):
+        ...
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
         flags &= ~(_FLAG_IGNORE_BIT | _FLAG_METADATA_BIT)
@@ -540,7 +545,37 @@ class ResumeFrame(Frame):
 
 
 class ResumeOKFrame(Frame):
-    ...
+    __slots__ = (
+        'last_received_client_position'
+    )
+
+    def __init__(self):
+        super().__init__(Type.RESUME_OK)
+        self.last_received_client_position = 0
+
+    def parse(self, buffer: bytes, offset: int):
+        parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
+        self.last_received_client_position = struct.unpack('>Q', buffer[offset:offset + 8])[0] & MASK_63_BITS
+
+    def serialize(self, middle=b'', flags: int = 0) -> bytes:
+        serialized = struct.pack('>Q', self.last_received_client_position & MASK_63_BITS)
+        return super().serialize(serialized)
+
+
+class ExtendedFrame(Frame, metaclass=abc.ABCMeta):
+    __slots__ = (
+        'extended_type'
+    )
+
+    def __init__(self):
+        super().__init__(Type.EXT)
+
+    def parse(self, buffer: bytes, offset: int):
+        ...
+
+    def serialize(self, middle=b'', flags: int = 0) -> bytes:
+        ...
 
 
 _frame_class_by_id = {
