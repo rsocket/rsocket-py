@@ -1,4 +1,3 @@
-import math
 import struct
 from datetime import timedelta
 from io import BytesIO
@@ -8,7 +7,7 @@ from rsocket.fragment import Fragment
 
 
 def to_milliseconds(period: timedelta) -> int:
-    return math.floor(period.total_seconds() * 1000)
+    return round(period.total_seconds() * 1000) + round(period.microseconds / 1000)
 
 
 async def noop_frame_handler(frame):
@@ -64,8 +63,12 @@ async def payload_to_n_size_fragments(data_reader: BytesIO,
                                       metadata_reader: BytesIO,
                                       fragment_size: int
                                       ) -> AsyncGenerator[Fragment, None]:
+    last_metadata_fragment = b''
     while True:
         metadata_fragment = metadata_reader.read(fragment_size)
+
+        if len(metadata_fragment) == 0:
+            break
 
         if len(metadata_fragment) < fragment_size:
             last_metadata_fragment = metadata_fragment
@@ -76,27 +79,18 @@ async def payload_to_n_size_fragments(data_reader: BytesIO,
     expected_data_fragment_length = fragment_size - len(last_metadata_fragment)
     data_fragment = data_reader.read(expected_data_fragment_length)
 
-    metadata_fragment = None
-
-    if len(last_metadata_fragment) > 0:
-        metadata_fragment = last_metadata_fragment
-
-    yield Fragment(data_fragment, metadata_fragment, is_last=len(data_fragment) < expected_data_fragment_length)
+    if len(last_metadata_fragment) > 0 or len(data_fragment) > 0:
+        yield Fragment(data_fragment, last_metadata_fragment,
+                       is_last=len(data_fragment) < expected_data_fragment_length)
 
     if len(data_fragment) == 0:
         yield Fragment(None, None, is_last=True)
         return
 
-    last_fragment_sent = False
     while True:
-        if last_fragment_sent:
-            return
-
         data_fragment = data_reader.read(fragment_size)
 
-        if len(data_fragment) > 0:
-            last_fragment_sent = len(data_fragment) < fragment_size
-            yield Fragment(data_fragment, None, is_last=last_fragment_sent)
-        else:
-            if not last_fragment_sent:
-                yield Fragment(b'', None, is_last=True)
+        is_last_fragment = len(data_fragment) < fragment_size
+        yield Fragment(data_fragment, None, is_last=is_last_fragment)
+        if is_last_fragment:
+            break
