@@ -40,7 +40,7 @@ async def test_request_stream_not_implemented_by_server(pipe: Tuple[RSocketServe
 @pytest.mark.asyncio
 async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
-    stream_finished = asyncio.Event()
+    stream_completed = asyncio.Event()
 
     class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
         def cancel(self):
@@ -74,7 +74,7 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
 
         def on_complete(self):
             logging.info('Complete')
-            stream_finished.set()
+            stream_completed.set()
 
         def on_subscribe(self, subscription):
             self.subscription = subscription
@@ -85,7 +85,7 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
 
     client.request_stream(Payload(b'')).subscribe(stream_subscriber)
 
-    await stream_finished.wait()
+    await stream_completed.wait()
 
     assert len(stream_subscriber.received_messages) == 4
     assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'

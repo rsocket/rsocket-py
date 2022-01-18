@@ -29,7 +29,7 @@ class StreamSubscriber(Subscriber):
         self.subscription = subscription
 
 
-async def download(reader, writer):
+async def communicate(reader, writer):
     async with RSocketClient(reader, writer) as client:
         payload = Payload(b'The quick brown fox', b'meta')
 
@@ -48,6 +48,6 @@ if __name__ == '__main__':
     try:
         connection = loop.run_until_complete(asyncio.open_connection(
             'localhost', 6565))
-        loop.run_until_complete(download(*connection))
+        loop.run_until_complete(communicate(*connection))
     finally:
         loop.close()
