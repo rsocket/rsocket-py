@@ -15,7 +15,7 @@ setup(
     author='Gabi Shaar',
     author_email='',
     license='MIT',
-    packages=find_packages(include=['rsocket.*', 'reactivestreams.*']),
+    packages=find_packages(exclude=['examples', 'tests', 'docs']),
     zip_safe=True,
     classifiers=[
         'Development Status :: 1 - Planning',
