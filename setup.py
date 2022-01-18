@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='rsocket',
-    version='1.0.0',
+    version='0.3',
     description='Python RSocket library',
     url='https://github.com/RSocket/rsocket-py',
     author='Vijayan Rajan',
