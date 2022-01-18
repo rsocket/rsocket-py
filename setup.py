@@ -1,6 +1,6 @@
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def get_version():
@@ -15,10 +15,7 @@ setup(
     author='Gabi Shaar',
     author_email='',
     license='MIT',
-    packages=[
-        'rsocket',
-        'reactivestreams'
-    ],
+    packages=find_packages(include=['rsocket.*', 'reactivestreams.*']),
     zip_safe=True,
     classifiers=[
         'Development Status :: 1 - Planning',
