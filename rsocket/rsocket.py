@@ -11,12 +11,12 @@ from rsocket.empty_publisher import EmptyPublisher
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolException, RSocketConnectionRejected, \
     RSocketRejected
-from rsocket.fragment import Fragment
 from rsocket.frame import KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
-    RequestStreamFrame, PayloadFrame, Frame, exception_to_error_frame, LeaseFrame, ErrorFrame, RequestFrame
+    RequestStreamFrame, Frame, exception_to_error_frame, LeaseFrame, ErrorFrame, RequestFrame
 from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_frame, CONNECTION_STREAM_ID
 from rsocket.frame import SetupFrame
+from rsocket.frame_builders import to_payload_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
 from rsocket.frame_parser import FrameParser
 from rsocket.handlers.request_cahnnel_common import RequestChannelCommon
@@ -128,19 +128,8 @@ class RSocket:
         logger().debug('Sending error: %s', str(exception))
         self.send_frame(exception_to_error_frame(stream, exception))
 
-    async def send_payload(self, stream: int, payload: Payload, complete=False):
-        frame = PayloadFrame()
-        frame.stream_id = stream
-        frame.flags_complete = complete
-        frame.flags_next = True
-
-        if isinstance(payload, Fragment):
-            frame.flags_follows = not payload.is_last
-
-        frame.data = payload.data
-        frame.metadata = payload.metadata
-
-        self.send_frame(frame)
+    async def send_payload(self, stream_id: int, payload: Payload, complete=False):
+        self.send_frame(to_payload_frame(payload, complete, stream_id))
 
     def _update_last_keepalive(self):
         pass
