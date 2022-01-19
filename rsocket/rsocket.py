@@ -125,7 +125,7 @@ class RSocket:
         self._send_queue.put_nowait(frame)
 
     async def send_error(self, stream: int, exception: Exception):
-        logger().debug('Sending error: %s', str(exception))
+        logger().debug('RSocket Sending error: %s', str(exception))
         self.send_frame(exception_to_error_frame(stream, exception))
 
     async def send_payload(self, stream_id: int, payload: Payload, complete=False):
@@ -138,14 +138,14 @@ class RSocket:
         ...
 
     async def handle_keep_alive(self, frame_: KeepAliveFrame):
-        logger().debug('Received keepalive')
+        logger().debug('RSocket Received keepalive')
 
         self._update_last_keepalive()
 
         if frame_.flags_respond:
             frame_.flags_respond = False
             self.send_frame(frame_)
-            logger().debug('Responded to keepalive')
+            logger().debug('RSocket Responded to keepalive')
 
     async def handle_request_response(self, frame_: RequestResponseFrame):
         stream_ = frame_.stream_id
@@ -178,7 +178,7 @@ class RSocket:
     async def send_lease(self, lease: Lease):
         try:
             self._responder_lease = lease
-            logger().debug('Sending lease %s' % self._responder_lease)
+            logger().debug('RSocket Sending lease %s' % self._responder_lease)
             self.send_frame(self._responder_lease.to_frame())
         except Exception as exception:
             await self.send_error(CONNECTION_STREAM_ID, exception)
@@ -220,9 +220,9 @@ class RSocket:
             await self._receiver_listen()
 
         except asyncio.CancelledError:
-            logger().debug('Canceled')
+            logger().debug('RSocket Canceled')
         except Exception:
-            logger().error('Unknown error', exc_info=True)
+            logger().error('RSocket Unknown error', exc_info=True)
             raise
 
     @abc.abstractmethod
@@ -256,7 +256,7 @@ class RSocket:
                 logger().error('RSocket Error %s' % str(exception))
                 await self.send_error(CONNECTION_STREAM_ID, exception)
             except Exception as exception:
-                logger().error('Unknown Error', exc_info=True)
+                logger().error('RSocket Unknown Error', exc_info=True)
                 await self.send_error(CONNECTION_STREAM_ID, exception)
 
     async def _handle_next_frames(self, data: bytes, frame_parser: FrameParser):
@@ -287,7 +287,7 @@ class RSocket:
         frame.flags_respond = True
         frame.data = data
         self.send_frame(frame)
-        logger().debug('Sent keepalive')
+        logger().debug('RSocket Sent keepalive')
 
     def _before_sender(self):
         pass
@@ -310,7 +310,7 @@ class RSocket:
         except ConnectionResetError as exception:
             logger().debug(str(exception))
         except asyncio.CancelledError:
-            logger().info('Canceled')
+            logger().debug('RSocket Canceled', exc_info=True)
         except Exception:
             logger().error('RSocket error', exc_info=True)
             raise
