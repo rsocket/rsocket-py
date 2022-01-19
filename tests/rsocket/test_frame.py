@@ -1,5 +1,4 @@
 import asyncstdlib
-import pytest
 
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
@@ -10,7 +9,6 @@ from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type,
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
-@pytest.mark.asyncio
 async def test_setup(connection):
     data = b'\x00\x00\x40\x00\x00\x00\x00\x05\x00\x00\x01\x00\x00\x00\x00\x00'
     data += b'\x7b\x00\x00\x01\xc8\x18\x61\x70\x70\x6c\x69\x63\x61\x74\x69\x6f'
@@ -31,7 +29,6 @@ async def test_setup(connection):
     assert frame.metadata == b'\x04\x05\x06\x07\x08'
 
 
-@pytest.mark.asyncio
 async def test_setup_readable(connection):
     data = build_frame(
         bits(24, 64, 'Frame size'),
@@ -80,7 +77,6 @@ async def test_setup_readable(connection):
     assert not frame.flags_resume
 
 
-@pytest.mark.asyncio
 async def test_setup_with_resume(connection):
     data = build_frame(
         bits(24, 84, 'Frame size'),
@@ -132,7 +128,6 @@ async def test_setup_with_resume(connection):
     assert frame.flags_resume
 
 
-@pytest.mark.asyncio
 async def test_request_with_composite_metadata(connection):
     data = build_frame(
         bits(24, 28, 'Frame size'),
@@ -173,7 +168,6 @@ async def test_request_with_composite_metadata(connection):
     assert composite_metadata.serialize() == frame.metadata
 
 
-@pytest.mark.asyncio
 async def test_composite_metadata_multiple_items():
     data = build_frame(
 
@@ -225,7 +219,6 @@ async def test_composite_metadata_multiple_items():
     assert composite_metadata.serialize() == data
 
 
-@pytest.mark.asyncio
 async def test_cancel(connection):
     data = b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
@@ -234,7 +227,6 @@ async def test_cancel(connection):
     assert frame.serialize() == data
 
 
-@pytest.mark.asyncio
 async def test_error(connection):
     data = b'\x00\x00\x13\x00\x00\x26\x6a\x2c\x00\x00\x00\x02\x04\x77\x65\x69'
     data += b'\x72\x64\x6e\x65\x73\x73'
@@ -244,7 +236,6 @@ async def test_error(connection):
     assert frame.serialize() == data
 
 
-@pytest.mark.asyncio
 async def test_multiple_frames(connection):
     data = b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
     data += b'\x00\x00\x13\x00\x00\x26\x6a\x2c\x00\x00\x00\x02\x04\x77\x65\x69'
@@ -256,7 +247,6 @@ async def test_multiple_frames(connection):
     assert len(frames) == 5
 
 
-@pytest.mark.asyncio
 async def test_request_n_frame(connection):
     data = build_frame(
         bits(24, 10, 'Frame size'),
@@ -280,7 +270,6 @@ async def test_request_n_frame(connection):
     assert frame.request_n == 23
 
 
-@pytest.mark.asyncio
 async def test_resume_frame(connection):
     data = build_frame(
         bits(24, 40, 'Frame size'),
@@ -311,7 +300,6 @@ async def test_resume_frame(connection):
     assert frame.serialize() == data
 
 
-@pytest.mark.asyncio
 async def test_metadata_push_frame(connection):
     data = build_frame(
         bits(24, 14, 'Frame size'),
@@ -332,7 +320,6 @@ async def test_metadata_push_frame(connection):
     assert frame.serialize() == data
 
 
-@pytest.mark.asyncio
 async def test_payload_frame(connection):
     data = build_frame(
         bits(24, 28, 'Frame size'),
@@ -356,7 +343,6 @@ async def test_payload_frame(connection):
     assert frame.serialize() == data
 
 
-@pytest.mark.asyncio
 async def test_lease_frame(connection):
     data = build_frame(
         bits(24, 37, 'Frame size'),
@@ -383,7 +369,6 @@ async def test_lease_frame(connection):
     assert frame.serialize() == data
 
 
-@pytest.mark.asyncio
 async def test_resume_ok_frame(connection):
     data = build_frame(
         bits(24, 14, 'Frame size'),

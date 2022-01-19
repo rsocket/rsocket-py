@@ -15,7 +15,6 @@ from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
-@pytest.mark.asyncio
 async def test_request_stream_not_implemented_by_server(pipe: Tuple[RSocketServer, RSocketClient]):
     payload = Payload(b'abc', b'def')
     server, client = pipe
@@ -37,7 +36,6 @@ async def test_request_stream_not_implemented_by_server(pipe: Tuple[RSocketServe
         not error.done() or error.exception()
 
 
-@pytest.mark.asyncio
 async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_completed = asyncio.Event()
@@ -94,7 +92,6 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
     assert stream_subscriber.received_messages[3].data == b''
 
 
-@pytest.mark.asyncio
 async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_finished = asyncio.Event()
@@ -142,7 +139,6 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
     assert str(stream_subscriber.error) == 'error message from handler'
 
 
-@pytest.mark.asyncio
 async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_canceled = asyncio.Event()
@@ -195,7 +191,6 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
     assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
 
 
-@pytest.mark.asyncio
 async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_completed = asyncio.Event()
@@ -254,7 +249,6 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
     assert requests_received == 3
 
 
-@pytest.mark.asyncio
 async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_completed = asyncio.Event()

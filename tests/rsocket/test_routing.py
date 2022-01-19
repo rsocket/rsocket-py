@@ -2,8 +2,6 @@ import asyncio
 import logging
 from typing import List, Tuple
 
-import pytest
-
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -15,7 +13,6 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 
 
-@pytest.mark.asyncio
 async def test_routed_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     stream_finished = asyncio.Event()
