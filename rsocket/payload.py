@@ -1,7 +1,3 @@
-import json
-from typing import Any, Callable
-
-
 class Payload:
     __slots__ = ('data', 'metadata')
 
@@ -22,13 +18,3 @@ class Payload:
 
     def __eq__(self, other):
         return self.data == other.data and self.metadata == other.metadata
-
-
-def _default_serializer(obj: Any) -> bytes:
-    return bytes(json.dumps(obj))
-
-
-def payload_from_any(data: Any,
-                     metadata: Any,
-                     serializer: Callable[[Any], bytes] = _default_serializer) -> Payload:
-    return Payload(serializer(data), serializer(metadata))
