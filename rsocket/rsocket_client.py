@@ -1,10 +1,11 @@
 import asyncio
 from asyncio import StreamWriter, StreamReader
 from datetime import timedelta, datetime
-from typing import Union, Optional
+from typing import Union
 
+from rsocket.error_codes import ErrorCode
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import SetupFrame
+from rsocket.frame import SetupFrame, ErrorFrame
 from rsocket.helpers import to_milliseconds
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket import RSocket, _not_provided
@@ -24,7 +25,7 @@ class RSocketClient(RSocket):
                  honor_lease=False):
         self._is_server_alive = True
         self._max_lifetime_period = max_lifetime_period
-        self._last_server_keepalive: Optional[datetime] = None
+        self._update_last_keepalive()
         self._keep_alive_period = keep_alive_period
 
         super().__init__(reader, writer,
@@ -85,8 +86,14 @@ class RSocketClient(RSocket):
             while True:
                 await asyncio.sleep(self._max_lifetime_period.total_seconds())
                 now = datetime.now()
-                if self._last_server_keepalive - now > self._max_lifetime_period:
+                if now - self._last_server_keepalive > self._max_lifetime_period:
                     self._is_server_alive = False
+                    for stream_id, stream in list(self._streams.items()):
+                        frame = ErrorFrame()
+                        frame.stream_id = stream_id
+                        frame.error_code = ErrorCode.CANCELED
+                        frame.data = 'Server not alive'.encode()
+                        await stream.frame_received(frame)
         except asyncio.CancelledError:
             pass
 

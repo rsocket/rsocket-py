@@ -31,6 +31,7 @@ from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
 from rsocket.streams.stream import Stream
+from rsocket.streams.stream_handler import StreamHandler
 
 MAX_STREAM_ID = 0x7FFFFFFF
 
@@ -68,7 +69,7 @@ class RSocket:
         self._responder_lease = NullLease()
         self._lease_publisher = lease_publisher
 
-        self._streams = {}
+        self._streams: Dict[int, StreamHandler] = {}
         self._frame_fragment_cache = FrameFragmentCache()
 
         self._send_queue = asyncio.Queue()
@@ -244,6 +245,9 @@ class RSocket:
                 logger().debug(str(exception))
                 break  # todo: workaround to silence errors on client closing. this needs a better solution.
 
+            if not self.is_server_alive():
+                break
+
             if not data:
                 self._writer.close()
                 break
@@ -303,7 +307,7 @@ class RSocket:
         self._before_sender()
 
         try:
-            while True:
+            while self.is_server_alive():
                 frame = await self._send_queue.get()
 
                 self._writer.write(frame.serialize())
