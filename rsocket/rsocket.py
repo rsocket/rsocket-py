@@ -58,6 +58,7 @@ class RSocket:
         self._handler = handler_factory(self)
         self._next_stream = self._get_first_stream_id()
         self._honor_lease = honor_lease
+        self._is_closing = False
 
         if self._honor_lease:
             self._requester_lease = DefinedLease(maximum_request_count=0)
@@ -75,9 +76,10 @@ class RSocket:
 
         if loop is _not_provided:
             loop = asyncio.get_event_loop()
+        self._loop = loop
 
-        self._receiver_task = loop.create_task(self._receiver())
-        self._sender_task = loop.create_task(self._sender())
+        self._receiver_task = self._start_task_if_not_closing(self._receiver())
+        self._sender_task = self._start_task_if_not_closing(self._sender())
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -91,6 +93,10 @@ class RSocket:
             KeepAliveFrame: self.handle_keep_alive,
             ErrorFrame: self.handle_error
         }
+
+    def _start_task_if_not_closing(self, task):
+        if not self._is_closing:
+            return self._loop.create_task(task)
 
     def set_handler_using_factory(self, handler_factory) -> RequestHandler:
         self._handler = handler_factory(self)
@@ -216,9 +222,7 @@ class RSocket:
 
     async def _receiver(self):
         try:
-
             await self._receiver_listen()
-
         except asyncio.CancelledError:
             logger().debug('RSocket Canceled')
         except Exception:
@@ -318,12 +322,19 @@ class RSocket:
             self._finally_sender()
 
     async def close(self):
-        self._sender_task.cancel()
-        self._receiver_task.cancel()
-        await self._sender_task
-        await self._receiver_task
+        self._is_closing = True
+        await self._cancel_if_task_exists(self._sender_task)
+        await self._cancel_if_task_exists(self._receiver_task)
         self._writer.close()
         await self._writer.wait_closed()
+
+    async def _cancel_if_task_exists(self, task):
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     async def __aenter__(self) -> 'RSocket':
         return self

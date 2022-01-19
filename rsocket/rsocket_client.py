@@ -61,15 +61,18 @@ class RSocketClient(RSocket):
         return setup
 
     async def _keepalive_send_task(self):
-        while True:
-            await asyncio.sleep(self._keep_alive_period.total_seconds())
-            self._send_new_keepalive()
+        try:
+            while True:
+                await asyncio.sleep(self._keep_alive_period.total_seconds())
+                self._send_new_keepalive()
+        except asyncio.CancelledError:
+            pass
 
     def _before_sender(self):
-        self._keepalive_task = asyncio.ensure_future(self._keepalive_send_task())
+        self._keepalive_task = self._start_task_if_not_closing(self._keepalive_send_task())
 
     def _finally_sender(self):
-        self._keepalive_task.cancel()
+        self._cancel_if_task_exists(self._keepalive_task)
 
     def _update_last_keepalive(self):
         self._last_server_keepalive = datetime.now()
@@ -78,15 +81,19 @@ class RSocketClient(RSocket):
         return self._is_server_alive
 
     async def _keepalive_timeout_task(self):
-        while True:
-            await asyncio.sleep(self._max_lifetime_period.total_seconds())
-            now = datetime.now()
-            if self._last_server_keepalive - now > self._max_lifetime_period:
-                self._is_server_alive = False
+        try:
+            while True:
+                await asyncio.sleep(self._max_lifetime_period.total_seconds())
+                now = datetime.now()
+                if self._last_server_keepalive - now > self._max_lifetime_period:
+                    self._is_server_alive = False
+        except asyncio.CancelledError:
+            pass
 
     async def _receiver_listen(self):
-        keepalive_timeout_task = asyncio.ensure_future(self._keepalive_timeout_task())
+        keepalive_timeout_task = self._start_task_if_not_closing(self._keepalive_timeout_task())
+
         try:
             return await super()._receiver_listen()
         finally:
-            keepalive_timeout_task.cancel()
+            await self._cancel_if_task_exists(keepalive_timeout_task)
