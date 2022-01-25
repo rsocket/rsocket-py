@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Tuple
 
 from rx import operators
@@ -32,6 +33,7 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
             try:
                 for x in range(3):
                     value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
+                    logging.debug('Sending payload %s', value)
                     await subscriber.on_next(value)
                 loop.call_soon(subscriber.on_complete)
             except asyncio.CancelledError:
@@ -41,7 +43,8 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
 
     rx_client = RxRSocketClient(client)
     received_messages = await rx_client.request_stream(Payload(b'')).pipe(
-        operators.map(lambda payload: payload.data)
+        operators.map(lambda payload: payload.data),
+        operators.to_list()
     ).run()
 
     assert len(received_messages) == 4
