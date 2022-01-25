@@ -1,5 +1,5 @@
 import abc
-import time
+import asyncio
 from datetime import timedelta, datetime
 from typing import Optional
 
@@ -81,14 +81,14 @@ class SingleLeasePublisher(LeasePublisher):
     def __init__(self,
                  maximum_request_count: int = MAX_31_BIT,
                  maximum_lease_time: timedelta = timedelta(milliseconds=MAX_31_BIT),
-                 sleep_time=timedelta(seconds=0)
+                 wait_between_leases=timedelta(seconds=0)
                  ):
-        self.sleep_time = sleep_time
+        self.wait_between_leases = wait_between_leases
         self.maximum_lease_time = maximum_lease_time
         self.maximum_request_count = maximum_request_count
 
     async def subscribe(self, subscriber: Subscriber):
-        time.sleep(self.sleep_time.total_seconds())
+        await asyncio.sleep(self.wait_between_leases.total_seconds())
 
         await subscriber.on_next(DefinedLease(
             maximum_request_count=self.maximum_request_count,
