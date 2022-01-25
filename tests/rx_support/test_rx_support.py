@@ -45,10 +45,10 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
     received_messages = await rx_client.request_stream(Payload(b'')).pipe(
         operators.map(lambda payload: payload.data),
         operators.to_list()
-    ).run()
+    )
 
     assert len(received_messages) == 4
-    assert received_messages[0].data == b'Feed Item: 0'
-    assert received_messages[1].data == b'Feed Item: 1'
-    assert received_messages[2].data == b'Feed Item: 2'
-    assert received_messages[3].data == b''
+    assert received_messages[0] == b'Feed Item: 0'
+    assert received_messages[1] == b'Feed Item: 1'
+    assert received_messages[2] == b'Feed Item: 2'
+    assert received_messages[3] == b''
