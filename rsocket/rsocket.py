@@ -11,6 +11,7 @@ from rsocket.empty_publisher import EmptyPublisher
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolException, RSocketConnectionRejected, \
     RSocketRejected
+from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, Frame, exception_to_error_frame, LeaseFrame, ErrorFrame, RequestFrame
@@ -25,7 +26,7 @@ from rsocket.handlers.request_response_requester import RequestResponseRequester
 from rsocket.handlers.request_response_responder import RequestResponseResponder
 from rsocket.handlers.request_stream_requester import RequestStreamRequester
 from rsocket.handlers.request_stream_responder import RequestStreamResponder
-from rsocket.helpers import noop_frame_handler
+from rsocket.helpers import noop_frame_handler, to_milliseconds
 from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -52,13 +53,22 @@ class RSocket:
                  loop=_not_provided,
                  honor_lease=False,
                  lease_publisher: Optional[AsyncPublisher] = None,
-                 request_queue_size: int = 0):
+                 request_queue_size: int = 0,
+                 data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
+                 metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
+                 keep_alive_period: timedelta = timedelta(milliseconds=500),
+                 max_lifetime_period: timedelta = timedelta(minutes=10)):
 
         self._reader = reader
         self._writer = writer
         self._handler = handler_factory(self)
         self._next_stream = self._get_first_stream_id()
         self._honor_lease = honor_lease
+        self._max_lifetime_period = max_lifetime_period
+        self._keep_alive_period = keep_alive_period
+
+        self._data_encoding = self._ensure_encoding_name(data_encoding)
+        self._metadata_encoding = self._ensure_encoding_name(metadata_encoding)
         self._is_closing = False
 
         if self._honor_lease:
@@ -95,6 +105,12 @@ class RSocket:
             ErrorFrame: self.handle_error
         }
 
+    def _ensure_encoding_name(self, encoding) -> bytes:
+        if isinstance(encoding, WellKnownMimeTypes):
+            return encoding.value.name
+
+        return encoding
+
     def _start_task_if_not_closing(self, task):
         if not self._is_closing:
             return self._loop.create_task(task)
@@ -124,15 +140,20 @@ class RSocket:
 
     def send_request(self, frame: RequestFrame):
         if self._honor_lease and not self._is_frame_allowed_to_send(frame):
-            self._request_queue.put_nowait(frame)
+            self._queue_request_frame(frame)
         else:
             self.send_frame(frame)
+
+    def _queue_request_frame(self, frame: RequestFrame):
+        logger().debug('%s: lease not allowing to send request. queueing', self._log_identifier())
+
+        self._request_queue.put_nowait(frame)
 
     def send_frame(self, frame: Frame):
         self._send_queue.put_nowait(frame)
 
     async def send_error(self, stream: int, exception: Exception):
-        logger().debug('RSocket Sending error: %s', str(exception))
+        logger().debug('%s: Sending error: %s', self._log_identifier(), str(exception))
         self.send_frame(exception_to_error_frame(stream, exception))
 
     async def send_payload(self, stream_id: int, payload: Payload, complete=False):
@@ -145,14 +166,14 @@ class RSocket:
         ...
 
     async def handle_keep_alive(self, frame_: KeepAliveFrame):
-        logger().debug('RSocket Received keepalive')
+        logger().debug('%s: Received keepalive', self._log_identifier())
 
         self._update_last_keepalive()
 
         if frame_.flags_respond:
             frame_.flags_respond = False
             self.send_frame(frame_)
-            logger().debug('RSocket Responded to keepalive')
+            logger().debug('%s: Responded to keepalive', self._log_identifier())
 
     async def handle_request_response(self, frame_: RequestResponseFrame):
         stream_ = frame_.stream_id
@@ -180,12 +201,16 @@ class RSocket:
             if self._lease_publisher is None:
                 await self.send_error(CONNECTION_STREAM_ID, RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP))
             else:
-                await self._lease_publisher.subscribe(self.LeaseSubscriber(self))
+                await self._subscribe_to_lease_publisher()
+
+    async def _subscribe_to_lease_publisher(self):
+        if self._lease_publisher is not None:
+            await self._lease_publisher.subscribe(self.LeaseSubscriber(self))
 
     async def send_lease(self, lease: Lease):
         try:
             self._responder_lease = lease
-            logger().debug('RSocket Sending lease %s' % self._responder_lease)
+            logger().debug('%s: Sending lease %s', self._log_identifier(), self._responder_lease)
             self.send_frame(self._responder_lease.to_frame())
         except Exception as exception:
             await self.send_error(CONNECTION_STREAM_ID, exception)
@@ -209,6 +234,8 @@ class RSocket:
         ...
 
     async def handle_lease(self, frame: LeaseFrame):
+        logger().debug('%s: received lease frame', self._log_identifier())
+
         self._requester_lease = DefinedLease(
             frame.number_of_requests,
             timedelta(milliseconds=frame.time_to_live)
@@ -225,9 +252,9 @@ class RSocket:
         try:
             await self._receiver_listen()
         except asyncio.CancelledError:
-            logger().debug('RSocket Canceled')
+            logger().debug('%s: Canceled', self._log_identifier())
         except Exception:
-            logger().error('RSocket Unknown error', exc_info=True)
+            logger().error('%s: Unknown error', self._log_identifier(), exc_info=True)
             raise
 
     @abc.abstractmethod
@@ -255,16 +282,16 @@ class RSocket:
             try:
                 await self._handle_next_frames(data, frame_parser)
             except RSocketConnectionRejected:
-                logger().error('RSocket connection rejected')
+                logger().error('%s: RSocket connection rejected', self._log_identifier())
                 raise
             except RSocketRejected as exception:
-                logger().error('RSocket Error %s' % str(exception))
+                logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
                 await self.send_error(exception.stream_id, exception)
             except RSocketProtocolException as exception:
-                logger().error('RSocket Error %s' % str(exception))
+                logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
                 await self.send_error(CONNECTION_STREAM_ID, exception)
             except Exception as exception:
-                logger().error('RSocket Unknown Error', exc_info=True)
+                logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
                 await self.send_error(CONNECTION_STREAM_ID, exception)
 
     async def _handle_next_frames(self, data: bytes, frame_parser: FrameParser):
@@ -295,7 +322,7 @@ class RSocket:
         frame.flags_respond = True
         frame.data = data
         self.send_frame(frame)
-        logger().debug('RSocket Sent keepalive')
+        logger().debug('%s: Sent keepalive', self._log_identifier())
 
     def _before_sender(self):
         pass
@@ -318,9 +345,9 @@ class RSocket:
         except ConnectionResetError as exception:
             logger().debug(str(exception))
         except asyncio.CancelledError:
-            logger().debug('RSocket Canceled', exc_info=True)
+            logger().info('%s: Canceled', self._log_identifier())
         except Exception:
-            logger().error('RSocket error', exc_info=True)
+            logger().error('%s: RSocket error', self._log_identifier(), exc_info=True)
             raise
         finally:
             self._finally_sender()
@@ -347,12 +374,16 @@ class RSocket:
         await self.close()
 
     def request_response(self, payload: Payload) -> Future:
+        logger().debug('%s: sending request-response: %s', self._log_identifier(), payload)
+
         stream = self.allocate_stream()
         requester = RequestResponseRequester(stream, self, payload)
         self._streams[stream] = requester
         return requester
 
     def fire_and_forget(self, payload: Payload):
+        logger().debug('%s: sending fire-and-forget: %s', self._log_identifier(), payload)
+
         stream = self.allocate_stream()
         frame = RequestFireAndForgetFrame()
         frame.stream_id = stream
@@ -362,6 +393,8 @@ class RSocket:
         self.finish_stream(stream)
 
     def request_stream(self, payload: Payload) -> Union[Stream, Publisher]:
+        logger().debug('%s: sending request-stream: %s', self._log_identifier(), payload)
+
         stream = self.allocate_stream()
         requester = RequestStreamRequester(stream, self, payload)
         self._streams[stream] = requester
@@ -371,6 +404,9 @@ class RSocket:
             self,
             channel_request_payload: Payload,
             local_publisher: Optional[Publisher] = None) -> Union[Stream, Publisher]:
+
+        logger().debug('%s: sending request-channel: %s', self._log_identifier(), channel_request_payload)
+
         if local_publisher is None:
             local_publisher = EmptyPublisher()
 
@@ -399,3 +435,16 @@ class RSocket:
             return self._responder_lease.is_request_allowed(frame.stream_id)
 
         return True
+
+    def _create_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes) -> SetupFrame:
+        setup = SetupFrame()
+        setup.flags_lease = self._honor_lease
+        setup.keep_alive_milliseconds = to_milliseconds(self._keep_alive_period)
+        setup.max_lifetime_milliseconds = to_milliseconds(self._max_lifetime_period)
+        setup.data_encoding = data_encoding
+        setup.metadata_encoding = metadata_encoding
+        return setup
+
+    @abc.abstractmethod
+    def _log_identifier(self) -> str:
+        ...
