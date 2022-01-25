@@ -56,7 +56,8 @@ class RSocket:
                  data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
-                 max_lifetime_period: timedelta = timedelta(minutes=10)):
+                 max_lifetime_period: timedelta = timedelta(minutes=10)
+                 ):
 
         self._reader = reader
         self._writer = writer
