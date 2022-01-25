@@ -17,8 +17,7 @@ class Payload:
         self.metadata = metadata
 
     def __str__(self):
-        data, metadata = self.data.decode(), self.metadata.decode()
-        return "<payload: '{}', '{}'>".format(data, metadata)
+        return "<payload: {}, {}>".format(self.data, self.metadata)
 
     def __eq__(self, other):
         return self.data == other.data and self.metadata == other.metadata
