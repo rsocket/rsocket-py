@@ -34,22 +34,21 @@ async def example():
             completion_event.set()
 
     connection = await asyncio.open_connection('localhost', 6565)
-    client = RSocketClient(*connection,
-                           metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name,
-                           data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value.name)
+    async with RSocketClient(*connection,
+                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name,
+                             data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value.name) as client:
+        metadata = CompositeMetadata()
+        metadata.append(RoutingMetadata(['investigation.getInvestigationByContext']))
 
-    metadata = CompositeMetadata()
-    metadata.append(RoutingMetadata(['investigation.getInvestigationByContext']))
+        body = bytes(bytearray(map(ord, json.dumps({'active': True}))))
 
-    body = bytes(bytearray(map(ord, json.dumps({'active': True}))))
+        request = Payload(body, metadata.serialize())
 
-    request = Payload(body, metadata.serialize())
+        subscriber = Subscriber()
+        client.request_stream(request).subscribe(subscriber)
+        await completion_event.wait()
 
-    subscriber = Subscriber()
-    client.request_stream(request).subscribe(subscriber)
-    await completion_event.wait()
-
-    assert len(subscriber.values) == 2
+        assert len(subscriber.values) == 2
 
 
 asyncio.run(example())

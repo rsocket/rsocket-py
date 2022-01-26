@@ -1,57 +1,59 @@
 import asyncio
 from asyncio import StreamWriter, StreamReader
 from datetime import timedelta, datetime
-from typing import Union, Optional
+from typing import Union, Optional, Type
 
+from reactivestreams.publisher import AsyncPublisher
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import SetupFrame
-from rsocket.helpers import to_milliseconds
-from rsocket.request_handler import BaseRequestHandler
+from rsocket.request_handler import BaseRequestHandler, RequestHandler
 from rsocket.rsocket import RSocket, _not_provided
 
 
 class RSocketClient(RSocket):
 
     def __init__(self,
-                 reader: StreamReader,
-                 writer: StreamWriter, *,
-                 handler_factory=BaseRequestHandler,
+                 reader: StreamReader, writer: StreamWriter, *,
+                 handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  loop=_not_provided,
+                 honor_lease=False,
+                 lease_publisher: Optional[AsyncPublisher] = None,
+                 request_queue_size: int = 0,
                  data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
-                 max_lifetime_period: timedelta = timedelta(minutes=10),
-                 honor_lease=False):
+                 max_lifetime_period: timedelta = timedelta(minutes=10)
+                 ):
         self._is_server_alive = True
-        self._max_lifetime_period = max_lifetime_period
         self._last_server_keepalive: Optional[datetime] = None
-        self._keep_alive_period = keep_alive_period
-        self._honor_lease = honor_lease
 
-        super().__init__(reader, writer, handler_factory=handler_factory, loop=loop)
+        super().__init__(reader, writer,
+                         handler_factory=handler_factory,
+                         loop=loop,
+                         honor_lease=honor_lease,
+                         lease_publisher=lease_publisher,
+                         request_queue_size=request_queue_size,
+                         data_encoding=data_encoding,
+                         metadata_encoding=metadata_encoding,
+                         keep_alive_period=keep_alive_period,
+                         max_lifetime_period=max_lifetime_period)
 
-        if isinstance(metadata_encoding, WellKnownMimeTypes):
-            metadata_encoding = metadata_encoding.value.name
+    def _log_identifier(self) -> str:
+        return 'client'
 
-        if isinstance(data_encoding, WellKnownMimeTypes):
-            data_encoding = data_encoding.value.name
-
-        self._send_setup_frame(data_encoding, metadata_encoding)
+    async def __aenter__(self) -> 'RSocketClient':
+        await self.connect()
+        return await super().__aenter__()
 
     def _get_first_stream_id(self) -> int:
         return 1
 
-    def _send_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes):
-        self.send_frame(self._create_setup_frame(data_encoding, metadata_encoding))
+    async def connect(self):
+        self.send_frame(self._create_setup_frame(self._data_encoding, self._metadata_encoding))
 
-    def _create_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes) -> SetupFrame:
-        setup = SetupFrame()
-        setup.flags_lease = self._honor_lease
-        setup.keep_alive_milliseconds = to_milliseconds(self._keep_alive_period)
-        setup.max_lifetime_milliseconds = to_milliseconds(self._max_lifetime_period)
-        setup.data_encoding = data_encoding
-        setup.metadata_encoding = metadata_encoding
-        return setup
+        if self._honor_lease:
+            await self._subscribe_to_lease_publisher()
+
+        return self
 
     async def _keepalive_send_task(self):
         while True:

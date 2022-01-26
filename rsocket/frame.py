@@ -1,14 +1,16 @@
+import abc
 import struct
 from abc import ABCMeta
 from enum import IntEnum
 from typing import Tuple
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException
+from rsocket.exceptions import RSocketProtocolException, RSocketRejected
 
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
 MASK_63_BITS = 0x7FFFFFFFFFFFFFFF
+MASK_31_BITS = 0x7FFFFFFF
 CONNECTION_STREAM_ID = 0
 
 _FLAG_METADATA_BIT = 0x100
@@ -111,6 +113,10 @@ class Frame(Header, metaclass=ABCMeta):
     @staticmethod
     def pack_string(buffer):
         return struct.pack('b', len(buffer)) + buffer
+
+    @abc.abstractmethod
+    def parse(self, buffer: bytes, offset: int):
+        ...
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
         flags &= ~(_FLAG_IGNORE_BIT | _FLAG_METADATA_BIT)
@@ -267,17 +273,20 @@ class LeaseFrame(Frame):
 
     def __init__(self):
         super().__init__(Type.LEASE)
-        super().metadata_only = True
+        self.metadata_only = True
 
     def parse(self, buffer: bytes, offset: int):
         parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.time_to_live, self.number_of_requests = struct.unpack_from(
-            '>II', buffer, offset)
-        offset += self.parse_metadata(buffer, offset)
+        time_to_live, number_of_requests = struct.unpack_from('>II', buffer, offset)
+        self.time_to_live = time_to_live & MASK_31_BITS
+        self.number_of_requests = number_of_requests & MASK_31_BITS
+        offset += self.parse_metadata(buffer, offset + 8)
 
     def serialize(self, middle=b'', flags=0):
-        middle = struct.pack('>II', self.time_to_live, self.number_of_requests)
+        middle = struct.pack('>II',
+                             self.time_to_live & MASK_31_BITS,
+                             self.number_of_requests & MASK_31_BITS)
         return Frame.serialize(self, middle, flags)
 
 
@@ -536,7 +545,37 @@ class ResumeFrame(Frame):
 
 
 class ResumeOKFrame(Frame):
-    ...
+    __slots__ = (
+        'last_received_client_position'
+    )
+
+    def __init__(self):
+        super().__init__(Type.RESUME_OK)
+        self.last_received_client_position = 0
+
+    def parse(self, buffer: bytes, offset: int):
+        parse_header(self, buffer, offset)
+        offset += HEADER_LENGTH
+        self.last_received_client_position = struct.unpack('>Q', buffer[offset:offset + 8])[0] & MASK_63_BITS
+
+    def serialize(self, middle=b'', flags: int = 0) -> bytes:
+        serialized = struct.pack('>Q', self.last_received_client_position & MASK_63_BITS)
+        return super().serialize(serialized)
+
+
+class ExtendedFrame(Frame, metaclass=abc.ABCMeta):
+    __slots__ = (
+        'extended_type'
+    )
+
+    def __init__(self):
+        super().__init__(Type.EXT)
+
+    def parse(self, buffer: bytes, offset: int):
+        ...
+
+    def serialize(self, middle=b'', flags: int = 0) -> bytes:
+        ...
 
 
 _frame_class_by_id = {
@@ -601,6 +640,9 @@ def exception_to_error_frame(stream_id: int, exception: Exception) -> ErrorFrame
 
 
 def error_frame_to_exception(frame: ErrorFrame) -> Exception:
+    if frame.error_code == ErrorCode.REJECTED:
+        return RSocketRejected(frame.stream_id)
+
     if frame.error_code != ErrorCode.APPLICATION_ERROR:
         return RSocketProtocolException(frame.error_code)
 

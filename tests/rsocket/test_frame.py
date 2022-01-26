@@ -6,7 +6,7 @@ from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
-                           MetadataPushFrame, PayloadFrame)
+                           MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -77,6 +77,59 @@ async def test_setup_readable(connection):
     assert frame.max_lifetime_milliseconds == 456
     assert frame.data == b'\x01\x02\x03'
     assert frame.metadata == b'\x04\x05\x06\x07\x08'
+    assert not frame.flags_resume
+
+
+@pytest.mark.asyncio
+async def test_setup_with_resume(connection):
+    data = build_frame(
+        bits(24, 84, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, 1, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 1, 'Metadata'),
+        bits(1, 1, 'Resume'),
+        bits(1, 0, 'Lease'),
+        bits(6, 0, 'Padding flags'),
+        # Version
+        bits(16, 1, 'Major version'),
+        bits(16, 0, 'Minor version'),
+        # Timeouts
+        bits(1, 0, 'Padding'),
+        bits(31, 123, 'Time Between KEEPALIVE Frames'),
+        bits(1, 0, 'Padding'),
+        bits(31, 456, 'Max Lifetime'),
+        # Resume token
+        bits(16, 18, 'Resume token length'),
+        data_bits(b'resume_token_value'),
+        # Meta-data mime
+        bits(8, 24, 'Metadata mime length'),
+        data_bits(b'application/octet-stream'),
+        # Data mime
+        bits(8, 9, 'Data mime length'),
+        data_bits(b'text/html'),
+        # Metadata
+        bits(24, 5, 'Metadata length'),
+        data_bits(b'\x04\x05\x06\x07\x08'),
+        # Payload
+        data_bits(b'\x01\x02\x03'),
+    )
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
+    assert isinstance(frame, SetupFrame)
+    assert frame.serialize() == data
+
+    assert frame.metadata_encoding == b'application/octet-stream'
+    assert frame.data_encoding == b'text/html'
+    assert frame.keep_alive_milliseconds == 123
+    assert frame.max_lifetime_milliseconds == 456
+    assert frame.data == b'\x01\x02\x03'
+    assert frame.metadata == b'\x04\x05\x06\x07\x08'
+    assert frame.resume_identification_token == b'resume_token_value'
+    assert frame.flags_resume
 
 
 @pytest.mark.asyncio
@@ -300,4 +353,53 @@ async def test_payload_frame(connection):
     assert isinstance(frame, PayloadFrame)
     assert frame.metadata == b'metadata'
     assert frame.data == b'actual_data'
+    assert frame.serialize() == data
+
+
+@pytest.mark.asyncio
+async def test_lease_frame(connection):
+    data = build_frame(
+        bits(24, 37, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, Type.LEASE, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 1, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        bits(1, 0, 'Padding'),
+        bits(31, 456, 'Time to live'),
+        bits(1, 0, 'Padding'),
+        bits(31, 123, 'Number of requests'),
+        data_bits(b'Metadata on lease frame')
+    )
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
+    assert isinstance(frame, LeaseFrame)
+    assert frame.number_of_requests == 123
+    assert frame.time_to_live == 456
+    assert frame.metadata == b'Metadata on lease frame'
+    assert frame.serialize() == data
+
+
+@pytest.mark.asyncio
+async def test_resume_ok_frame(connection):
+    data = build_frame(
+        bits(24, 14, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, Type.RESUME_OK, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        bits(1, 0, 'Padding'),
+        bits(63, 456, 'Last Received Client Position')
+    )
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
+    assert isinstance(frame, ResumeOKFrame)
+    assert frame.last_received_client_position == 456
     assert frame.serialize() == data

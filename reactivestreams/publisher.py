@@ -1,9 +1,15 @@
-from abc import ABCMeta, abstractmethod
+import abc
 
 from reactivestreams.subscriber import Subscriber
 
 
-class Publisher(metaclass=ABCMeta):
-    @abstractmethod
+class Publisher(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
     def subscribe(self, subscriber: Subscriber):
+        ...
+
+
+class AsyncPublisher(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    async def subscribe(self, subscriber: Subscriber):
         ...
