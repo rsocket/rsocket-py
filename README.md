@@ -4,6 +4,6 @@ Python implementation of [RSocket](http://rsocket.io)
 
 # Build Status
 
-<a href='https://travis-ci.org/rsocket/rsocket-py/builds'>
-    <img src='https://travis-ci.org/rsocket/rsocket-py.svg?branch=master'>
-</a>
+![build master](https://github.com/rsocket/rsocket-py/actions/workflows/python-package.yml/badge.svg?branch=master)
+
+
