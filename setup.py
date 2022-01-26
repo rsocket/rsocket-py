@@ -17,6 +17,9 @@ setup(
     license='MIT',
     packages=find_packages(exclude=['examples', 'tests', 'docs']),
     zip_safe=True,
+    extra_required={
+        'rx': {'Rx >= 3.0.0'}
+    },
     classifiers=[
         'Development Status :: 1 - Planning',
         'Environment :: Web Environment',
