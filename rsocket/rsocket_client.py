@@ -24,8 +24,9 @@ class RSocketClient(RSocket):
                  request_queue_size: int = 0,
                  data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
-                 keep_alive_period: timedelta = timedelta(minutes=500),
-                 max_lifetime_period: timedelta = timedelta(minutes=100)):
+                 keep_alive_period: timedelta = timedelta(milliseconds=500),
+                 max_lifetime_period: timedelta = timedelta(minutes=10)
+                 ):
         self._is_server_alive = True
         self._update_last_keepalive()
 
