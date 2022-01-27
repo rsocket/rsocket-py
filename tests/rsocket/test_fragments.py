@@ -8,7 +8,6 @@ from rsocket.frame_fragment_cache import FrameFragmentCache
 from rsocket.helpers import payload_to_n_size_fragments
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize('data, metadata, fragment_size, expected_frame_count', (
         (b'', b'123abc456def', 3, 5),
         (b'123abc456def', b'', 3, 5),

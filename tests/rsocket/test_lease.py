@@ -98,7 +98,6 @@ async def test_request_response_with_lease_too_many_requests(lazy_pipe):
             await asyncio.wait_for(client.request_response(Payload(b'invalid request')), 3)
 
 
-@pytest.mark.asyncio
 async def test_request_response_with_lease_client_side_exception_requests_late(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
@@ -122,14 +121,12 @@ async def test_request_response_with_lease_client_side_exception_requests_late(l
             await asyncio.wait_for(client.request_response(Payload(b'invalid request')), 3)
 
 
-@pytest.mark.asyncio
 async def test_server_rejects_all_requests_if_lease_not_supported(lazy_pipe):
     async with lazy_pipe(client_arguments={'honor_lease': True}) as (server, client):
         with pytest.raises(asyncio.exceptions.TimeoutError):
             await asyncio.wait_for(client.request_response(Payload(b'invalid request')), 3)
 
 
-@pytest.mark.asyncio
 @pytest.mark.skip(reason='TODO')
 async def test_request_response_with_lease_server_side_exception(lazy_pipe):
     class Handler(BaseRequestHandler):

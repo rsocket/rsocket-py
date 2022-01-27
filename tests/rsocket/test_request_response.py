@@ -7,7 +7,6 @@ from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
 
-@pytest.mark.asyncio
 async def test_request_response_repeated(pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
@@ -24,7 +23,6 @@ async def test_request_response_repeated(pipe):
         assert response == Payload(b'data: dog', b'meta: cat')
 
 
-@pytest.mark.asyncio
 async def test_request_response_failure(pipe):
     class Handler(BaseRequestHandler, asyncio.Future):
         async def request_response(self, payload: Payload):
@@ -38,7 +36,6 @@ async def test_request_response_failure(pipe):
         await client.request_response(Payload(b''))
 
 
-@pytest.mark.asyncio
 async def test_request_response_cancellation(pipe):
     class Handler(BaseRequestHandler, asyncio.Future):
         async def request_response(self, payload: Payload):
@@ -64,7 +61,6 @@ async def test_request_response_cancellation(pipe):
         await future
 
 
-@pytest.mark.asyncio
 async def test_request_response_bidirectional(pipe):
     def ready_future(data, metadata):
         future = asyncio.Future()

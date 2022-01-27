@@ -1,18 +1,18 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='rsocket',
     version='0.3',
     description='Python RSocket library',
-    url='https://github.com/RSocket/rsocket-py',
-    author='Vijayan Rajan',
-    author_email='',
+    url='https://github.com/rsocket/rsocket-py',
+    author='Gabriel Shaar',
+    author_email='gabis@precog.co',
     license='MIT',
-    packages=[
-        'rsocket',
-        'reactivestreams'
-    ],
+    packages=find_packages(exclude=['examples', 'tests', 'docs']),
     zip_safe=True,
+    extra_required={
+        'rx': {'Rx >= 3.0.0'}
+    },
     classifiers=[
         'Development Status :: 1 - Planning',
         'Environment :: Web Environment',
