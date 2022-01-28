@@ -13,13 +13,16 @@ from rsocket.transports.transport import Transport
 
 @asynccontextmanager
 async def websocket_client(url, *args, **kwargs) -> RSocketClient:
-    session = aiohttp.ClientSession()
+    async with aiohttp.ClientSession() as session:
 
-    async with session.ws_connect(url) as ws:
-        transport = TransportWebsocket(ws)
-        asyncio.create_task(transport.handle_incoming_ws_messages())
-        async with RSocketClient(transport, *args, **kwargs) as client:
-            yield client
+        async with session.ws_connect(url) as ws:
+            transport = TransportWebsocket(ws)
+            message_handler = asyncio.create_task(transport.handle_incoming_ws_messages())
+            async with RSocketClient(transport, *args, **kwargs) as client:
+                yield client
+
+            message_handler.cancel()
+            await message_handler
 
 
 def websocket_handler_factory(*args, **kwargs):
@@ -41,10 +44,13 @@ class TransportWebsocket(Transport):
         self._ws = websocket
 
     async def handle_incoming_ws_messages(self):
-        async for msg in self._ws:
-            if msg.type == aiohttp.WSMsgType.BINARY:
-                async for frame in self._frame_parser.receive_data(msg.data, 0):
-                    self._incoming_frame_queue.put_nowait(frame)
+        try:
+            async for msg in self._ws:
+                if msg.type == aiohttp.WSMsgType.BINARY:
+                    async for frame in self._frame_parser.receive_data(msg.data, 0):
+                        self._incoming_frame_queue.put_nowait(frame)
+        except asyncio.CancelledError:
+            pass
 
     async def on_send_queue_empty(self):
         pass
