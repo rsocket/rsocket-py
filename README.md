@@ -35,4 +35,4 @@ Python implementation of [RSocket](http://rsocket.io)
     - [ ] Channel Requester stream
     - [ ] Response
 - [ ] Other
-    - [ ] Error handing all scenarios in the protocol spec
+    - [ ] Error handling all scenarios in the protocol spec
