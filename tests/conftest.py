@@ -15,16 +15,12 @@ from rsocket.transports.tcp import TransportTCP
 logging.basicConfig(level=logging.DEBUG)
 
 
-@pytest.fixture(params=[
-    'tcp', 'websocket'
-])
+@pytest.fixture
 async def lazy_pipe(unused_tcp_port):
     yield functools.partial(pipe_factory, unused_tcp_port)
 
 
-@pytest.fixture(params=[
-    'tcp', 'websocket'
-])
+@pytest.fixture
 async def pipe(unused_tcp_port, event_loop):
     async with pipe_factory(unused_tcp_port) as components:
         yield components
