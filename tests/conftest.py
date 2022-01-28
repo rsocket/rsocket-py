@@ -117,6 +117,9 @@ async def pipe_factory_websocket(aiohttp_raw_server, unused_tcp_port, client_arg
     test_overrides = {'keep_alive_period': timedelta(minutes=20)}
     client_arguments = client_arguments or {}
     client_arguments.update(test_overrides)
+
     async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
                                 **client_arguments) as client:
-        yield servers[0], client
+        server = servers[0]
+        yield server, client
+        server.close()
