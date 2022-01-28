@@ -1,7 +1,7 @@
 from math import ceil
 
 
-def data_bits(data: bytes):
+def data_bits(data: bytes, name: str = None):
     return ''.join(format(byte, '08b') for byte in data)
 
 

@@ -1,4 +1,5 @@
 import asyncstdlib
+import pytest
 
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
@@ -9,37 +10,29 @@ from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type,
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
-async def test_setup(connection):
-    data = b'\x00\x00\x40\x00\x00\x00\x00\x05\x00\x00\x01\x00\x00\x00\x00\x00'
-    data += b'\x7b\x00\x00\x01\xc8\x18\x61\x70\x70\x6c\x69\x63\x61\x74\x69\x6f'
-    data += b'\x6e\x2f\x6f\x63\x74\x65\x74\x2d\x73\x74\x72\x65\x61\x6d\x09\x74'
-    data += b'\x65\x78\x74\x2f\x68\x74\x6d\x6c\x00\x00\x05\x04\x05\x06\x07\x08'
-    data += b'\x01\x02\x03'
+@pytest.mark.parametrize('metadata_flag, metadata, lease, data', (
+        (0, b'', 0, b'\x01\x02\x03'),
+        (1, b'\x04\x05\x06\x07\x08', 1, b'\x01\x02\x03'),
+        (1, b'\x04\x05\x06\x07\x08', 1, b''),
+        (1, b'\x04\x05\x06\x07\x08', 0, b''),
+))
+async def test_setup_readable(connection, metadata_flag, metadata, lease, data):
+    def variable_length():
+        length = len(data)
+        if metadata_flag != 0:
+            length += len(metadata) + 3
+        return length
 
-    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
-    frame = frames[0]
-    assert isinstance(frame, SetupFrame)
-    assert frame.serialize() == data
-
-    assert frame.metadata_encoding == b'application/octet-stream'
-    assert frame.data_encoding == b'text/html'
-    assert frame.keep_alive_milliseconds == 123
-    assert frame.max_lifetime_milliseconds == 456
-    assert frame.data == b'\x01\x02\x03'
-    assert frame.metadata == b'\x04\x05\x06\x07\x08'
-
-
-async def test_setup_readable(connection):
-    data = build_frame(
-        bits(24, 64, 'Frame size'),
+    items = [
+        bits(24, 53 + variable_length(), 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 0, 'Stream id'),
         bits(6, 1, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
-        bits(1, 1, 'Metadata'),
+        bits(1, metadata_flag, 'Metadata'),
         bits(1, 0, 'Resume'),
-        bits(1, 0, 'Lease'),
+        bits(1, lease, 'Lease'),
         bits(6, 0, 'Padding flags'),
         # Version
         bits(16, 1, 'Major version'),
@@ -56,28 +49,41 @@ async def test_setup_readable(connection):
         # Data mime
         bits(8, 9, 'Data mime length'),
         data_bits(b'text/html'),
-        # Metadata
-        bits(24, 5, 'Metadata length'),
-        data_bits(b'\x04\x05\x06\x07\x08'),
-        # Payload
-        data_bits(b'\x01\x02\x03'),
-    )
+    ]
 
-    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    if metadata_flag:
+        items.extend((
+            bits(24, len(metadata), 'Metadata length'),
+            data_bits(metadata, 'Metadata')
+        ))
+
+    items.extend((data_bits(data, 'Payload')))
+
+    frame_data = build_frame(*items)
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(frame_data))
     frame = frames[0]
     assert isinstance(frame, SetupFrame)
-    assert frame.serialize() == data
+    assert frame.serialize() == frame_data
 
     assert frame.metadata_encoding == b'application/octet-stream'
     assert frame.data_encoding == b'text/html'
     assert frame.keep_alive_milliseconds == 123
     assert frame.max_lifetime_milliseconds == 456
-    assert frame.data == b'\x01\x02\x03'
-    assert frame.metadata == b'\x04\x05\x06\x07\x08'
-    assert not frame.flags_resume
+    assert frame.data == data
+    assert frame.metadata == metadata
+    assert frame.flags_resume is False
+    assert frame.flags_lease == bool(lease)
+    assert frame.flags_complete is False
+    assert frame.flags_ignore is False
+    assert frame.flags_follows is False
 
 
-async def test_setup_with_resume(connection):
+@pytest.mark.parametrize('lease', (
+        (0),
+        (1)
+))
+async def test_setup_with_resume(connection, lease):
     data = build_frame(
         bits(24, 84, 'Frame size'),
         bits(1, 0, 'Padding'),
@@ -87,7 +93,7 @@ async def test_setup_with_resume(connection):
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
         bits(1, 1, 'Resume'),
-        bits(1, 0, 'Lease'),
+        bits(1, lease, 'Lease'),
         bits(6, 0, 'Padding flags'),
         # Version
         bits(16, 1, 'Major version'),
@@ -126,6 +132,10 @@ async def test_setup_with_resume(connection):
     assert frame.metadata == b'\x04\x05\x06\x07\x08'
     assert frame.resume_identification_token == b'resume_token_value'
     assert frame.flags_resume
+    assert frame.flags_lease == bool(lease)
+    assert frame.flags_complete is False
+    assert frame.flags_ignore is False
+    assert frame.flags_follows is False
 
 
 async def test_request_with_composite_metadata(connection):
