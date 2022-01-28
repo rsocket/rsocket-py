@@ -10,6 +10,7 @@ import pytest
 from rsocket.frame_parser import FrameParser
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.tcp import TransportTCP
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -27,15 +28,15 @@ async def pipe(unused_tcp_port, event_loop):
 
 @asynccontextmanager
 async def pipe_factory(unused_tcp_port, client_arguments=None, server_arguments=None):
-    def session(reader, writer):
+    def session(*connection):
         nonlocal server
-        server = RSocketServer(reader, writer, **(server_arguments or {}))
+        server = RSocketServer(TransportTCP(*connection), **(server_arguments or {}))
 
     async def start():
         nonlocal service, client
         service = await asyncio.start_server(session, host, port)
         connection = await asyncio.open_connection(host, port)
-        client = await RSocketClient(*connection, **(client_arguments or {})).connect()
+        client = await RSocketClient(TransportTCP(*connection), **(client_arguments or {})).connect()
 
     async def finish():
         service.close()
