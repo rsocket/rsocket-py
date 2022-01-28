@@ -3,11 +3,9 @@ from typing import Optional
 
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from rsocket.rsocket_client import RSocketClient
-from rsocket.rsocket_server import RSocketServer
 
 
-async def test_request_fire_and_forget(pipe):
+async def test_request_fire_and_forget(lazy_pipe):
     fire_and_forget_received = asyncio.Event()
     received_payload: Optional[Payload] = None
 
@@ -17,13 +15,11 @@ async def test_request_fire_and_forget(pipe):
             received_payload = payload
             fire_and_forget_received.set()
 
-    server: RSocketServer = pipe[0]
-    client: RSocketClient = pipe[1]
-    server.set_handler_using_factory(Handler)
+    async with lazy_pipe(
+            server_arguments={'handler_factory': Handler}) as (server, client):
+        client.fire_and_forget(Payload(b'dog', b'cat'))
 
-    client.fire_and_forget(Payload(b'dog', b'cat'))
+        await fire_and_forget_received.wait()
 
-    await fire_and_forget_received.wait()
-
-    assert received_payload.data == b'dog'
-    assert received_payload.metadata == b'cat'
+        assert received_payload.data == b'dog'
+        assert received_payload.metadata == b'cat'
