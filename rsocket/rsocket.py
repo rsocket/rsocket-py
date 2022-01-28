@@ -209,7 +209,9 @@ class RSocket:
     async def send_lease(self, lease: Lease):
         try:
             self._responder_lease = lease
+
             logger().debug('%s: Sending lease %s', self._log_identifier(), self._responder_lease)
+
             self.send_frame(self._responder_lease.to_frame())
         except Exception as exception:
             await self.send_error(CONNECTION_STREAM_ID, exception)

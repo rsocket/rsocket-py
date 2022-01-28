@@ -17,9 +17,9 @@ async def websocket_client(url, *args, **kwargs) -> RSocketClient:
 
     async with session.ws_connect(url) as ws:
         transport = TransportWebsocket(ws)
-        client = RSocketClient(transport, *args, **kwargs)
         asyncio.create_task(transport.handle_incoming_ws_messages())
-        yield client
+        async with RSocketClient(transport, *args, **kwargs) as client:
+            yield client
 
 
 def websocket_handler_factory(*args, **kwargs):
