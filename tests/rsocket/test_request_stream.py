@@ -104,7 +104,7 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
 
         async def request(self, n: int):
             await self._subscriber.on_next(Payload(b'success'))
-            await self._subscriber.on_error(Exception('error message from handler'))
+            self._subscriber.on_error(Exception('error message from handler'))
 
         async def request_stream(self, payload: Payload) -> Publisher:
             return self
