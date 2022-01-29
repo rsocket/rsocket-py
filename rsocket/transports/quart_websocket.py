@@ -7,9 +7,13 @@ from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.transport import Transport
 
 
-async def websocket_handler(*args, **kwargs):
+async def websocket_handler(*args, on_server_create=None, **kwargs):
     transport = TransportQuartWebsocket()
-    RSocketServer(transport=transport, *args, **kwargs)
+    server = RSocketServer(transport=transport, *args, **kwargs)
+
+    if on_server_create is not None:
+        on_server_create(server)
+
     await transport.handle_incoming_ws_messages()
 
 
@@ -29,7 +33,7 @@ class TransportQuartWebsocket(Transport):
             pass
 
     async def send_frame(self, frame: Frame):
-        await websocket.send(frame.serialize().decode('utf-8'))
+        await websocket.send(frame.serialize())
 
     async def next_frame_generator(self, is_server_alive):
         frame = await self._incoming_frame_queue.get()
