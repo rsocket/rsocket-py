@@ -10,7 +10,7 @@ are in java to show compatibility with a different implementation.
 
 | server (python)        | server (java) | client (python)                    | client(java)    |
 |------------------------|---------------|------------------------------------|-----------------|
-| server.py              |               | cilent.py                          |                 |
+| server.py              |               | client.py                          |                 |
 | server_with_lease.py   |               |                                    | ClientWithLease |
 | server_with_routing.py |               | client_with_routing.py             | Client          |
 |                        | Server        | run_against_example_java_server.py |                 |
