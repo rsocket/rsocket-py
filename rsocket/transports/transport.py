@@ -1,13 +1,13 @@
 import abc
 
 from rsocket.frame import Frame
+from rsocket.frame_parser import FrameParser
 
 
 class Transport(metaclass=abc.ABCMeta):
 
-    @abc.abstractmethod
-    async def on_send_queue_empty(self):
-        ...
+    def __init__(self):
+        self._frame_parser = FrameParser()
 
     @abc.abstractmethod
     async def send_frame(self, frame: Frame):
@@ -21,6 +21,5 @@ class Transport(metaclass=abc.ABCMeta):
     async def close(self):
         ...
 
-    @abc.abstractmethod
-    async def close_writer(self):
-        ...
+    async def on_send_queue_empty(self):
+        pass

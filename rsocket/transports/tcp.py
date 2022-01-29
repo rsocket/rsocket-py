@@ -8,12 +8,9 @@ from rsocket.transports.transport import Transport
 
 class TransportTCP(Transport):
     def __init__(self, reader: StreamReader, writer: StreamWriter):
+        super().__init__()
         self._writer = writer
         self._reader = reader
-        self._frame_parser = FrameParser()
-
-    async def close_writer(self):
-        self._writer.close()
 
     async def send_frame(self, frame: Frame):
         self._writer.write(serialize_with_frame_size_header(frame))
@@ -36,7 +33,7 @@ class TransportTCP(Transport):
             return
 
         if not data:
-            await self.close_writer()
+            self._writer.close()
             return
 
         return self._frame_parser.receive_data(data)

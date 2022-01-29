@@ -3,24 +3,24 @@ import functools
 import logging
 from asyncio.base_events import Server
 from contextlib import asynccontextmanager
-from datetime import timedelta
 from typing import Optional
 
 import pytest
-from aiohttp import web
 from aiohttp.test_utils import RawTestServer
+from quart import Quart
 
 from rsocket.frame_parser import FrameParser
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.quart_websocket import websocket_handler
 from rsocket.transports.tcp import TransportTCP
-from rsocket.transports.websocket import websocket_client, TransportWebsocket
+from rsocket.transports.websocket import websocket_client, websocket_handler_factory
 
 logging.basicConfig(level=logging.DEBUG)
 
 
 @pytest.fixture(params=[
-    'tcp', 'websocket'
+    'tcp', 'websocket', 'quart'
 ])
 async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port):
     pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
@@ -28,7 +28,7 @@ async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port):
 
 
 @pytest.fixture(params=[
-    'tcp', 'websocket'
+    'tcp', 'websocket', 'quart'
 ])
 async def pipe(request, aiohttp_raw_server, unused_tcp_port):
     pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
@@ -39,6 +39,8 @@ async def pipe(request, aiohttp_raw_server, unused_tcp_port):
 def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
     if transport_id == 'tcp':
         return pipe_factory_tcp
+    if transport_id == 'quart':
+        return pipe_factory_quart_websocket
     else:
         return functools.partial(pipe_factory_websocket, aiohttp_raw_server)
 
@@ -97,29 +99,51 @@ def aiohttp_raw_server(event_loop, unused_tcp_port):
     event_loop.run_until_complete(finalize())
 
 
-def websocket_handler_test_factory(servers, *args, **kwargs):
-    async def websocket_handler(request):
-        ws = web.WebSocketResponse()
-        await ws.prepare(request)
-        transport = TransportWebsocket(ws)
-        servers.append(RSocketServer(transport, *args, **kwargs))
-        await transport.handle_incoming_ws_messages()
-        return ws
-
-    return websocket_handler
-
-
 @asynccontextmanager
 async def pipe_factory_websocket(aiohttp_raw_server, unused_tcp_port, client_arguments=None, server_arguments=None):
-    servers = []
-    await aiohttp_raw_server(websocket_handler_test_factory(servers, **(server_arguments or {})))
+    server = None
 
-    test_overrides = {'keep_alive_period': timedelta(minutes=20)}
+    def store_server(new_server):
+        nonlocal server
+        server = new_server
+
+    await aiohttp_raw_server(websocket_handler_factory(on_server_create=store_server, **(server_arguments or {})))
+
+    # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
     client_arguments = client_arguments or {}
-    client_arguments.update(test_overrides)
+    # client_arguments.update(test_overrides)
 
     async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
                                 **client_arguments) as client:
-        server = servers[0]
         yield server, client
-        server.close()
+        await server.close()
+
+
+@asynccontextmanager
+async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, server_arguments=None):
+    app = Quart(__name__)
+    server = None
+
+    def store_server(new_server):
+        nonlocal server
+        server = new_server
+
+    @app.websocket("/")
+    async def ws():
+        await websocket_handler(on_server_create=store_server, **(server_arguments or {}))
+        # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
+
+    client_arguments = client_arguments or {}
+    # client_arguments.update(test_overrides)
+    server_task = asyncio.create_task(app.run_task(port=unused_tcp_port))
+
+    async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
+                                **client_arguments) as client:
+        yield server, client
+        await server.close()
+
+    try:
+        server_task.cancel()
+        await server_task
+    except asyncio.CancelledError:
+        pass
