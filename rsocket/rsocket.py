@@ -5,7 +5,7 @@ from asyncio import StreamWriter, StreamReader
 from datetime import timedelta
 from typing import Union, Type, Optional, Dict, Any
 
-from reactivestreams.publisher import Publisher, AsyncPublisher
+from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.empty_publisher import EmptyPublisher
 from rsocket.error_codes import ErrorCode
@@ -44,15 +44,15 @@ class RSocket:
         def __init__(self, socket: 'RSocket'):
             self._socket = socket
 
-        async def on_next(self, value, is_complete=False):
-            await self._socket.send_lease(value)
+        def on_next(self, value, is_complete=False):
+            self._socket.send_lease(value)
 
     def __init__(self,
                  reader: StreamReader, writer: StreamWriter, *,
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  loop=_not_provided,
                  honor_lease=False,
-                 lease_publisher: Optional[AsyncPublisher] = None,
+                 lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
                  data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
@@ -153,11 +153,11 @@ class RSocket:
     def send_frame(self, frame: Frame):
         self._send_queue.put_nowait(frame)
 
-    async def send_error(self, stream: int, exception: Exception):
+    def send_error(self, stream: int, exception: Exception):
         logger().debug('%s: Sending error: %s', self._log_identifier(), str(exception))
         self.send_frame(exception_to_error_frame(stream, exception))
 
-    async def send_payload(self, stream_id: int, payload: Payload, complete=False):
+    def send_payload(self, stream_id: int, payload: Payload, complete=False):
         self.send_frame(to_payload_frame(payload, complete, stream_id))
 
     def _update_last_keepalive(self):
@@ -196,25 +196,25 @@ class RSocket:
             await handler.on_setup(frame_.data_encoding,
                                    frame_.metadata_encoding)
         except Exception as exception:
-            await self.send_error(frame_.stream_id, exception)
+            self.send_error(frame_.stream_id, exception)
 
         if frame_.flags_lease:
             if self._lease_publisher is None:
-                await self.send_error(CONNECTION_STREAM_ID, RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP))
+                self.send_error(CONNECTION_STREAM_ID, RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP))
             else:
                 await self._subscribe_to_lease_publisher()
 
     async def _subscribe_to_lease_publisher(self):
         if self._lease_publisher is not None:
-            await self._lease_publisher.subscribe(self.LeaseSubscriber(self))
+            self._lease_publisher.subscribe(self.LeaseSubscriber(self))
 
-    async def send_lease(self, lease: Lease):
+    def send_lease(self, lease: Lease):
         try:
             self._responder_lease = lease
             logger().debug('%s: Sending lease %s', self._log_identifier(), self._responder_lease)
             self.send_frame(self._responder_lease.to_frame())
         except Exception as exception:
-            await self.send_error(CONNECTION_STREAM_ID, exception)
+            self.send_error(CONNECTION_STREAM_ID, exception)
 
     async def handle_fire_and_forget(self, frame_: RequestFireAndForgetFrame):
         await self._handler.request_fire_and_forget(Payload(frame_.data, frame_.metadata))
@@ -287,13 +287,13 @@ class RSocket:
                 raise
             except RSocketRejected as exception:
                 logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
-                await self.send_error(exception.stream_id, exception)
+                self.send_error(exception.stream_id, exception)
             except RSocketProtocolException as exception:
                 logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
-                await self.send_error(CONNECTION_STREAM_ID, exception)
+                self.send_error(CONNECTION_STREAM_ID, exception)
             except Exception as exception:
                 logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
-                await self.send_error(CONNECTION_STREAM_ID, exception)
+                self.send_error(CONNECTION_STREAM_ID, exception)
 
     async def _handle_next_frames(self, data: bytes, frame_parser: FrameParser):
         async for frame in frame_parser.receive_data(data):
@@ -328,7 +328,7 @@ class RSocket:
     def _before_sender(self):
         pass
 
-    def _finally_sender(self):
+    async def _finally_sender(self):
         pass
 
     async def _sender(self):
@@ -351,7 +351,7 @@ class RSocket:
             logger().error('%s: RSocket error', self._log_identifier(), exc_info=True)
             raise
         finally:
-            self._finally_sender()
+            await self._finally_sender()
 
     async def close(self):
         self._is_closing = True

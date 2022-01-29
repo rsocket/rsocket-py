@@ -6,7 +6,7 @@ class RequestChannelResponder(RequestChannelCommon):
 
     async def frame_received(self, frame: Frame):
         if isinstance(frame, RequestChannelFrame):
-            await self.subscriber.subscription.request(frame.initial_request_n)
+            self.subscriber.subscription.request(frame.initial_request_n)
 
         else:
             await super().frame_received(frame)

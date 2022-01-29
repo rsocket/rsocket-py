@@ -1,12 +1,10 @@
-from asyncio import ensure_future
-
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     PayloadFrame, Frame, RequestChannelFrame, error_frame_to_exception
-from rsocket.streams.stream_handler import StreamHandler
 from rsocket.payload import Payload
+from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestChannelCommon(StreamHandler, Publisher, Subscription):
@@ -18,18 +16,18 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             self._socket = socket
             self._requester = requester
 
-        async def on_next(self, value, is_complete=False):
-            ensure_future(self._socket.send_payload(
-                self._stream, value, complete=is_complete))
+        def on_next(self, value, is_complete=False):
+            self._socket.send_payload(
+                self._stream, value, complete=is_complete)
 
         def on_complete(self):
-            ensure_future(self._socket.send_payload(
-                self._stream, Payload(b'', b''), complete=True))
+            self._socket.send_payload(
+                self._stream, Payload(b'', b''), complete=True)
             self._requester._sent_complete = True
             self._requester._finish_if_both_closed()
 
         def on_error(self, exception):
-            ensure_future(self._socket.send_error(self._stream, exception))
+            self._socket.send_error(self._stream, exception)
             self._requester._sent_complete = True
             self._requester._finish_if_both_closed()
 
@@ -49,11 +47,11 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
         if isinstance(frame, CancelFrame):
             self.subscriber.subscription.cancel()
         elif isinstance(frame, RequestNFrame):
-            await self.subscriber.subscription.request(frame.request_n)
+            self.subscriber.subscription.request(frame.request_n)
 
         elif isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                await self.local_subscriber.on_next(Payload(frame.data, frame.metadata))
+                self.local_subscriber.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
                 self.local_subscriber.on_complete()
                 self._received_complete = True
@@ -77,7 +75,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
     def cancel(self):
         self.send_cancel()
 
-    async def request(self, n: int):
+    def request(self, n: int):
         self.send_request_n(n)
 
     def send_channel_request(self, payload: Payload):

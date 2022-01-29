@@ -20,13 +20,13 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
         super().cancel()
         self.send_cancel()
 
-    async def request(self, n: int):
+    def request(self, n: int):
         self.send_request_n(n)
 
     async def frame_received(self, frame: Frame):
         if isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                await self.subscriber.on_next(Payload(frame.data, frame.metadata))
+                self.subscriber.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
                 self.subscriber.on_complete()
                 self.socket.finish_stream(self.stream)

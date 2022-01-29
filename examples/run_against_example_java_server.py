@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from asyncio import Event
 from typing import Optional
 
@@ -23,9 +24,9 @@ async def example():
         def on_subscribe(self, subscription: Subscription):
             self._subscription = subscription
 
-        async def on_next(self, value, is_complete=False):
+        def on_next(self, value, is_complete=False):
             self.values.append(value)
-            await self._subscription.request(1)
+            self._subscription.request(1)
 
         def on_complete(self):
             completion_event.set()
@@ -51,4 +52,5 @@ async def example():
         assert len(subscriber.values) == 2
 
 
+logging.basicConfig(level=logging.DEBUG)
 asyncio.run(example())

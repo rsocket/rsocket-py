@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 
 class Subscription(metaclass=ABCMeta):
     @abstractmethod
-    async def request(self, n: int):
+    def request(self, n: int):
         ...
 
     @abstractmethod
@@ -12,7 +12,7 @@ class Subscription(metaclass=ABCMeta):
 
 
 class DefaultSubscription(Subscription):
-    async def request(self, n: int):
+    def request(self, n: int):
         pass
 
     def cancel(self):

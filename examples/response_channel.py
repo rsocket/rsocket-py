@@ -21,7 +21,7 @@ class ResponseChannel(StreamFromGenerator, Subscriber):
             message = 'Item on channel: %s' % self._current_response
             yield Fragment(message.encode('utf-8'), b''), is_complete
 
-            await self.subscription.request(1)
+            self.subscription.request(1)
             if is_complete:
                 break
 
@@ -30,7 +30,7 @@ class ResponseChannel(StreamFromGenerator, Subscriber):
     def on_subscribe(self, subscription: Subscription):
         self.subscription = subscription
 
-    async def on_next(self, value: Payload, is_complete=False):
+    def on_next(self, value: Payload, is_complete=False):
         logging.info('From client on channel: ' + value.data.decode('utf-8'))
 
     def on_error(self, exception: Exception):

@@ -12,9 +12,9 @@ class StreamSubscriber(Subscriber):
     def __init__(self, wait_for_complete: Event):
         self._wait_for_complete = wait_for_complete
 
-    async def on_next(self, value, is_complete=False):
+    def on_next(self, value, is_complete=False):
         logging.info('RS: {}'.format(value))
-        await self.subscription.request(1)
+        self.subscription.request(1)
 
     def on_complete(self):
         logging.info('RS: Complete')

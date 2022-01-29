@@ -4,7 +4,7 @@ from reactivestreams.subscription import DefaultSubscription
 
 
 class ErrorStream(Publisher, DefaultSubscription):
-    async def request(self, n: int):
+    def request(self, n: int):
         self._subscriber.on_error(self._exception)
 
     def __init__(self, exception: Exception):

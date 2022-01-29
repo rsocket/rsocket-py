@@ -34,7 +34,7 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
                 for x in range(3):
                     value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
                     logging.debug('Sending payload %s', value)
-                    await subscriber.on_next(value)
+                    subscriber.on_next(value)
                 loop.call_soon(subscriber.on_complete)
             except asyncio.CancelledError:
                 pass

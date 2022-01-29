@@ -31,7 +31,7 @@ class RequestChannel(StreamFromGenerator, Subscriber):
             message = 'Item to server from client on channel: %s' % self._current_response
             yield Fragment(message.encode('utf-8'), b''), is_complete
 
-            await self.subscription.request(1)
+            self.subscription.request(1)
             if is_complete:
                 self._wait_for_requester_complete.set()
                 break
@@ -41,7 +41,7 @@ class RequestChannel(StreamFromGenerator, Subscriber):
     def on_subscribe(self, subscription: Subscription):
         self.subscription = subscription
 
-    async def on_next(self, value: Payload, is_complete=False):
+    def on_next(self, value: Payload, is_complete=False):
         logging.info('From server on channel: ' + value.data.decode('utf-8'))
 
     def on_error(self, exception: Exception):
@@ -58,9 +58,9 @@ class StreamSubscriber(Subscriber):
     def __init__(self, wait_for_complete: Event):
         self._wait_for_complete = wait_for_complete
 
-    async def on_next(self, value, is_complete=False):
+    def on_next(self, value, is_complete=False):
         logging.info('RS: {}'.format(value))
-        await self.subscription.request(1)
+        self.subscription.request(1)
 
     def on_complete(self):
         logging.info('RS: Complete')

@@ -28,7 +28,10 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
         self._subscriber = subscriber
         self._feeder = asyncio.ensure_future(self.feed_subscriber())
 
-    async def request(self, n: int):
+    def request(self, n: int):
+        asyncio.create_task(self.queue_next_n(n))
+
+    async def queue_next_n(self, n):
         async for next_item in self.generate_next_n(n):
             await self._queue.put(next_item)
 
@@ -46,19 +49,20 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
                 payload, is_complete = await self._queue.get()
 
                 if self._fragment_size is None:
-                    await self._send_to_subscriber(payload, is_complete)
+                    self._send_to_subscriber(payload, is_complete)
                 else:
                     async for fragment in payload_to_n_size_fragments(BytesIO(payload.data),
                                                                       BytesIO(payload.metadata),
                                                                       self._fragment_size):
-                        await self._send_to_subscriber(fragment, is_complete and fragment.is_last)
+                        self._send_to_subscriber(fragment, is_complete and fragment.is_last)
 
                 await asyncio.sleep(self._delay_between_messages.total_seconds())
 
+                self._queue.task_done()
                 if is_complete:
                     break
         except asyncio.CancelledError:
             logger().debug('Canceled')
 
-    async def _send_to_subscriber(self, payload: Payload, is_complete=False):
-        await self._subscriber.on_next(payload, is_complete)
+    def _send_to_subscriber(self, payload: Payload, is_complete=False):
+        self._subscriber.on_next(payload, is_complete)

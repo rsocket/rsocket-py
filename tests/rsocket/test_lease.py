@@ -12,14 +12,14 @@ from rsocket.request_handler import BaseRequestHandler
 
 class PeriodicalLeasePublisher(SingleLeasePublisher):
 
-    async def subscribe(self, subscriber: Subscriber):
-        asyncio.ensure_future(self._subscribe_loop(subscriber))
+    def subscribe(self, subscriber: Subscriber):
+        asyncio.create_task(self._subscribe_loop(subscriber))
 
     async def _subscribe_loop(self, subscriber: Subscriber):
         while True:
             await asyncio.sleep(self.wait_between_leases.total_seconds())
 
-            await subscriber.on_next(DefinedLease(
+            subscriber.on_next(DefinedLease(
                 maximum_request_count=self.maximum_request_count,
                 maximum_lease_time=self.maximum_lease_time
             ))

@@ -12,7 +12,7 @@ class RxSubscriber(Subscriber):
     def on_subscribe(self, subscription: Subscription):
         self._subscription = subscription
 
-    async def on_next(self, value, is_complete=False):
+    def on_next(self, value, is_complete=False):
         self._observer.on_next(value)
         if is_complete:
             self.on_complete()

@@ -3,7 +3,7 @@ import asyncio
 from datetime import timedelta, datetime
 from typing import Optional
 
-from reactivestreams.publisher import AsyncPublisher
+from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from rsocket.frame import LeaseFrame
 from rsocket.helpers import to_milliseconds
@@ -72,8 +72,8 @@ class DefinedLease(Lease):
         return frame
 
 
-class LeasePublisher(AsyncPublisher):
-    async def subscribe(self, subscriber: Subscriber):
+class LeasePublisher(Publisher):
+    def subscribe(self, subscriber: Subscriber):
         pass
 
 
@@ -87,10 +87,13 @@ class SingleLeasePublisher(LeasePublisher):
         self.maximum_lease_time = maximum_lease_time
         self.maximum_request_count = maximum_request_count
 
-    async def subscribe(self, subscriber: Subscriber):
+    def subscribe(self, subscriber: Subscriber):
+        asyncio.create_task(self._send_lease(subscriber))
+
+    async def _send_lease(self, subscriber):
         await asyncio.sleep(self.wait_between_leases.total_seconds())
 
-        await subscriber.on_next(DefinedLease(
+        subscriber.on_next(DefinedLease(
             maximum_request_count=self.maximum_request_count,
             maximum_lease_time=self.maximum_lease_time
         ))
