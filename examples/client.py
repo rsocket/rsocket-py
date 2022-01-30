@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from asyncio import Event
 
 from reactivestreams.subscriber import Subscriber
 from rsocket.payload import Payload
@@ -10,20 +9,8 @@ from rsocket.transports.tcp import TransportTCP
 
 class StreamSubscriber(Subscriber):
 
-    def __init__(self, wait_for_complete: Event):
-        self._wait_for_complete = wait_for_complete
-
     async def on_next(self, value, is_complete=False):
-        logging.info('RS: {}'.format(value))
         await self.subscription.request(1)
-
-    def on_complete(self):
-        logging.info('RS: Complete')
-        self._wait_for_complete.set()
-
-    def on_error(self, exception):
-        logging.info('RS: error: {}'.format(exception))
-        self._wait_for_complete.set()
 
     def on_subscribe(self, subscription):
         self.subscription = subscription
@@ -33,15 +20,22 @@ async def main():
     connection = await asyncio.open_connection('localhost', 6565)
 
     async with RSocketClient(TransportTCP(*connection)) as client:
-        payload = Payload(b'The quick brown fox', b'meta')
+        payload = Payload(b'%Y-%m-%d %H:%M:%S')
 
-        result = await client.request_response(payload)
-        logging.info('RR: {}'.format(result))
+        async def run_request_response():
+            try:
+                while True:
+                    result = await client.request_response(payload)
+                    logging.info('Response: {}'.format(result.data))
+                    await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                pass
 
-        completion_event = Event()
-        client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+        task = asyncio.create_task(run_request_response())
 
-        await completion_event.wait()
+        await asyncio.sleep(5)
+        task.cancel()
+        await task
 
 
 if __name__ == '__main__':
