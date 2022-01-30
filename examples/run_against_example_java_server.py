@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from asyncio import Event
 from typing import Optional
 
@@ -10,9 +11,10 @@ from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
+from rsocket.transports.tcp import TransportTCP
 
 
-async def example():
+async def main():
     completion_event = Event()
 
     class Subscriber(DefaultSubscriber):
@@ -34,7 +36,7 @@ async def example():
             completion_event.set()
 
     connection = await asyncio.open_connection('localhost', 6565)
-    async with RSocketClient(*connection,
+    async with RSocketClient(TransportTCP(*connection),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name,
                              data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value.name) as client:
         metadata = CompositeMetadata()
@@ -51,4 +53,6 @@ async def example():
         assert len(subscriber.values) == 2
 
 
-asyncio.run(example())
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
+    asyncio.run(main())

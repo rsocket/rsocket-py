@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from rsocket.payload import Payload
 from rsocket.transports.websocket import websocket_client
@@ -10,4 +11,6 @@ async def application():
         print(result)
 
 
-asyncio.run(application())
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
+    asyncio.run(application())

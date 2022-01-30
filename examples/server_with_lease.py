@@ -7,6 +7,7 @@ from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.tcp import TransportTCP
 
 router = RequestRouter()
 
@@ -24,7 +25,7 @@ def handler_factory(socket):
 
 
 def handle_client(reader, writer):
-    RSocketServer(reader, writer, handler_factory=handler_factory, lease_publisher=SingleLeasePublisher(
+    RSocketServer(TransportTCP(reader, writer), handler_factory=handler_factory, lease_publisher=SingleLeasePublisher(
         maximum_request_count=5,
         maximum_lease_time=timedelta(seconds=2)
     ))
@@ -39,4 +40,6 @@ async def run_server():
         await server.serve_forever()
 
 
-asyncio.run(run_server())
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
+    asyncio.run(run_server())
