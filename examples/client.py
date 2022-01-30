@@ -5,6 +5,7 @@ from asyncio import Event
 from reactivestreams.subscriber import Subscriber
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
+from rsocket.transports.tcp import TransportTCP
 
 
 class StreamSubscriber(Subscriber):
@@ -25,12 +26,13 @@ class StreamSubscriber(Subscriber):
         self._wait_for_complete.set()
 
     def on_subscribe(self, subscription):
-        # noinspection PyAttributeOutsideInit
         self.subscription = subscription
 
 
-async def communicate(reader, writer):
-    async with RSocketClient(reader, writer) as client:
+async def main():
+    connection = await asyncio.open_connection('localhost', 6565)
+
+    async with RSocketClient(TransportTCP(*connection)) as client:
         payload = Payload(b'The quick brown fox', b'meta')
 
         result = await client.request_response(payload)
@@ -44,10 +46,4 @@ async def communicate(reader, writer):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    loop = asyncio.get_event_loop()
-    try:
-        connection = loop.run_until_complete(asyncio.open_connection(
-            'localhost', 6565))
-        loop.run_until_complete(communicate(*connection))
-    finally:
-        loop.close()
+    asyncio.run(main())

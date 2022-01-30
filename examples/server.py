@@ -1,10 +1,12 @@
 import asyncio
+import logging
 
 from reactivestreams.publisher import Publisher
 from response_stream import ResponseStream
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.tcp import TransportTCP
 
 
 class Handler(BaseRequestHandler):
@@ -19,8 +21,8 @@ class Handler(BaseRequestHandler):
         return ResponseStream()
 
 
-def session(reader, writer):
-    RSocketServer(reader, writer, handler_factory=Handler)
+def session(*connection):
+    RSocketServer(TransportTCP(*connection), handler_factory=Handler)
 
 
 async def run_server():
@@ -31,4 +33,5 @@ async def run_server():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     asyncio.run(run_server())

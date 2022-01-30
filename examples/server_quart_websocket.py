@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from asyncio import Future
 
 from quart import Quart
@@ -24,4 +25,5 @@ async def ws():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     app.run(port=6565)

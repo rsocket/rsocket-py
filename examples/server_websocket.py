@@ -17,7 +17,8 @@ class Handler(BaseRequestHandler):
         return future
 
 
-logging.basicConfig(level=logging.DEBUG)
-app = web.Application()
-app.add_routes([web.get('/', websocket_handler_factory(handler_factory=Handler))])
-web.run_app(app, port=6565)
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
+    app = web.Application()
+    app.add_routes([web.get('/', websocket_handler_factory(handler_factory=Handler))])
+    web.run_app(app, port=6565)
