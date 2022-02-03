@@ -14,7 +14,7 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.quart_websocket import websocket_handler
 from rsocket.transports.tcp import TransportTCP
-from rsocket.transports.websocket import websocket_client, websocket_handler_factory
+from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
 
 logging.basicConfig(level=logging.DEBUG)
 
