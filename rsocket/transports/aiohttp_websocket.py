@@ -14,7 +14,7 @@ from rsocket.transports.transport import Transport
 async def websocket_client(url, *args, **kwargs) -> RSocketClient:
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(url) as ws:
-            transport = TransportWebsocket(ws)
+            transport = TransportAioHttpWebsocket(ws)
             message_handler = asyncio.create_task(transport.handle_incoming_ws_messages())
             async with RSocketClient(transport, *args, **kwargs) as client:
                 yield client
@@ -27,7 +27,7 @@ def websocket_handler_factory(*args, on_server_create=None, **kwargs):
     async def websocket_handler(request):
         ws = web.WebSocketResponse()
         await ws.prepare(request)
-        transport = TransportWebsocket(ws)
+        transport = TransportAioHttpWebsocket(ws)
         server = RSocketServer(transport, *args, **kwargs)
 
         if on_server_create is not None:
@@ -39,7 +39,7 @@ def websocket_handler_factory(*args, on_server_create=None, **kwargs):
     return websocket_handler
 
 
-class TransportWebsocket(Transport):
+class TransportAioHttpWebsocket(Transport):
     def __init__(self, websocket):
         super().__init__()
         self._incoming_frame_queue = asyncio.Queue()
