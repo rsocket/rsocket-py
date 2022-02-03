@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from rsocket.payload import Payload
-from rsocket.transports.websocket import websocket_client
+from rsocket.transports.aiohttp_websocket import websocket_client
 
 
 async def application():

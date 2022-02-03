@@ -6,7 +6,7 @@ from aiohttp import web
 
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from rsocket.transports.websocket import websocket_handler_factory
+from rsocket.transports.aiohttp_websocket import websocket_handler_factory
 
 
 class Handler(BaseRequestHandler):
