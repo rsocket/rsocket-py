@@ -417,6 +417,11 @@ class RSocket:
         self._streams[stream] = requester
         return requester
 
+    def metadata_push(self, metadata: bytes):
+        frame = MetadataPushFrame()
+        frame.metadata = metadata
+        self.send_frame(frame)
+
     def _is_frame_allowed_to_send(self, frame: Frame) -> bool:
         if isinstance(frame, (RequestResponseFrame,
                               RequestStreamFrame,

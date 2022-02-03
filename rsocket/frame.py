@@ -485,6 +485,7 @@ class MetadataPushFrame(Frame):
 
     def __init__(self):
         super().__init__(Type.METADATA_PUSH)
+        self.stream_id = CONNECTION_STREAM_ID
         self.metadata_only = True
         self.flags_metadata = True
 
