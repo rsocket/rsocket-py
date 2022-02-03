@@ -26,6 +26,9 @@ class RxRSocketClient:
     def fire_and_forget(self, request: Payload):
         self._rsocket_client.fire_and_forget(request)
 
+    def metadata_push(self, metadata: bytes):
+        self._rsocket_client.metadata_push(metadata)
+
     def _to_subject(self, publisher: Publisher) -> Subject:
         subject = Subject()
         publisher.subscribe(RxSubscriber(subject))
