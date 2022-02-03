@@ -295,6 +295,7 @@ class KeepAliveFrame(Frame):
 
     def __init__(self, data=b'', metadata=b''):
         super().__init__(Type.KEEPALIVE)
+        self.stream_id = CONNECTION_STREAM_ID
         self.flags_respond = False
         self.data = data
         self.metadata = metadata

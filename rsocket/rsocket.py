@@ -319,7 +319,6 @@ class RSocket:
 
     def _send_new_keepalive(self, data: bytes = b''):
         frame = KeepAliveFrame()
-        frame.stream_id = CONNECTION_STREAM_ID
         frame.flags_respond = True
         frame.data = data
         self.send_frame(frame)
