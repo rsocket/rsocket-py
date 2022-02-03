@@ -8,28 +8,27 @@ from typing import Optional
 import pytest
 from aiohttp.test_utils import RawTestServer
 from quart import Quart
-
 from rsocket.frame_parser import FrameParser
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
 from rsocket.transports.quart_websocket import websocket_handler
 from rsocket.transports.tcp import TransportTCP
-from rsocket.transports.websocket import websocket_client, websocket_handler_factory
 
 logging.basicConfig(level=logging.DEBUG)
 
-
-@pytest.fixture(params=[
+tested_transports = [
     'tcp', 'websocket', 'quart'
-])
+]
+
+
+@pytest.fixture(params=tested_transports)
 async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port):
     pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
     yield functools.partial(pipe_factory, unused_tcp_port)
 
 
-@pytest.fixture(params=[
-    'tcp', 'websocket', 'quart'
-])
+@pytest.fixture(params=tested_transports)
 async def pipe(request, aiohttp_raw_server, unused_tcp_port):
     pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
     async with pipe_factory(unused_tcp_port) as components:
@@ -41,7 +40,7 @@ def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
         return pipe_factory_tcp
     if transport_id == 'quart':
         return pipe_factory_quart_websocket
-    else:
+    if transport_id == 'websocket':
         return functools.partial(pipe_factory_websocket, aiohttp_raw_server)
 
 
@@ -136,6 +135,7 @@ async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, s
     client_arguments = client_arguments or {}
     # client_arguments.update(test_overrides)
     server_task = asyncio.create_task(app.run_task(port=unused_tcp_port))
+    asyncio.sleep(1)
 
     async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
                                 **client_arguments) as client:
