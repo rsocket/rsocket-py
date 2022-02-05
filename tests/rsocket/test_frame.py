@@ -6,7 +6,8 @@ from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
-                           MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame)
+                           MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
+                           serialize_with_frame_size_header)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -64,7 +65,7 @@ async def test_setup_readable(connection, metadata_flag, metadata, lease, data):
     frames = await asyncstdlib.builtins.list(connection.receive_data(frame_data))
     frame = frames[0]
     assert isinstance(frame, SetupFrame)
-    assert frame.serialize() == frame_data
+    assert serialize_with_frame_size_header(frame) == frame_data
 
     assert frame.metadata_encoding == b'application/octet-stream'
     assert frame.data_encoding == b'text/html'
@@ -122,7 +123,7 @@ async def test_setup_with_resume(connection, lease):
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     frame = frames[0]
     assert isinstance(frame, SetupFrame)
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
 
     assert frame.metadata_encoding == b'application/octet-stream'
     assert frame.data_encoding == b'text/html'
@@ -165,7 +166,7 @@ async def test_request_with_composite_metadata(connection):
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     frame = frames[0]
     assert isinstance(frame, RequestResponseFrame)
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
 
     assert frame.data == b'\x01\x02\x03'
 
@@ -234,7 +235,7 @@ async def test_cancel(connection):
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     frame = frames[0]
     assert isinstance(frame, CancelFrame)
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
 
 
 async def test_error(connection):
@@ -243,7 +244,7 @@ async def test_error(connection):
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     frame = frames[0]
     assert isinstance(frame, ErrorFrame)
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
 
 
 async def test_multiple_frames(connection):
@@ -275,7 +276,7 @@ async def test_request_n_frame(connection):
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     frame = frames[0]
     assert isinstance(frame, RequestNFrame)
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
 
     assert frame.request_n == 23
 
@@ -307,7 +308,7 @@ async def test_resume_frame(connection):
     assert isinstance(frame, ResumeFrame)
     assert frame.last_server_position == 123
     assert frame.first_client_position == 456
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
 
 
 async def test_metadata_push_frame(connection):
@@ -327,14 +328,14 @@ async def test_metadata_push_frame(connection):
     frame = frames[0]
     assert isinstance(frame, MetadataPushFrame)
     assert frame.metadata == b'metadata'
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
 
 
 async def test_payload_frame(connection):
     data = build_frame(
         bits(24, 28, 'Frame size'),
         bits(1, 0, 'Padding'),
-        bits(31, 0, 'Stream id'),
+        bits(31, 6, 'Stream id'),
         bits(6, Type.PAYLOAD, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
@@ -350,7 +351,8 @@ async def test_payload_frame(connection):
     assert isinstance(frame, PayloadFrame)
     assert frame.metadata == b'metadata'
     assert frame.data == b'actual_data'
-    assert frame.serialize() == data
+    assert frame.stream_id == 6
+    assert serialize_with_frame_size_header(frame) == data
 
 
 async def test_lease_frame(connection):
@@ -376,7 +378,7 @@ async def test_lease_frame(connection):
     assert frame.number_of_requests == 123
     assert frame.time_to_live == 456
     assert frame.metadata == b'Metadata on lease frame'
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
 
 
 async def test_resume_ok_frame(connection):
@@ -397,7 +399,7 @@ async def test_resume_ok_frame(connection):
     frame = frames[0]
     assert isinstance(frame, ResumeOKFrame)
     assert frame.last_received_client_position == 456
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
 
 
 async def test_keepalive_frame(connection):
@@ -421,4 +423,4 @@ async def test_keepalive_frame(connection):
     assert isinstance(frame, KeepAliveFrame)
     assert frame.last_received_position == 456
     assert frame.data == b'additional data'
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data

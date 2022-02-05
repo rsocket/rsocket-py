@@ -1,7 +1,6 @@
 import abc
 import asyncio
 from asyncio import Future, QueueEmpty
-from asyncio import StreamWriter, StreamReader
 from datetime import timedelta
 from typing import Union, Type, Optional, Dict, Any
 
@@ -19,7 +18,6 @@ from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_fram
 from rsocket.frame import SetupFrame
 from rsocket.frame_builders import to_payload_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
-from rsocket.frame_parser import FrameParser
 from rsocket.handlers.request_cahnnel_common import RequestChannelCommon
 from rsocket.handlers.request_cahnnel_responder import RequestChannelResponder
 from rsocket.handlers.request_response_requester import RequestResponseRequester
@@ -33,6 +31,7 @@ from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
 from rsocket.streams.stream import Stream
 from rsocket.streams.stream_handler import StreamHandler
+from rsocket.transports.transport import Transport
 
 MAX_STREAM_ID = 0x7FFFFFFF
 
@@ -48,7 +47,7 @@ class RSocket:
             await self._socket.send_lease(value)
 
     def __init__(self,
-                 reader: StreamReader, writer: StreamWriter, *,
+                 transport: Transport, *,
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  loop=_not_provided,
                  honor_lease=False,
@@ -60,8 +59,7 @@ class RSocket:
                  max_lifetime_period: timedelta = timedelta(minutes=10)
                  ):
 
-        self._reader = reader
-        self._writer = writer
+        self._transport = transport
         self._handler = handler_factory(self)
         self._next_stream = self._get_first_stream_id()
         self._honor_lease = honor_lease
@@ -211,7 +209,9 @@ class RSocket:
     async def send_lease(self, lease: Lease):
         try:
             self._responder_lease = lease
+
             logger().debug('%s: Sending lease %s', self._log_identifier(), self._responder_lease)
+
             self.send_frame(self._responder_lease.to_frame())
         except Exception as exception:
             await self.send_error(CONNECTION_STREAM_ID, exception)
@@ -263,25 +263,15 @@ class RSocket:
         ...
 
     async def _receiver_listen(self):
-        frame_parser = FrameParser()
 
         while self.is_server_alive():
 
             try:
-                data = await self._reader.read(1024)
-            except (ConnectionResetError, BrokenPipeError) as exception:
-                logger().debug(str(exception))
-                break  # todo: workaround to silence errors on client closing. this needs a better solution.
-
-            if not self.is_server_alive():
-                break
-
-            if not data:
-                self._writer.close()
-                break
-
-            try:
-                await self._handle_next_frames(data, frame_parser)
+                next_frame_generator = await self._transport.next_frame_generator(self.is_server_alive())
+                if next_frame_generator is None:
+                    break
+                async for frame in next_frame_generator:
+                    await self._handle_next_frames(frame)
             except RSocketConnectionRejected:
                 logger().error('%s: RSocket connection rejected', self._log_identifier())
                 raise
@@ -295,20 +285,20 @@ class RSocket:
                 logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
                 await self.send_error(CONNECTION_STREAM_ID, exception)
 
-    async def _handle_next_frames(self, data: bytes, frame_parser: FrameParser):
-        async for frame in frame_parser.receive_data(data):
-            if is_fragmentable_frame(frame):
-                frame = self._frame_fragment_cache.append(frame)
-                if frame is None:
-                    continue
+    async def _handle_next_frames(self, frame: Frame):
 
-            stream = frame.stream_id
+        if is_fragmentable_frame(frame):
+            frame = self._frame_fragment_cache.append(frame)
+            if frame is None:
+                return
 
-            if stream and stream in self._streams:
-                await self._streams[stream].frame_received(frame)
-                continue
+        stream = frame.stream_id
 
-            await self._handle_frame_by_type(frame)
+        if stream and stream in self._streams:
+            await self._streams[stream].frame_received(frame)
+            return
+
+        await self._handle_frame_by_type(frame)
 
     async def _handle_frame_by_type(self, frame: Frame):
 
@@ -328,7 +318,7 @@ class RSocket:
     def _before_sender(self):
         pass
 
-    def _finally_sender(self):
+    async def _finally_sender(self):
         pass
 
     async def _sender(self):
@@ -338,11 +328,11 @@ class RSocket:
             while self.is_server_alive():
                 frame = await self._send_queue.get()
 
-                self._writer.write(frame.serialize())
+                await self._transport.send_frame(frame)
                 self._send_queue.task_done()
 
                 if self._send_queue.empty():
-                    await self._writer.drain()
+                    await self._transport.on_send_queue_empty()
         except ConnectionResetError as exception:
             logger().debug(str(exception))
         except asyncio.CancelledError:
@@ -351,14 +341,13 @@ class RSocket:
             logger().error('%s: RSocket error', self._log_identifier(), exc_info=True)
             raise
         finally:
-            self._finally_sender()
+            await self._finally_sender()
 
     async def close(self):
         self._is_closing = True
         await self._cancel_if_task_exists(self._sender_task)
         await self._cancel_if_task_exists(self._receiver_task)
-        self._writer.close()
-        await self._writer.wait_closed()
+        await self._transport.close()
 
     async def _cancel_if_task_exists(self, task):
         if task is not None:
