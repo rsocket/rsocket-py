@@ -423,4 +423,4 @@ async def test_keepalive_frame(connection):
     assert isinstance(frame, KeepAliveFrame)
     assert frame.last_received_position == 456
     assert frame.data == b'additional data'
-    assert frame.serialize() == data
+    assert serialize_with_frame_size_header(frame) == data
