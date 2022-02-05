@@ -6,7 +6,8 @@ from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
-                           MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, serialize_with_frame_size_header)
+                           MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
+                           serialize_with_frame_size_header)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -399,3 +400,27 @@ async def test_resume_ok_frame(connection):
     assert isinstance(frame, ResumeOKFrame)
     assert frame.last_received_client_position == 456
     assert serialize_with_frame_size_header(frame) == data
+
+
+async def test_keepalive_frame(connection):
+    data = build_frame(
+        bits(24, 29, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, Type.KEEPALIVE, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        bits(1, 0, 'Padding'),
+        bits(63, 456, 'Last Received Client Position'),
+        data_bits(b'additional data')
+    )
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
+
+    assert isinstance(frame, KeepAliveFrame)
+    assert frame.last_received_position == 456
+    assert frame.data == b'additional data'
+    assert frame.serialize() == data

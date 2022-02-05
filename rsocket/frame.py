@@ -67,6 +67,14 @@ def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
     return flags
 
 
+def pack_position(position:int) -> bytes:
+    return struct.pack('>Q', position & MASK_63_BITS)
+
+
+def unpack_position(chunk:bytes) -> int:
+    return struct.unpack('>Q', chunk)[0] & MASK_63_BITS
+
+
 class Frame(Header, metaclass=ABCMeta):
     __slots__ = (
         'metadata',
@@ -295,19 +303,21 @@ class KeepAliveFrame(Frame):
         self.flags_respond = False
         self.data = data
         self.metadata = metadata
+        self.last_received_position = 0
 
     def parse(self, buffer: bytes, offset: int):
         flags = parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
         self.flags_respond = is_flag_set(flags, _FLAG_RESPOND_BIT)
+        self.last_received_position = unpack_position(buffer[offset:offset + 8])
+        offset += 8
         offset += self.parse_data(buffer, offset)
-        # self.last_received_position = struct.unpack('>Q', buffer[offset:])[0]
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
         flags &= ~_FLAG_RESPOND_BIT
         if self.flags_respond:
             flags |= _FLAG_RESPOND_BIT
-        # middle += struct.pack('>Q', self.last_received_position)
+        middle += pack_position(self.last_received_position)
         return Frame.serialize(self, middle, flags)
 
 
@@ -522,9 +532,9 @@ class ResumeFrame(Frame):
             buffer[offset:offset + self.token_length])
         offset += self.token_length
 
-        self.last_server_position = struct.unpack('>Q', buffer[offset:offset + 8])[0] & MASK_63_BITS
+        self.last_server_position = unpack_position(buffer[offset:offset + 8])
         offset += 8
-        self.first_client_position = struct.unpack('>Q', buffer[offset:])[0] & MASK_63_BITS
+        self.first_client_position = unpack_position(buffer[offset:])
 
     def serialize(self, middle=b'', flags=0) -> bytes:
         flags &= ~(_FLAG_LEASE_BIT | _FLAG_RESUME_BIT)
@@ -535,8 +545,8 @@ class ResumeFrame(Frame):
         # assert isinstance(self.resume_identification_token, bytes)
         middle += self.resume_identification_token
 
-        middle += struct.pack('>Q', self.last_server_position & MASK_63_BITS)
-        middle += struct.pack('>Q', self.first_client_position & MASK_63_BITS)
+        middle += pack_position(self.last_server_position)
+        middle += pack_position(self.first_client_position)
 
         return Frame.serialize(self, middle)
 
@@ -553,10 +563,10 @@ class ResumeOKFrame(Frame):
     def parse(self, buffer: bytes, offset: int):
         parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.last_received_client_position = struct.unpack('>Q', buffer[offset:offset + 8])[0] & MASK_63_BITS
+        self.last_received_client_position = unpack_position(buffer[offset:offset + 8])
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
-        serialized = struct.pack('>Q', self.last_received_client_position & MASK_63_BITS)
+        serialized = pack_position(self.last_received_client_position)
         return super().serialize(serialized)
 
 
