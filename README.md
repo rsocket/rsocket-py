@@ -2,6 +2,10 @@
 
 Python implementation of [RSocket](http://rsocket.io)
 
+# Documentation
+
+[Documentation](https://rsocket.io/guides/rsocket-py) is available on the official rsocket.io site.
+
 # Examples
 
 Examples can be found in the /examples folder. It contains various server and client usages. The following is a table
