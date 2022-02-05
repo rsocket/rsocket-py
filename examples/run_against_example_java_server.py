@@ -48,6 +48,8 @@ async def example():
         client.request_stream(request).subscribe(subscriber)
         await completion_event.wait()
 
+        await asyncio.sleep(4)  # Used to show keepalive is working
+
         assert len(subscriber.values) == 2
 
 
