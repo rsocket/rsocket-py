@@ -1,54 +1,95 @@
 import asyncio
-import logging
-from typing import Tuple
+from typing import Tuple, AsyncGenerator
 
+import rx
 from rx import operators
 
 from reactivestreams.publisher import Publisher
-from reactivestreams.subscription import DefaultSubscription
+from reactivestreams.subscriber import Subscriber, DefaultSubscriber
+from reactivestreams.subscription import Subscription
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.rx_support.rx_rsocket_client import RxRSocketClient
+from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 
 
-async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
+async def test_rx_support_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
 
-    class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
-        def cancel(self):
-            self.feeder.cancel()
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        for x in range(3):
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == 2
 
-        def subscribe(self, subscriber):
-            subscriber.on_subscribe(self)
-            self.feeder = asyncio.ensure_future(self.feed(subscriber))
-
+    class Handler(BaseRequestHandler):
         async def request_stream(self, payload: Payload) -> Publisher:
-            return self
-
-        @staticmethod
-        async def feed(subscriber):
-            loop = asyncio.get_event_loop()
-            try:
-                for x in range(3):
-                    value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                    logging.debug('Sending payload %s', value)
-                    subscriber.on_next(value)
-                loop.call_soon(subscriber.on_complete)
-            except asyncio.CancelledError:
-                pass
+            return StreamFromAsyncGenerator(generator)
 
     server.set_handler_using_factory(Handler)
 
     rx_client = RxRSocketClient(client)
-    received_messages = await rx_client.request_stream(Payload(b'')).pipe(
+    received_messages = await rx_client.request_stream(Payload(b'request text'),
+                                                       request_limit=2).pipe(
         operators.map(lambda payload: payload.data),
         operators.to_list()
     )
 
-    assert len(received_messages) == 4
+    assert len(received_messages) == 3
     assert received_messages[0] == b'Feed Item: 0'
     assert received_messages[1] == b'Feed Item: 1'
     assert received_messages[2] == b'Feed Item: 2'
-    assert received_messages[3] == b''
+
+
+async def test_rx_support_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+    server_received_messages = []
+
+    responder_received_all = asyncio.Event()
+
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        for x in range(3):
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == 2
+
+    class ResponderSubscriber(DefaultSubscriber):
+
+        def on_subscribe(self, subscription: Subscription):
+            super().on_subscribe(subscription)
+            self._subscription = subscription
+            self._subscription.request(1)
+
+        def on_next(self, value, is_complete=False):
+            nonlocal server_received_messages
+            if len(value.data) > 0:
+                server_received_messages.append(value.data)
+            self._subscription.request(1)
+
+        def on_complete(self):
+            nonlocal responder_received_all
+            responder_received_all.set()
+
+    class Handler(BaseRequestHandler):
+        async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
+            return StreamFromAsyncGenerator(generator), ResponderSubscriber()
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = RxRSocketClient(client)
+
+    sent_messages = [b'1', b'2', b'3']
+    sent_payloads = [Payload(data) for data in sent_messages]
+    received_messages = await rx_client.request_channel(Payload(b'request text'),
+                                                        observable=rx.from_list(sent_payloads),
+                                                        request_limit=2).pipe(
+        operators.map(lambda payload: payload.data),
+        operators.to_list()
+    )
+
+    await responder_received_all.wait()
+
+    assert server_received_messages == sent_messages
+
+    assert len(received_messages) == 3
+    assert received_messages[0] == b'Feed Item: 0'
+    assert received_messages[1] == b'Feed Item: 1'
+    assert received_messages[2] == b'Feed Item: 2'

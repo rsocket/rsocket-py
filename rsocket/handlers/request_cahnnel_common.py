@@ -1,16 +1,17 @@
+from typing import Optional
+
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
-    PayloadFrame, Frame, RequestChannelFrame, error_frame_to_exception
+    PayloadFrame, Frame, error_frame_to_exception
 from rsocket.payload import Payload
 from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestChannelCommon(StreamHandler, Publisher, Subscription):
     class StreamSubscriber(Subscriber):
-        def __init__(self, stream: int, socket,
-                     requester: 'RequestChannelCommon'):
+        def __init__(self, stream: int, socket, requester: 'RequestChannelCommon'):
             super().__init__()
             self._stream = stream
             self._socket = socket
@@ -35,7 +36,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             # noinspection PyAttributeOutsideInit
             self.subscription = subscription
 
-    def __init__(self, stream: int, socket, local_publisher: Publisher):
+    def __init__(self, stream: int, socket, local_publisher: Optional[Publisher] = None):
         super().__init__(stream, socket)
         self._sent_complete = False
         self._received_complete = False
@@ -53,13 +54,16 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             if frame.flags_next:
                 self.local_subscriber.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
-                self.local_subscriber.on_complete()
-                self._received_complete = True
-                self._finish_if_both_closed()
+                self._complete_local_subscriber()
         elif isinstance(frame, ErrorFrame):
             self.local_subscriber.on_error(error_frame_to_exception(frame))
             self._received_complete = True
             self._finish_if_both_closed()
+
+    def _complete_local_subscriber(self):
+        self.local_subscriber.on_complete()
+        self._received_complete = True
+        self._finish_if_both_closed()
 
     def _finish_stream(self):
         self.socket.finish_stream(self.stream)
@@ -77,11 +81,3 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
 
     def request(self, n: int):
         self.send_request_n(n)
-
-    def send_channel_request(self, payload: Payload):
-        request = RequestChannelFrame()
-        request.initial_request_n = self._initial_request_n
-        request.stream_id = self.stream
-        request.data = payload.data
-        request.metadata = payload.metadata
-        self.socket.send_request(request)

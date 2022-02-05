@@ -1,34 +1,47 @@
-from asyncio import Future
-from typing import Optional
+from typing import Optional, Union
 
+import rx
 from rx import Observable
 from rx.subject import Subject
 
 from reactivestreams.publisher import Publisher
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
-from rsocket.rx_support.rx_subscriber import RxSubscriber
+from rsocket.rx_support.back_pressure_publisher import BackPressurePublisher
+from rsocket.rx_support.back_pressure_subscriber import BackPressureSubscriber
+from rsocket.streams.backpressureapi import BackpressureApi
+from rsocket.streams.stream_handler import MAX_REQUEST_N
 
 
 class RxRSocketClient:
     def __init__(self, rsocket_client: RSocketClient):
         self._rsocket_client = rsocket_client
 
-    def request_stream(self, request: Payload) -> Observable:
-        return self._to_subject(self._rsocket_client.request_stream(request))
+    def request_stream(self, request: Payload, request_limit: int = MAX_REQUEST_N) -> Observable:
+        response_publisher = self._rsocket_client.request_stream(request)
+        return self._to_subject(response_publisher, request_limit)
 
-    def request_response(self, request: Payload) -> Future:
-        return self._rsocket_client.request_response(request)
+    def request_response(self, request: Payload) -> Observable:
+        return rx.from_future(self._rsocket_client.request_response(request))
 
-    def request_channel(self, request: Payload, publisher: Optional[Publisher] = None) -> Observable:
-        return self._to_subject(self._rsocket_client.request_channel(request, publisher))
+    def request_channel(self,
+                        request: Payload,
+                        request_limit: int = MAX_REQUEST_N,
+                        observable: Optional[Observable] = None) -> Observable:
+        if observable is not None:
+            local_publisher = BackPressurePublisher(observable)
+        else:
+            local_publisher = None
+
+        response_publisher = self._rsocket_client.request_channel(request, local_publisher)
+        return self._to_subject(response_publisher, request_limit)
 
     def fire_and_forget(self, request: Payload):
         self._rsocket_client.fire_and_forget(request)
 
-    def _to_subject(self, publisher: Publisher) -> Subject:
+    def _to_subject(self, publisher: Union[Publisher, BackpressureApi], request_limit: int) -> Subject:
         subject = Subject()
-        publisher.subscribe(RxSubscriber(subject))
+        publisher.initial_request_n(request_limit).subscribe(BackPressureSubscriber(subject, request_limit))
         return subject
 
     def connect(self):

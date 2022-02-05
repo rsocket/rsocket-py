@@ -1,32 +1,35 @@
 import logging
-from typing import AsyncGenerator, Tuple
+from typing import AsyncGenerator, Tuple, Optional
 
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.fragment import Fragment
 from rsocket.payload import Payload
-from rsocket.streams.stream_from_generator import StreamFromGenerator
+from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 
 
-class ResponseChannel(StreamFromGenerator, Subscriber):
-    def __init__(self, response_count: int = 3):
-        super().__init__()
-        self._response_count = response_count
-        self._current_response = 0
+def ResponseChannel(response_count: int = 3, local_subscriber: Optional[Subscriber] = None):
+    async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
+        current_response = 0
 
-    async def generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Fragment, bool], None]:
-        for i in range(n):
-            is_complete = (self._current_response + 1) == self._response_count
+        for i in range(response_count):
+            is_complete = (current_response + 1) == response_count
 
-            message = 'Item on channel: %s' % self._current_response
+            message = 'Item on channel: %s' % current_response
             yield Fragment(message.encode('utf-8'), b''), is_complete
 
-            self.subscription.request(1)
+            if local_subscriber is not None:
+                local_subscriber.subscription.request(2)
+
             if is_complete:
                 break
 
-            self._current_response += 1
+            current_response += 1
 
+    return StreamFromAsyncGenerator(generator)
+
+
+class LoggingSubscriber(Subscriber):
     def on_subscribe(self, subscription: Subscription):
         self.subscription = subscription
 

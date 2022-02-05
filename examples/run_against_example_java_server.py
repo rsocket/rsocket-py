@@ -14,6 +14,8 @@ from rsocket.rsocket_client import RSocketClient
 
 
 async def example():
+    logging.basicConfig(level=logging.DEBUG)
+
     completion_event = Event()
 
     class Subscriber(DefaultSubscriber):
@@ -52,5 +54,5 @@ async def example():
         assert len(subscriber.values) == 2
 
 
-logging.basicConfig(level=logging.DEBUG)
-asyncio.run(example())
+if __name__ == '__main__':
+    asyncio.run(example())

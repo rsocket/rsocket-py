@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import timedelta
 
-from examples.response_channel import ResponseChannel
+from examples.response_channel import ResponseChannel, LoggingSubscriber
 from response_stream import ResponseStream
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
 from rsocket.payload import Payload
@@ -41,8 +41,9 @@ async def no_response(payload, composite_metadata):
 @router.channel('channel')
 async def channel_response(payload, composite_metadata):
     logging.info('Got channel request')
-    channel = ResponseChannel()
-    return channel, channel
+    subscriber = LoggingSubscriber()
+    channel = ResponseChannel(local_subscriber=subscriber)
+    return channel, subscriber
 
 
 @router.stream('slow_stream')
@@ -76,4 +77,5 @@ async def run_server():
         await server.serve_forever()
 
 
-asyncio.run(run_server())
+if __name__ == '__main__':
+    asyncio.run(run_server())

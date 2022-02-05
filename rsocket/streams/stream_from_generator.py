@@ -15,13 +15,19 @@ from rsocket.payload import Payload
 class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
 
     def __init__(self,
+                 generator,
                  delay_between_messages=timedelta(0),
                  fragment_size: Optional[int] = None):
+        self._generator = generator
         self._queue = asyncio.Queue()
         self._fragment_size = fragment_size
         self._delay_between_messages = delay_between_messages
         self._subscriber = None
         self._feeder = None
+        self._iteration = None
+
+    async def _start_generator(self):
+        self._iteration = iter(self._generator())
 
     def subscribe(self, subscriber: Subscriber):
         subscriber.on_subscribe(self)
@@ -29,18 +35,31 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
         self._feeder = asyncio.ensure_future(self.feed_subscriber())
 
     def request(self, n: int):
-        asyncio.create_task(self.queue_next_n(n))
+        self._n_feeder = asyncio.create_task(self.queue_next_n(n))
 
     async def queue_next_n(self, n):
-        async for next_item in self.generate_next_n(n):
+        if self._iteration is None:
+            await self._start_generator()
+
+        async for next_item in self._generate_next_n(n):
             await self._queue.put(next_item)
 
-    @abc.abstractmethod  # todo: move to accepting generator as __init__ argument
-    async def generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Payload, bool], None]:
-        yield None  # note: this line is here just to satisfy the IDEs' type checker
+    async def _generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Payload, bool], None]:
+        for i in range(n):
+            try:
+                item = next(self._iteration)
+            except StopIteration:
+                return
+            if item != self._iteration:
+                yield item
+            else:
+                return
 
     def cancel(self):
-        self._feeder.cancel()
+        if self._feeder is not None:
+            self._feeder.cancel()
+        if self._n_feeder is not None:
+            self._n_feeder.cancel()
 
     async def feed_subscriber(self):
 

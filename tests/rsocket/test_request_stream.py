@@ -237,7 +237,7 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
 
     stream_subscriber = StreamSubscriber()
 
-    client.request_stream(Payload(b'')).limit_rate(1).subscribe(stream_subscriber)
+    client.request_stream(Payload(b'')).initial_request_n(1).subscribe(stream_subscriber)
 
     await stream_completed.wait()
 
@@ -254,11 +254,11 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     stream_completed = asyncio.Event()
     fragments_sent = 0
 
-    class FragmentedPublisher(StreamFromGenerator):
-        async def generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Payload, bool], None]:
-            for i in range(3):
-                yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
+    def generate() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        for i in range(3):
+            yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
 
+    class StreamFragmentedCounter(StreamFromGenerator):
         def _send_to_subscriber(self, payload: Payload, is_complete=False):
             nonlocal fragments_sent
             fragments_sent += 1
@@ -267,7 +267,7 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     class Handler(BaseRequestHandler, Publisher):
 
         def subscribe(self, subscriber: Subscriber):
-            FragmentedPublisher(fragment_size=6).subscribe(subscriber)
+            StreamFragmentedCounter(generate, fragment_size=6).subscribe(subscriber)
 
         async def request_stream(self, payload: Payload) -> Publisher:
             return self
