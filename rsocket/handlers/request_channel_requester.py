@@ -9,8 +9,8 @@ from rsocket.payload import Payload
 
 class RequestChannelRequester(RequestChannelCommon):
 
-    def __init__(self, stream: int, socket, payload: Payload, local_publisher: Optional[Publisher] = None):
-        super().__init__(stream, socket, local_publisher)
+    def __init__(self, stream: int, socket, payload: Payload, remote_publisher: Optional[Publisher] = None):
+        super().__init__(stream, socket, remote_publisher)
         self._payload = payload
 
     def _send_channel_request(self, payload: Payload):

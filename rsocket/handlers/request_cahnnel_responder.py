@@ -9,7 +9,7 @@ class RequestChannelResponder(RequestChannelCommon):
             self.subscriber.subscription.request(frame.initial_request_n)
 
             if frame.flags_complete:
-                self._complete_local_subscriber()
+                self._complete_remote_subscriber()
 
         else:
             await super().frame_received(frame)

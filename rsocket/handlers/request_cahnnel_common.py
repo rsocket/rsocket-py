@@ -36,13 +36,13 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             # noinspection PyAttributeOutsideInit
             self.subscription = subscription
 
-    def __init__(self, stream: int, socket, local_publisher: Optional[Publisher] = None):
+    def __init__(self, stream: int, socket, remote_publisher: Optional[Publisher] = None):
         super().__init__(stream, socket)
         self._sent_complete = False
         self._received_complete = False
-        self.local_publisher = local_publisher
+        self.remote_publisher = remote_publisher
         self.subscriber = self.StreamSubscriber(stream, socket, self)
-        self.local_publisher.subscribe(self.subscriber)
+        self.remote_publisher.subscribe(self.subscriber)
 
     async def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):
@@ -52,16 +52,16 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
 
         elif isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                self.local_subscriber.on_next(Payload(frame.data, frame.metadata))
+                self.remote_subscriber.on_next(Payload(frame.data, frame.metadata))
             if frame.flags_complete:
-                self._complete_local_subscriber()
+                self._complete_remote_subscriber()
         elif isinstance(frame, ErrorFrame):
-            self.local_subscriber.on_error(error_frame_to_exception(frame))
+            self.remote_subscriber.on_error(error_frame_to_exception(frame))
             self._received_complete = True
             self._finish_if_both_closed()
 
-    def _complete_local_subscriber(self):
-        self.local_subscriber.on_complete()
+    def _complete_remote_subscriber(self):
+        self.remote_subscriber.on_complete()
         self._received_complete = True
         self._finish_if_both_closed()
 
@@ -73,8 +73,8 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             self._finish_stream()
 
     def subscribe(self, subscriber: Subscriber):
-        self.local_subscriber = subscriber
-        self.local_subscriber.on_subscribe(self)
+        self.remote_subscriber = subscriber
+        self.remote_subscriber.on_subscribe(self)
 
     def cancel(self):
         self.send_cancel()
