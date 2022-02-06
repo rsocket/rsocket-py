@@ -46,10 +46,10 @@ are in java to show compatibility with a different implementation.
     - [X] Websocket
     - [ ] HTTP/2
     - [ ] Aeron
-- [ ] RxPy Integration
+- [X] RxPy Integration
     - [X] Stream Response
     - [X] Channel Response
-    - [ ] Channel Requester stream
-    - [ ] Response
+    - [X] Channel Requester stream
+    - [X] Response
 - [ ] Other
     - [ ] Error handling all scenarios in the protocol spec
