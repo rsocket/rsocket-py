@@ -8,6 +8,7 @@ from typing import Optional
 import pytest
 from aiohttp.test_utils import RawTestServer
 from quart import Quart
+
 from rsocket.frame_parser import FrameParser
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
@@ -20,6 +21,13 @@ logging.basicConfig(level=logging.DEBUG)
 tested_transports = [
     'tcp', 'websocket', 'quart'
 ]
+
+
+@pytest.fixture
+def fail_on_error_log(caplog):
+    yield
+    errors = [record for record in caplog.get_records('call') if record.levelno >= logging.ERROR]
+    assert not errors
 
 
 @pytest.fixture(params=tested_transports)

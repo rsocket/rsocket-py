@@ -3,20 +3,20 @@ from abc import abstractmethod, ABCMeta
 from rsocket.exceptions import RSocketValueErrorException
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
-from rsocket.streams.stream import Stream
+from rsocket.streams.backpressureapi import BackpressureApi
 from rsocket.payload import Payload
 
 MAX_REQUEST_N = 0x7FFFFFFF
 
 
-class StreamHandler(Stream, metaclass=ABCMeta):
+class StreamHandler(BackpressureApi, metaclass=ABCMeta):
     def __init__(self, stream: int, socket):
         super().__init__()
         self.stream = stream
         self.socket = socket
         self._initial_request_n = MAX_REQUEST_N
 
-    def limit_rate(self, n: int):
+    def initial_request_n(self, n: int):
         if n <= 0:
             raise RSocketValueErrorException('Initial request N must be > 0')
 

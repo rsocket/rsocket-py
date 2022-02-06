@@ -15,29 +15,51 @@ from rsocket.payload import Payload
 class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
 
     def __init__(self,
+                 generator,
                  delay_between_messages=timedelta(0),
                  fragment_size: Optional[int] = None):
+        self._generator = generator
         self._queue = asyncio.Queue()
         self._fragment_size = fragment_size
         self._delay_between_messages = delay_between_messages
         self._subscriber = None
         self._feeder = None
+        self._iteration = None
+
+    async def _start_generator(self):
+        self._iteration = iter(self._generator())
 
     def subscribe(self, subscriber: Subscriber):
         subscriber.on_subscribe(self)
         self._subscriber = subscriber
         self._feeder = asyncio.ensure_future(self.feed_subscriber())
 
-    async def request(self, n: int):
-        async for next_item in self.generate_next_n(n):
+    def request(self, n: int):
+        self._n_feeder = asyncio.create_task(self.queue_next_n(n))
+
+    async def queue_next_n(self, n):
+        if self._iteration is None:
+            await self._start_generator()
+
+        async for next_item in self._generate_next_n(n):
             await self._queue.put(next_item)
 
-    @abc.abstractmethod  # todo: move to accepting generator as __init__ argument
-    async def generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Payload, bool], None]:
-        yield None  # note: this line is here just to satisfy the IDEs' type checker
+    async def _generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Payload, bool], None]:
+        for i in range(n):
+            try:
+                item = next(self._iteration)
+            except StopIteration:
+                return
+            if item != self._iteration:
+                yield item
+            else:
+                return
 
     def cancel(self):
-        self._feeder.cancel()
+        if self._feeder is not None:
+            self._feeder.cancel()
+        if self._n_feeder is not None:
+            self._n_feeder.cancel()
 
     async def feed_subscriber(self):
 
@@ -46,19 +68,20 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
                 payload, is_complete = await self._queue.get()
 
                 if self._fragment_size is None:
-                    await self._send_to_subscriber(payload, is_complete)
+                    self._send_to_subscriber(payload, is_complete)
                 else:
                     async for fragment in payload_to_n_size_fragments(BytesIO(payload.data),
                                                                       BytesIO(payload.metadata),
                                                                       self._fragment_size):
-                        await self._send_to_subscriber(fragment, is_complete and fragment.is_last)
+                        self._send_to_subscriber(fragment, is_complete and fragment.is_last)
 
                 await asyncio.sleep(self._delay_between_messages.total_seconds())
 
+                self._queue.task_done()
                 if is_complete:
                     break
         except asyncio.CancelledError:
             logger().debug('Canceled')
 
-    async def _send_to_subscriber(self, payload: Payload, is_complete=False):
-        await self._subscriber.on_next(payload, is_complete)
+    def _send_to_subscriber(self, payload: Payload, is_complete=False):
+        self._subscriber.on_next(payload, is_complete)

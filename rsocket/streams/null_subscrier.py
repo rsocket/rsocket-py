@@ -3,7 +3,7 @@ from reactivestreams.subscription import Subscription
 
 
 class NullSubscriber(Subscriber):
-    async def on_next(self, value, is_complete=False):
+    def on_next(self, value, is_complete=False):
         pass
 
     def on_error(self, exception: Exception):

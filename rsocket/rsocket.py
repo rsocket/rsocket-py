@@ -4,7 +4,7 @@ from asyncio import Future, QueueEmpty
 from datetime import timedelta
 from typing import Union, Type, Optional, Dict, Any
 
-from reactivestreams.publisher import Publisher, AsyncPublisher
+from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.empty_publisher import EmptyPublisher
 from rsocket.error_codes import ErrorCode
@@ -18,8 +18,8 @@ from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_fram
 from rsocket.frame import SetupFrame
 from rsocket.frame_builders import to_payload_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
-from rsocket.handlers.request_cahnnel_common import RequestChannelCommon
 from rsocket.handlers.request_cahnnel_responder import RequestChannelResponder
+from rsocket.handlers.request_channel_requester import RequestChannelRequester
 from rsocket.handlers.request_response_requester import RequestResponseRequester
 from rsocket.handlers.request_response_responder import RequestResponseResponder
 from rsocket.handlers.request_stream_requester import RequestStreamRequester
@@ -29,7 +29,7 @@ from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
-from rsocket.streams.stream import Stream
+from rsocket.streams.backpressureapi import BackpressureApi
 from rsocket.streams.stream_handler import StreamHandler
 from rsocket.transports.transport import Transport
 
@@ -43,15 +43,15 @@ class RSocket:
         def __init__(self, socket: 'RSocket'):
             self._socket = socket
 
-        async def on_next(self, value, is_complete=False):
-            await self._socket.send_lease(value)
+        def on_next(self, value, is_complete=False):
+            self._socket.send_lease(value)
 
     def __init__(self,
                  transport: Transport, *,
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  loop=_not_provided,
                  honor_lease=False,
-                 lease_publisher: Optional[AsyncPublisher] = None,
+                 lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
                  data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
@@ -151,11 +151,11 @@ class RSocket:
     def send_frame(self, frame: Frame):
         self._send_queue.put_nowait(frame)
 
-    async def send_error(self, stream: int, exception: Exception):
+    def send_error(self, stream: int, exception: Exception):
         logger().debug('%s: Sending error: %s', self._log_identifier(), str(exception))
         self.send_frame(exception_to_error_frame(stream, exception))
 
-    async def send_payload(self, stream_id: int, payload: Payload, complete=False):
+    def send_payload(self, stream_id: int, payload: Payload, complete=False):
         self.send_frame(to_payload_frame(payload, complete, stream_id))
 
     def _update_last_keepalive(self):
@@ -164,49 +164,49 @@ class RSocket:
     async def handle_error(self, frame: ErrorFrame):
         ...
 
-    async def handle_keep_alive(self, frame_: KeepAliveFrame):
+    async def handle_keep_alive(self, frame: KeepAliveFrame):
         logger().debug('%s: Received keepalive', self._log_identifier())
 
         self._update_last_keepalive()
 
-        if frame_.flags_respond:
-            frame_.flags_respond = False
-            self.send_frame(frame_)
+        if frame.flags_respond:
+            frame.flags_respond = False
+            self.send_frame(frame)
             logger().debug('%s: Responded to keepalive', self._log_identifier())
 
-    async def handle_request_response(self, frame_: RequestResponseFrame):
-        stream_ = frame_.stream_id
+    async def handle_request_response(self, frame: RequestResponseFrame):
+        stream_id = frame.stream_id
         handler = self._handler
-        response_future = await handler.request_response(Payload(frame_.data, frame_.metadata))
-        self._streams[stream_] = RequestResponseResponder(stream_, self, response_future)
+        response_future = await handler.request_response(Payload(frame.data, frame.metadata))
+        self._streams[stream_id] = RequestResponseResponder(stream_id, self, response_future)
 
-    async def handle_request_stream(self, frame_: RequestStreamFrame):
-        stream_ = frame_.stream_id
+    async def handle_request_stream(self, frame: RequestStreamFrame):
+        stream_id = frame.stream_id
         handler = self._handler
-        publisher = await handler.request_stream(Payload(frame_.data, frame_.metadata))
-        request_responder = RequestStreamResponder(stream_, self, publisher)
-        await request_responder.frame_received(frame_)
-        self._streams[stream_] = request_responder
+        publisher = await handler.request_stream(Payload(frame.data, frame.metadata))
+        request_responder = RequestStreamResponder(stream_id, self, publisher)
+        await request_responder.frame_received(frame)
+        self._streams[stream_id] = request_responder
 
-    async def handle_setup(self, frame_: SetupFrame):
+    async def handle_setup(self, frame: SetupFrame):
         handler = self._handler
         try:
-            await handler.on_setup(frame_.data_encoding,
-                                   frame_.metadata_encoding)
+            await handler.on_setup(frame.data_encoding,
+                                   frame.metadata_encoding)
         except Exception as exception:
-            await self.send_error(frame_.stream_id, exception)
+            self.send_error(frame.stream_id, exception)
 
-        if frame_.flags_lease:
+        if frame.flags_lease:
             if self._lease_publisher is None:
-                await self.send_error(CONNECTION_STREAM_ID, RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP))
+                self.send_error(CONNECTION_STREAM_ID, RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP))
             else:
                 await self._subscribe_to_lease_publisher()
 
     async def _subscribe_to_lease_publisher(self):
         if self._lease_publisher is not None:
-            await self._lease_publisher.subscribe(self.LeaseSubscriber(self))
+            self._lease_publisher.subscribe(self.LeaseSubscriber(self))
 
-    async def send_lease(self, lease: Lease):
+    def send_lease(self, lease: Lease):
         try:
             self._responder_lease = lease
 
@@ -214,24 +214,24 @@ class RSocket:
 
             self.send_frame(self._responder_lease.to_frame())
         except Exception as exception:
-            await self.send_error(CONNECTION_STREAM_ID, exception)
+            self.send_error(CONNECTION_STREAM_ID, exception)
 
-    async def handle_fire_and_forget(self, frame_: RequestFireAndForgetFrame):
-        await self._handler.request_fire_and_forget(Payload(frame_.data, frame_.metadata))
+    async def handle_fire_and_forget(self, frame: RequestFireAndForgetFrame):
+        await self._handler.request_fire_and_forget(Payload(frame.data, frame.metadata))
 
-    async def handle_metadata_push(self, frame_: MetadataPushFrame):
-        await self._handler.on_metadata_push(Payload(None, frame_.metadata))
+    async def handle_metadata_push(self, frame: MetadataPushFrame):
+        await self._handler.on_metadata_push(Payload(None, frame.metadata))
 
-    async def handle_request_channel(self, frame_: RequestChannelFrame):
-        stream_ = frame_.stream_id
+    async def handle_request_channel(self, frame: RequestChannelFrame):
+        stream_id = frame.stream_id
         handler = self._handler
-        publisher, subscriber = await handler.request_channel(Payload(frame_.data, frame_.metadata))
-        channel_responder = RequestChannelResponder(stream_, self, publisher)
+        publisher, subscriber = await handler.request_channel(Payload(frame.data, frame.metadata))
+        channel_responder = RequestChannelResponder(stream_id, self, publisher)
         channel_responder.subscribe(subscriber)
-        await channel_responder.frame_received(frame_)
-        self._streams[stream_] = channel_responder
+        await channel_responder.frame_received(frame)
+        self._streams[stream_id] = channel_responder
 
-    async def handle_resume(self, frame_: ResumeFrame):
+    async def handle_resume(self, frame: ResumeFrame):
         ...
 
     async def handle_lease(self, frame: LeaseFrame):
@@ -277,13 +277,13 @@ class RSocket:
                 raise
             except RSocketRejected as exception:
                 logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
-                await self.send_error(exception.stream_id, exception)
+                self.send_error(exception.stream_id, exception)
             except RSocketProtocolException as exception:
                 logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
-                await self.send_error(CONNECTION_STREAM_ID, exception)
+                self.send_error(CONNECTION_STREAM_ID, exception)
             except Exception as exception:
                 logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
-                await self.send_error(CONNECTION_STREAM_ID, exception)
+                self.send_error(CONNECTION_STREAM_ID, exception)
 
     async def _handle_next_frames(self, frame: Frame):
 
@@ -381,7 +381,7 @@ class RSocket:
         self.send_request(frame)
         self.finish_stream(stream)
 
-    def request_stream(self, payload: Payload) -> Union[Stream, Publisher]:
+    def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:
         logger().debug('%s: sending request-stream: %s', self._log_identifier(), payload)
 
         stream = self.allocate_stream()
@@ -391,17 +391,16 @@ class RSocket:
 
     def request_channel(
             self,
-            channel_request_payload: Payload,
-            local_publisher: Optional[Publisher] = None) -> Union[Stream, Publisher]:
+            payload: Payload,
+            local_publisher: Optional[Publisher] = None) -> Union[BackpressureApi, Publisher]:
 
-        logger().debug('%s: sending request-channel: %s', self._log_identifier(), channel_request_payload)
+        logger().debug('%s: sending request-channel: %s', self._log_identifier(), payload)
 
         if local_publisher is None:
             local_publisher = EmptyPublisher()
 
         stream = self.allocate_stream()
-        requester = RequestChannelCommon(stream, self, local_publisher)
-        requester.send_channel_request(channel_request_payload)
+        requester = RequestChannelRequester(stream, self, payload, local_publisher)
         self._streams[stream] = requester
         return requester
 

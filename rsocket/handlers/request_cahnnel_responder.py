@@ -6,7 +6,10 @@ class RequestChannelResponder(RequestChannelCommon):
 
     async def frame_received(self, frame: Frame):
         if isinstance(frame, RequestChannelFrame):
-            await self.subscriber.subscription.request(frame.initial_request_n)
+            self.subscriber.subscription.request(frame.initial_request_n)
+
+            if frame.flags_complete:
+                self._complete_remote_subscriber()
 
         else:
             await super().frame_received(frame)

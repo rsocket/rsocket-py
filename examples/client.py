@@ -9,8 +9,9 @@ from rsocket.transports.tcp import TransportTCP
 
 class StreamSubscriber(Subscriber):
 
-    async def on_next(self, value, is_complete=False):
-        await self.subscription.request(1)
+    def on_next(self, value, is_complete=False):
+        logging.info('RS: {}'.format(value))
+        self.subscription.request(1)
 
     def on_subscribe(self, subscription):
         self.subscription = subscription

@@ -41,5 +41,4 @@ async def run_server():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
     asyncio.run(run_server())

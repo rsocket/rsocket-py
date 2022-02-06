@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 from typing import Optional, Type
 from typing import Union
 
-from reactivestreams.publisher import AsyncPublisher
+from reactivestreams.publisher import Publisher
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import ErrorFrame
@@ -20,7 +20,7 @@ class RSocketClient(RSocket):
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  loop=_not_provided,
                  honor_lease=False,
-                 lease_publisher: Optional[AsyncPublisher] = None,
+                 lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
                  data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,

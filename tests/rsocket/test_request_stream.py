@@ -57,7 +57,7 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
             try:
                 for x in range(3):
                     value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                    await subscriber.on_next(value)
+                    subscriber.on_next(value)
                 loop.call_soon(subscriber.on_complete)
             except asyncio.CancelledError:
                 pass
@@ -66,7 +66,7 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
         def __init__(self):
             self.received_messages: List[Payload] = []
 
-        async def on_next(self, value, is_complete=False):
+        def on_next(self, value, is_complete=False):
             self.received_messages.append(value)
             logging.info(value)
 
@@ -98,12 +98,12 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
 
     class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
 
-        def subscribe(self, subscriber):
+        def subscribe(self, subscriber: Subscriber):
             subscriber.on_subscribe(self)
             self._subscriber = subscriber
 
-        async def request(self, n: int):
-            await self._subscriber.on_next(Payload(b'success'))
+        def request(self, n: int):
+            self._subscriber.on_next(Payload(b'success'))
             self._subscriber.on_error(Exception('error message from handler'))
 
         async def request_stream(self, payload: Payload) -> Publisher:
@@ -114,7 +114,7 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
             self.received_messages: List[Payload] = []
             self.error = None
 
-        async def on_next(self, value, is_complete=False):
+        def on_next(self, value, is_complete=False):
             self.received_messages.append(value)
             logging.info(value)
 
@@ -162,7 +162,7 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
                 for x in range(3):
                     value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
                     await asyncio.sleep(1)
-                    await subscriber.on_next(value)
+                    subscriber.on_next(value)
                 loop.call_soon(subscriber.on_complete)
             except asyncio.CancelledError:
                 pass
@@ -171,7 +171,7 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
         def __init__(self):
             self.received_messages: List[Payload] = []
 
-        async def on_next(self, value, is_complete=False):
+        def on_next(self, value, is_complete=False):
             self.received_messages.append(value)
             self.subscription.cancel()
             logging.info(value)
@@ -204,14 +204,14 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
             self._current_item = 0
             self._max_items = 3
 
-        async def request(self, n: int):
+        def request(self, n: int):
             nonlocal requests_received
             requests_received += n
 
             if self._current_item < self._max_items:
                 is_complete = self._current_item == self._max_items - 1
                 value = Payload('Feed Item: {}'.format(self._current_item).encode('utf-8'))
-                await self._subscriber.on_next(value, is_complete)
+                self._subscriber.on_next(value, is_complete)
                 self._current_item += 1
 
         async def request_stream(self, payload: Payload) -> Publisher:
@@ -221,9 +221,9 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
         def __init__(self):
             self.received_messages: List[Payload] = []
 
-        async def on_next(self, value, is_complete=False):
+        def on_next(self, value, is_complete=False):
             self.received_messages.append(value)
-            await self.subscription.request(1)
+            self.subscription.request(1)
             logging.info(value)
 
         def on_complete(self):
@@ -237,7 +237,7 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
 
     stream_subscriber = StreamSubscriber()
 
-    client.request_stream(Payload(b'')).limit_rate(1).subscribe(stream_subscriber)
+    client.request_stream(Payload(b'')).initial_request_n(1).subscribe(stream_subscriber)
 
     await stream_completed.wait()
 
@@ -254,20 +254,20 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     stream_completed = asyncio.Event()
     fragments_sent = 0
 
-    class FragmentedPublisher(StreamFromGenerator):
-        async def generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Payload, bool], None]:
-            for i in range(3):
-                yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
+    def generate() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        for i in range(3):
+            yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
 
-        async def _send_to_subscriber(self, payload: Payload, is_complete=False):
+    class StreamFragmentedCounter(StreamFromGenerator):
+        def _send_to_subscriber(self, payload: Payload, is_complete=False):
             nonlocal fragments_sent
             fragments_sent += 1
-            return await super()._send_to_subscriber(payload, is_complete)
+            return super()._send_to_subscriber(payload, is_complete)
 
     class Handler(BaseRequestHandler, Publisher):
 
         def subscribe(self, subscriber: Subscriber):
-            FragmentedPublisher(fragment_size=6).subscribe(subscriber)
+            StreamFragmentedCounter(generate, fragment_size=6).subscribe(subscriber)
 
         async def request_stream(self, payload: Payload) -> Publisher:
             return self
@@ -276,7 +276,7 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
         def __init__(self):
             self.received_messages: List[Payload] = []
 
-        async def on_next(self, value, is_complete=False):
+        def on_next(self, value, is_complete=False):
             self.received_messages.append(value)
             logging.info(value)
 

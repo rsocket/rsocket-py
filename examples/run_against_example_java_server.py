@@ -25,9 +25,9 @@ async def main():
         def on_subscribe(self, subscription: Subscription):
             self._subscription = subscription
 
-        async def on_next(self, value, is_complete=False):
+        def on_next(self, value, is_complete=False):
             self.values.append(value)
-            await self._subscription.request(1)
+            self._subscription.request(1)
 
         def on_complete(self):
             completion_event.set()

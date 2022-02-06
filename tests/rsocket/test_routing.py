@@ -36,7 +36,7 @@ async def test_routed_request_stream_properly_finished(pipe: Tuple[RSocketServer
             try:
                 for x in range(3):
                     value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                    await subscriber.on_next(value)
+                    subscriber.on_next(value)
                 loop.call_soon(subscriber.on_complete)
             except asyncio.CancelledError:
                 pass
@@ -49,7 +49,7 @@ async def test_routed_request_stream_properly_finished(pipe: Tuple[RSocketServer
         def __init__(self):
             self.received_messages: List[Payload] = []
 
-        async def on_next(self, value, is_complete=False):
+        def on_next(self, value, is_complete=False):
             self.received_messages.append(value)
             logging.info(value)
 

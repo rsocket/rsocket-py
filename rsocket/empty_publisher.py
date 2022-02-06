@@ -8,7 +8,7 @@ class EmptyPublisher(Publisher, Subscription):
         subscriber.on_subscribe(self)
         subscriber.on_complete()
 
-    async def request(self, n: int):
+    def request(self, n: int):
         pass
 
     def cancel(self):
