@@ -29,9 +29,9 @@ are in java to show compatibility with a different implementation.
     - [X] Fire and forget
     - [X] Response
     - [X] Stream
-    - [X] Cahnnel
-- [ ] Features
+    - [X] Channel
     - [X] Metadata push
+- [ ] Features
     - [X] Keepalive / Max server life
     - [X] Lease
     - [ ] Resume
