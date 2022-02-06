@@ -43,5 +43,8 @@ jobs:
         name: code-coverage-report
         path: coverage_report_html
     - name: Publisher coveralls
+      continue-on-error: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
       run: |
         coveralls
