@@ -309,7 +309,6 @@ class RSocket:
 
     def _send_new_keepalive(self, data: bytes = b''):
         frame = KeepAliveFrame()
-        frame.stream_id = CONNECTION_STREAM_ID
         frame.flags_respond = True
         frame.data = data
         self.send_frame(frame)
@@ -405,6 +404,11 @@ class RSocket:
         requester.send_channel_request(channel_request_payload)
         self._streams[stream] = requester
         return requester
+
+    def metadata_push(self, metadata: bytes):
+        frame = MetadataPushFrame()
+        frame.metadata = metadata
+        self.send_frame(frame)
 
     def _is_frame_allowed_to_send(self, frame: Frame) -> bool:
         if isinstance(frame, (RequestResponseFrame,
