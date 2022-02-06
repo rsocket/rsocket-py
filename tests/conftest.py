@@ -6,36 +6,55 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 import pytest
-
+from aiohttp.test_utils import RawTestServer
+from quart import Quart
 from rsocket.frame_parser import FrameParser
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
+from rsocket.transports.quart_websocket import websocket_handler
+from rsocket.transports.tcp import TransportTCP
 
 logging.basicConfig(level=logging.DEBUG)
 
+tested_transports = [
+    'tcp', 'websocket', 'quart'
+]
 
-@pytest.fixture
-async def lazy_pipe(unused_tcp_port):
+
+@pytest.fixture(params=tested_transports)
+async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port):
+    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
     yield functools.partial(pipe_factory, unused_tcp_port)
 
 
-@pytest.fixture
-async def pipe(unused_tcp_port, event_loop):
+@pytest.fixture(params=tested_transports)
+async def pipe(request, aiohttp_raw_server, unused_tcp_port):
+    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
     async with pipe_factory(unused_tcp_port) as components:
         yield components
 
 
+def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
+    if transport_id == 'tcp':
+        return pipe_factory_tcp
+    if transport_id == 'quart':
+        return pipe_factory_quart_websocket
+    if transport_id == 'websocket':
+        return functools.partial(pipe_factory_websocket, aiohttp_raw_server)
+
+
 @asynccontextmanager
-async def pipe_factory(unused_tcp_port, client_arguments=None, server_arguments=None):
-    def session(reader, writer):
+async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_arguments=None):
+    def session(*connection):
         nonlocal server
-        server = RSocketServer(reader, writer, **(server_arguments or {}))
+        server = RSocketServer(TransportTCP(*connection), **(server_arguments or {}))
 
     async def start():
         nonlocal service, client
         service = await asyncio.start_server(session, host, port)
         connection = await asyncio.open_connection(host, port)
-        client = await RSocketClient(*connection, **(client_arguments or {})).connect()
+        client = await RSocketClient(TransportTCP(*connection), **(client_arguments or {})).connect()
 
     async def finish():
         service.close()
@@ -58,3 +77,73 @@ async def pipe_factory(unused_tcp_port, client_arguments=None, server_arguments=
 @pytest.fixture
 def connection():
     return FrameParser()
+
+
+@pytest.fixture
+def aiohttp_raw_server(event_loop, unused_tcp_port):
+    servers = []
+
+    async def go(handler, *args, **kwargs):  # type: ignore[no-untyped-def]
+        server = RawTestServer(handler, port=unused_tcp_port)
+        await server.start_server(**kwargs)
+        servers.append(server)
+        return server
+
+    yield go
+
+    async def finalize() -> None:
+        while servers:
+            await servers.pop().close()
+
+    event_loop.run_until_complete(finalize())
+
+
+@asynccontextmanager
+async def pipe_factory_websocket(aiohttp_raw_server, unused_tcp_port, client_arguments=None, server_arguments=None):
+    server = None
+
+    def store_server(new_server):
+        nonlocal server
+        server = new_server
+
+    await aiohttp_raw_server(websocket_handler_factory(on_server_create=store_server, **(server_arguments or {})))
+
+    # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
+    client_arguments = client_arguments or {}
+    # client_arguments.update(test_overrides)
+
+    async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
+                                **client_arguments) as client:
+        yield server, client
+        await server.close()
+
+
+@asynccontextmanager
+async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, server_arguments=None):
+    app = Quart(__name__)
+    server = None
+
+    def store_server(new_server):
+        nonlocal server
+        server = new_server
+
+    @app.websocket("/")
+    async def ws():
+        await websocket_handler(on_server_create=store_server, **(server_arguments or {}))
+        # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
+
+    client_arguments = client_arguments or {}
+    # client_arguments.update(test_overrides)
+    server_task = asyncio.create_task(app.run_task(port=unused_tcp_port))
+    asyncio.sleep(1)
+
+    async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
+                                **client_arguments) as client:
+        yield server, client
+        await server.close()
+
+    try:
+        server_task.cancel()
+        await server_task
+    except asyncio.CancelledError:
+        pass

@@ -44,7 +44,7 @@ class Type(IntEnum):
     EXT = 0xFFFF
 
 
-HEADER_LENGTH = 9
+HEADER_LENGTH = 6  # A full header is 4 (stream) + 2 (type, flags) bytes.
 
 
 class Header:
@@ -58,14 +58,21 @@ class Header:
 
 
 def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
-    frame.length, = struct.unpack('>I', b'\x00' + buffer[offset:offset + 3])
-    frame.stream_id, frame.frame_type, flags = struct.unpack_from(
-        '>IBB', buffer, offset + 3)
+    frame.length = len(buffer)
+    frame.stream_id, frame.frame_type, flags = struct.unpack_from('>IBB', buffer, offset)
     flags |= (frame.frame_type & 3) << 8
     frame.frame_type >>= 2
     frame.flags_ignore = is_flag_set(flags, _FLAG_IGNORE_BIT)
     frame.flags_metadata = is_flag_set(flags, _FLAG_METADATA_BIT)
     return flags
+
+
+def pack_position(position:int) -> bytes:
+    return struct.pack('>Q', position & MASK_63_BITS)
+
+
+def unpack_position(chunk:bytes) -> int:
+    return struct.unpack('>Q', chunk)[0] & MASK_63_BITS
 
 
 class Frame(Header, metaclass=ABCMeta):
@@ -131,15 +138,13 @@ class Frame(Header, metaclass=ABCMeta):
         offset = 0
         buffer = bytearray(self.length)
 
-        buffer[offset:offset + 3] = struct.pack('>I', self.length - 3)[1:]
-        offset += 3
-
         struct.pack_into('>I', buffer, offset, self.stream_id)
         offset += 4
 
-        buffer[7] = (self.frame_type << 2) | (flags >> 8)
-        buffer[8] = flags & 0xff
-        offset += 2
+        buffer[offset] = (self.frame_type << 2) | (flags >> 8)
+        offset += 1
+        buffer[offset] = flags & 0xff
+        offset += 1
 
         buffer[offset:offset + len(middle)] = middle[:]
         offset += len(middle)
@@ -159,7 +164,7 @@ class Frame(Header, metaclass=ABCMeta):
         return bytes(buffer)
 
     def _compute_frame_length(self, middle: bytes) -> int:
-        header_length = 9
+        header_length = HEADER_LENGTH
         length = header_length + len(middle)
 
         if self.flags_metadata and self.metadata:
@@ -299,19 +304,21 @@ class KeepAliveFrame(Frame):
         self.flags_respond = False
         self.data = data
         self.metadata = metadata
+        self.last_received_position = 0
 
     def parse(self, buffer: bytes, offset: int):
         flags = parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
         self.flags_respond = is_flag_set(flags, _FLAG_RESPOND_BIT)
+        self.last_received_position = unpack_position(buffer[offset:offset + 8])
+        offset += 8
         offset += self.parse_data(buffer, offset)
-        # self.last_received_position = struct.unpack('>Q', buffer[offset:])[0]
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
         flags &= ~_FLAG_RESPOND_BIT
         if self.flags_respond:
             flags |= _FLAG_RESPOND_BIT
-        # middle += struct.pack('>Q', self.last_received_position)
+        middle += pack_position(self.last_received_position)
         return Frame.serialize(self, middle, flags)
 
 
@@ -527,9 +534,9 @@ class ResumeFrame(Frame):
             buffer[offset:offset + self.token_length])
         offset += self.token_length
 
-        self.last_server_position = struct.unpack('>Q', buffer[offset:offset + 8])[0] & MASK_63_BITS
+        self.last_server_position = unpack_position(buffer[offset:offset + 8])
         offset += 8
-        self.first_client_position = struct.unpack('>Q', buffer[offset:])[0] & MASK_63_BITS
+        self.first_client_position = unpack_position(buffer[offset:])
 
     def serialize(self, middle=b'', flags=0) -> bytes:
         flags &= ~(_FLAG_LEASE_BIT | _FLAG_RESUME_BIT)
@@ -540,8 +547,8 @@ class ResumeFrame(Frame):
         # assert isinstance(self.resume_identification_token, bytes)
         middle += self.resume_identification_token
 
-        middle += struct.pack('>Q', self.last_server_position & MASK_63_BITS)
-        middle += struct.pack('>Q', self.first_client_position & MASK_63_BITS)
+        middle += pack_position(self.last_server_position)
+        middle += pack_position(self.first_client_position)
 
         return Frame.serialize(self, middle)
 
@@ -558,10 +565,10 @@ class ResumeOKFrame(Frame):
     def parse(self, buffer: bytes, offset: int):
         parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.last_received_client_position = struct.unpack('>Q', buffer[offset:offset + 8])[0] & MASK_63_BITS
+        self.last_received_client_position = unpack_position(buffer[offset:offset + 8])
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
-        serialized = struct.pack('>Q', self.last_received_client_position & MASK_63_BITS)
+        serialized = pack_position(self.last_received_client_position)
         return super().serialize(serialized)
 
 
@@ -599,7 +606,7 @@ _frame_class_by_id = {
 
 
 def parse(buffer: bytes) -> Frame:
-    if len(buffer) < HEADER_LENGTH:  # A full header is 3 (length) + 4 (stream) + 2 (type, flags) bytes.
+    if len(buffer) < HEADER_LENGTH:
         raise ParseError('Frame too short: {} bytes'.format(len(buffer)))
 
     header = Header()
@@ -653,3 +660,10 @@ def error_frame_to_exception(frame: ErrorFrame) -> Exception:
 
 def is_flag_set(flags: int, bit: int) -> bool:
     return (flags & bit) != 0
+
+
+def serialize_with_frame_size_header(frame:Frame) -> bytes:
+    serialized_frame = frame.serialize()
+    header = struct.pack('>I', len(serialized_frame))[1:]
+    full_frame = header + serialized_frame
+    return full_frame

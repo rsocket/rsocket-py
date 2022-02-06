@@ -1,53 +1,43 @@
 import asyncio
 import logging
-from asyncio import Event
 
 from reactivestreams.subscriber import Subscriber
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
+from rsocket.transports.tcp import TransportTCP
 
 
 class StreamSubscriber(Subscriber):
 
-    def __init__(self, wait_for_complete: Event):
-        self._wait_for_complete = wait_for_complete
-
     async def on_next(self, value, is_complete=False):
-        logging.info('RS: {}'.format(value))
         await self.subscription.request(1)
 
-    def on_complete(self):
-        logging.info('RS: Complete')
-        self._wait_for_complete.set()
-
-    def on_error(self, exception):
-        logging.info('RS: error: {}'.format(exception))
-        self._wait_for_complete.set()
-
     def on_subscribe(self, subscription):
-        # noinspection PyAttributeOutsideInit
         self.subscription = subscription
 
 
-async def communicate(reader, writer):
-    async with RSocketClient(reader, writer) as client:
-        payload = Payload(b'The quick brown fox', b'meta')
+async def main():
+    connection = await asyncio.open_connection('localhost', 6565)
 
-        result = await client.request_response(payload)
-        logging.info('RR: {}'.format(result))
+    async with RSocketClient(TransportTCP(*connection)) as client:
+        payload = Payload(b'%Y-%m-%d %H:%M:%S')
 
-        completion_event = Event()
-        client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+        async def run_request_response():
+            try:
+                while True:
+                    result = await client.request_response(payload)
+                    logging.info('Response: {}'.format(result.data))
+                    await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                pass
 
-        await completion_event.wait()
+        task = asyncio.create_task(run_request_response())
+
+        await asyncio.sleep(5)
+        task.cancel()
+        await task
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    loop = asyncio.get_event_loop()
-    try:
-        connection = loop.run_until_complete(asyncio.open_connection(
-            'localhost', 6565))
-        loop.run_until_complete(communicate(*connection))
-    finally:
-        loop.close()
+    asyncio.run(main())

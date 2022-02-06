@@ -11,7 +11,9 @@ setup(
     packages=find_packages(exclude=['examples', 'tests', 'docs']),
     zip_safe=True,
     extra_required={
-        'rx': {'Rx >= 3.0.0'}
+        'rx': {'Rx >= 3.0.0'},
+        'aiohttp': {'aiohttp == 3.8.1'},
+        'quart': {'quart == 0.16.2'}
     },
     classifiers=[
         'Development Status :: 1 - Planning',
