@@ -1,5 +1,4 @@
 import asyncio
-from asyncio import StreamWriter, StreamReader
 from datetime import timedelta, datetime
 from typing import Optional, Type
 from typing import Union
@@ -11,12 +10,13 @@ from rsocket.frame import ErrorFrame
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.request_handler import RequestHandler
 from rsocket.rsocket import RSocket, _not_provided
+from rsocket.transports.transport import Transport
 
 
 class RSocketClient(RSocket):
 
     def __init__(self,
-                 reader: StreamReader, writer: StreamWriter, *,
+                 transport: Transport, *,
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  loop=_not_provided,
                  honor_lease=False,
@@ -30,7 +30,7 @@ class RSocketClient(RSocket):
         self._is_server_alive = True
         self._update_last_keepalive()
 
-        super().__init__(reader, writer,
+        super().__init__(transport,
                          handler_factory=handler_factory,
                          loop=loop,
                          honor_lease=honor_lease,

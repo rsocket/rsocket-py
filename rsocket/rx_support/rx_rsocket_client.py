@@ -39,6 +39,9 @@ class RxRSocketClient:
     def fire_and_forget(self, request: Payload):
         self._rsocket_client.fire_and_forget(request)
 
+    def metadata_push(self, metadata: bytes):
+        self._rsocket_client.metadata_push(metadata)
+
     def _to_subject(self, publisher: Union[Publisher, BackpressureApi], request_limit: int) -> Subject:
         subject = Subject()
         publisher.initial_request_n(request_limit).subscribe(BackPressureSubscriber(subject, request_limit))

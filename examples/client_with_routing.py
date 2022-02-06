@@ -11,6 +11,8 @@ from rsocket.payload import Payload
 from rsocket.routing.helpers import route, composite, authenticate_simple
 from rsocket.rsocket_client import RSocketClient
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
+from rsocket.streams.stream_from_generator import StreamFromGenerator
+from rsocket.transports.tcp import TransportTCP
 
 
 def sample_publisher(wait_for_requester_complete: Event,
@@ -73,17 +75,6 @@ class StreamSubscriber(Subscriber):
     def on_subscribe(self, subscription):
         # noinspection PyAttributeOutsideInit
         self.subscription = subscription
-
-
-async def communicate(reader, writer):
-    async with RSocketClient(reader, writer,
-                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as socket:
-        await request_response(socket)
-        await request_stream(socket)
-        await request_slow_stream(socket)
-        await request_channel(socket)
-        await request_stream_invalid_login(socket)
-        await request_fragmented_stream(socket)
 
 
 async def request_response(socket: RSocketClient):
@@ -152,12 +143,19 @@ async def request_fragmented_stream(socket: RSocketClient):
     await completion_event.wait()
 
 
+async def main():
+    connection = await asyncio.open_connection('localhost', 6565)
+
+    async with RSocketClient(TransportTCP(*connection),
+                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
+        await request_response(client)
+        await request_stream(client)
+        await request_slow_stream(client)
+        await request_channel(client)
+        await request_stream_invalid_login(client)
+        await request_fragmented_stream(client)
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    loop = asyncio.get_event_loop()
-    try:
-        connection = loop.run_until_complete(asyncio.open_connection(
-            'localhost', 6565))
-        loop.run_until_complete(communicate(*connection))
-    finally:
-        loop.close()
+    asyncio.run(main())

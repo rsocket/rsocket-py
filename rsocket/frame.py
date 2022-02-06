@@ -44,7 +44,7 @@ class Type(IntEnum):
     EXT = 0xFFFF
 
 
-HEADER_LENGTH = 9
+HEADER_LENGTH = 6  # A full header is 4 (stream) + 2 (type, flags) bytes.
 
 
 class Header:
@@ -58,9 +58,8 @@ class Header:
 
 
 def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
-    frame.length, = struct.unpack('>I', b'\x00' + buffer[offset:offset + 3])
-    frame.stream_id, frame.frame_type, flags = struct.unpack_from(
-        '>IBB', buffer, offset + 3)
+    frame.length = len(buffer)
+    frame.stream_id, frame.frame_type, flags = struct.unpack_from('>IBB', buffer, offset)
     flags |= (frame.frame_type & 3) << 8
     frame.frame_type >>= 2
     frame.flags_ignore = is_flag_set(flags, _FLAG_IGNORE_BIT)
@@ -139,15 +138,13 @@ class Frame(Header, metaclass=ABCMeta):
         offset = 0
         buffer = bytearray(self.length)
 
-        buffer[offset:offset + 3] = struct.pack('>I', self.length - 3)[1:]
-        offset += 3
-
         struct.pack_into('>I', buffer, offset, self.stream_id)
         offset += 4
 
-        buffer[7] = (self.frame_type << 2) | (flags >> 8)
-        buffer[8] = flags & 0xff
-        offset += 2
+        buffer[offset] = (self.frame_type << 2) | (flags >> 8)
+        offset += 1
+        buffer[offset] = flags & 0xff
+        offset += 1
 
         buffer[offset:offset + len(middle)] = middle[:]
         offset += len(middle)
@@ -167,7 +164,7 @@ class Frame(Header, metaclass=ABCMeta):
         return bytes(buffer)
 
     def _compute_frame_length(self, middle: bytes) -> int:
-        header_length = 9
+        header_length = HEADER_LENGTH
         length = header_length + len(middle)
 
         if self.flags_metadata and self.metadata:
@@ -303,6 +300,7 @@ class KeepAliveFrame(Frame):
 
     def __init__(self, data=b'', metadata=b''):
         super().__init__(Type.KEEPALIVE)
+        self.stream_id = CONNECTION_STREAM_ID
         self.flags_respond = False
         self.data = data
         self.metadata = metadata
@@ -495,6 +493,7 @@ class MetadataPushFrame(Frame):
 
     def __init__(self):
         super().__init__(Type.METADATA_PUSH)
+        self.stream_id = CONNECTION_STREAM_ID
         self.metadata_only = True
         self.flags_metadata = True
 
@@ -607,7 +606,7 @@ _frame_class_by_id = {
 
 
 def parse(buffer: bytes) -> Frame:
-    if len(buffer) < HEADER_LENGTH:  # A full header is 3 (length) + 4 (stream) + 2 (type, flags) bytes.
+    if len(buffer) < HEADER_LENGTH:
         raise ParseError('Frame too short: {} bytes'.format(len(buffer)))
 
     header = Header()
@@ -661,3 +660,10 @@ def error_frame_to_exception(frame: ErrorFrame) -> Exception:
 
 def is_flag_set(flags: int, bit: int) -> bool:
     return (flags & bit) != 0
+
+
+def serialize_with_frame_size_header(frame:Frame) -> bytes:
+    serialized_frame = frame.serialize()
+    header = struct.pack('>I', len(serialized_frame))[1:]
+    full_frame = header + serialized_frame
+    return full_frame

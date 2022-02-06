@@ -2,6 +2,10 @@
 
 Python implementation of [RSocket](http://rsocket.io)
 
+# Documentation
+
+[Documentation](https://rsocket.io/guides/rsocket-py) is available on the official rsocket.io site.
+
 # Examples
 
 Examples can be found in the /examples folder. It contains various server and client usages. The following is a table
@@ -25,9 +29,9 @@ are in java to show compatibility with a different implementation.
     - [X] Fire and forget
     - [X] Response
     - [X] Stream
-    - [X] Cahnnel
-- [ ] Features
+    - [X] Channel
     - [X] Metadata push
+- [ ] Features
     - [X] Keepalive / Max server life
     - [X] Lease
     - [ ] Resume
@@ -39,7 +43,7 @@ are in java to show compatibility with a different implementation.
     - [X] Authentication
 - [ ] Transports
     - [X] TCP
-    - [ ] Websocket
+    - [X] Websocket
     - [ ] HTTP/2
     - [ ] Aeron
 - [ ] RxPy Integration

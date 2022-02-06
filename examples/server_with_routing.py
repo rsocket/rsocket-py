@@ -9,6 +9,7 @@ from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.tcp import TransportTCP
 
 router = RequestRouter()
 
@@ -65,7 +66,7 @@ def handler_factory(socket):
 
 
 def handle_client(reader, writer):
-    RSocketServer(reader, writer, handler_factory=handler_factory)
+    RSocketServer(TransportTCP(reader, writer), handler_factory=handler_factory)
 
 
 async def run_server():
