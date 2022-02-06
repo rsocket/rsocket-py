@@ -16,7 +16,7 @@ class PeriodicalLeasePublisher(SingleLeasePublisher):
         super().__init__(*args, **kwargs)
         self._lease_task = None
 
-    async def subscribe(self, subscriber: Subscriber):
+    def subscribe(self, subscriber: Subscriber):
         self._lease_task = asyncio.create_task(self._subscribe_loop(subscriber))
 
     async def _subscribe_loop(self, subscriber: Subscriber):
@@ -24,7 +24,7 @@ class PeriodicalLeasePublisher(SingleLeasePublisher):
             while True:
                 await asyncio.sleep(self.wait_between_leases.total_seconds())
 
-                await subscriber.on_next(DefinedLease(
+                subscriber.on_next(DefinedLease(
                     maximum_request_count=self.maximum_request_count,
                     maximum_lease_time=self.maximum_lease_time
                 ))

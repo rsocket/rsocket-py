@@ -1,4 +1,5 @@
 import asyncio
+from asyncio import Future
 from typing import Tuple, AsyncGenerator
 
 import rx
@@ -39,6 +40,26 @@ async def test_rx_support_request_stream_properly_finished(pipe: Tuple[RSocketSe
     assert received_messages[0] == b'Feed Item: 0'
     assert received_messages[1] == b'Feed Item: 1'
     assert received_messages[2] == b'Feed Item: 2'
+
+
+async def test_rx_support_request_response_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+
+    class Handler(BaseRequestHandler):
+        async def request_response(self, payload: Payload) -> Future:
+            future = asyncio.Future()
+            future.set_result(Payload(b'Response'))
+            return future
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = RxRSocketClient(client)
+    received_message = await rx_client.request_response(Payload(b'request text')).pipe(
+        operators.map(lambda payload: payload.data),
+        operators.single()
+    )
+
+    assert received_message == b'Response'
 
 
 async def test_rx_support_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
