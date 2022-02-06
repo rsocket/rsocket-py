@@ -43,7 +43,7 @@ are in java to show compatibility with a different implementation.
     - [X] Authentication
 - [ ] Transports
     - [X] TCP
-    - [ ] Websocket
+    - [X] Websocket
     - [ ] HTTP/2
     - [ ] Aeron
 - [ ] RxPy Integration
