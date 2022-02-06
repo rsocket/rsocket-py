@@ -11,7 +11,6 @@ from rsocket.payload import Payload
 from rsocket.routing.helpers import route, composite, authenticate_simple
 from rsocket.rsocket_client import RSocketClient
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
-from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
 

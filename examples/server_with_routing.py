@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import timedelta
 
-from examples.response_channel import ResponseChannel, LoggingSubscriber
+from examples.response_channel import response_stream, LoggingSubscriber
 from response_stream import ResponseStream
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
 from rsocket.payload import Payload
@@ -43,7 +43,7 @@ async def no_response(payload, composite_metadata):
 async def channel_response(payload, composite_metadata):
     logging.info('Got channel request')
     subscriber = LoggingSubscriber()
-    channel = ResponseChannel(local_subscriber=subscriber)
+    channel = response_stream(local_subscriber=subscriber)
     return channel, subscriber
 
 

@@ -8,7 +8,7 @@ from rsocket.payload import Payload
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 
 
-def ResponseChannel(response_count: int = 3, local_subscriber: Optional[Subscriber] = None):
+def response_stream(response_count: int = 3, local_subscriber: Optional[Subscriber] = None):
     async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
         current_response = 0
 
