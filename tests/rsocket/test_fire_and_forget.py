@@ -5,7 +5,7 @@ from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
 
-async def test_request_fire_and_forget(fail_on_error_log, lazy_pipe):
+async def test_request_fire_and_forget(lazy_pipe):
     fire_and_forget_received = asyncio.Event()
     received_payload: Optional[Payload] = None
 
