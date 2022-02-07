@@ -52,8 +52,14 @@ def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
         return functools.partial(pipe_factory_websocket, aiohttp_raw_server)
 
 
+@pytest.fixture
+async def pipe_tcp_without_auto_connect(unused_tcp_port):
+    async with pipe_factory_tcp(unused_tcp_port, auto_connect_client=False) as components:
+        yield components
+
+
 @asynccontextmanager
-async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_arguments=None):
+async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_arguments=None, auto_connect_client=True):
     def session(*connection):
         nonlocal server
         server = RSocketServer(TransportTCP(*connection), **(server_arguments or {}))
@@ -62,12 +68,18 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
         nonlocal service, client
         service = await asyncio.start_server(session, host, port)
         connection = await asyncio.open_connection(host, port)
-        client = RSocketClient(TransportTCP(*connection), **(client_arguments or {})).connect()
+        client = RSocketClient(TransportTCP(*connection), **(client_arguments or {}))
+
+        if auto_connect_client:
+            client.connect()
 
     async def finish():
-        service.close()
-        await client.close()
+        if auto_connect_client:
+            await client.close()
+
         await server.close()
+
+        service.close()
 
     service: Optional[Server] = None
     server: Optional[RSocketServer] = None
