@@ -85,11 +85,10 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
 
     await stream_completed.wait()
 
-    assert len(stream_subscriber.received_messages) == 4
+    assert len(stream_subscriber.received_messages) == 3
     assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
     assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
     assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
-    assert stream_subscriber.received_messages[3].data == b''
 
 
 async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSocketServer, RSocketClient]):
@@ -189,6 +188,46 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
 
     assert len(stream_subscriber.received_messages) == 1
     assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
+
+
+async def test_request_stream_immediately_completed_by_server_without_payloads(
+        pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+    stream_done = asyncio.Event()
+
+    class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
+
+        def subscribe(self, subscriber):
+            subscriber.on_subscribe(self)
+            subscriber.on_complete()
+
+        async def request_stream(self, payload: Payload) -> Publisher:
+            return self
+
+    class StreamSubscriber(DefaultSubscriber):
+        def __init__(self):
+            self.received_messages: List[Payload] = []
+
+        def on_next(self, value, is_complete=False):
+            self.received_messages.append(value)
+            self.subscription.cancel()
+            logging.info(value)
+
+        def on_complete(self):
+            stream_done.set()
+
+        def on_subscribe(self, subscription):
+            self.subscription = subscription
+
+    server.set_handler_using_factory(Handler)
+
+    stream_subscriber = StreamSubscriber()
+
+    client.request_stream(Payload(b'')).subscribe(stream_subscriber)
+
+    await stream_done.wait()
+
+    assert len(stream_subscriber.received_messages) == 0
 
 
 async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSocketClient]):

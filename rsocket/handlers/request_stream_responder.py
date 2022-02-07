@@ -20,7 +20,7 @@ class RequestStreamResponder(StreamHandler):
 
         def on_complete(self):
             self.socket.send_payload(
-                self.stream, Payload(b'', b''), complete=True)
+                self.stream, Payload(b'', b''), complete=True, is_next=False)
 
             self.socket.finish_stream(self.stream)
 

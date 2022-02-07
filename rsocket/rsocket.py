@@ -155,8 +155,8 @@ class RSocket:
         logger().debug('%s: Sending error: %s', self._log_identifier(), str(exception))
         self.send_frame(exception_to_error_frame(stream, exception))
 
-    def send_payload(self, stream_id: int, payload: Payload, complete=False):
-        self.send_frame(to_payload_frame(payload, complete, stream_id))
+    def send_payload(self, stream_id: int, payload: Payload, complete=False, is_next=True):
+        self.send_frame(to_payload_frame(payload, complete, stream_id, is_next=is_next))
 
     def _update_last_keepalive(self):
         pass

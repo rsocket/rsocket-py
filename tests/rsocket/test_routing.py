@@ -68,8 +68,7 @@ async def test_routed_request_stream_properly_finished(pipe: Tuple[RSocketServer
 
     await stream_finished.wait()
 
-    assert len(stream_subscriber.received_messages) == 4
+    assert len(stream_subscriber.received_messages) == 3
     assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
     assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
     assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
-    assert stream_subscriber.received_messages[3].data == b''

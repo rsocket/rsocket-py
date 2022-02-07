@@ -23,7 +23,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
 
         def on_complete(self):
             self._socket.send_payload(
-                self._stream, Payload(b'', b''), complete=True)
+                self._stream, Payload(b'', b''), complete=True, is_next=False)
             self._requester._sent_complete = True
             self._requester._finish_if_both_closed()
 
