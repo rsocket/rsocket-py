@@ -57,7 +57,7 @@ class AuthenticationBearer(Authentication):
         return self.token
 
     def parse(self, buffer: bytes):
-        return buffer
+        self.token = buffer
 
     @property
     def type(self) -> bytes:
