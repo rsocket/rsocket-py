@@ -45,17 +45,17 @@ class RSocketClient(RSocket):
         return 'client'
 
     async def __aenter__(self) -> 'RSocketClient':
-        await self.connect()
+        self.connect()
         return await super().__aenter__()
 
     def _get_first_stream_id(self) -> int:
         return 1
 
-    async def connect(self):
+    def connect(self):
         self.send_frame(self._create_setup_frame(self._data_encoding, self._metadata_encoding))
 
         if self._honor_lease:
-            await self._subscribe_to_lease_publisher()
+            self._subscribe_to_lease_publisher()
 
         return self
 

@@ -62,7 +62,7 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
         nonlocal service, client
         service = await asyncio.start_server(session, host, port)
         connection = await asyncio.open_connection(host, port)
-        client = await RSocketClient(TransportTCP(*connection), **(client_arguments or {})).connect()
+        client = RSocketClient(TransportTCP(*connection), **(client_arguments or {})).connect()
 
     async def finish():
         service.close()

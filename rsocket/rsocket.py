@@ -200,9 +200,9 @@ class RSocket:
             if self._lease_publisher is None:
                 self.send_error(CONNECTION_STREAM_ID, RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP))
             else:
-                await self._subscribe_to_lease_publisher()
+                self._subscribe_to_lease_publisher()
 
-    async def _subscribe_to_lease_publisher(self):
+    def _subscribe_to_lease_publisher(self):
         if self._lease_publisher is not None:
             self._lease_publisher.subscribe(self.LeaseSubscriber(self))
 
