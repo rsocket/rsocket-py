@@ -67,11 +67,11 @@ def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
     return flags
 
 
-def pack_position(position:int) -> bytes:
+def pack_position(position: int) -> bytes:
     return struct.pack('>Q', position & MASK_63_BITS)
 
 
-def unpack_position(chunk:bytes) -> int:
+def unpack_position(chunk: bytes) -> int:
     return struct.unpack('>Q', chunk)[0] & MASK_63_BITS
 
 
@@ -662,7 +662,7 @@ def is_flag_set(flags: int, bit: int) -> bool:
     return (flags & bit) != 0
 
 
-def serialize_with_frame_size_header(frame:Frame) -> bytes:
+def serialize_with_frame_size_header(frame: Frame) -> bytes:
     serialized_frame = frame.serialize()
     header = struct.pack('>I', len(serialized_frame))[1:]
     full_frame = header + serialized_frame

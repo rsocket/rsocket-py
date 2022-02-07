@@ -27,8 +27,6 @@ class RoutingRequestHandler(BaseRequestHandler):
         'data_encoding',
         'metadata_encoding',
         'authentication_verifier',
-        '_lease_ttl',
-        '_lease_max_requests'
     )
 
     def __init__(self,

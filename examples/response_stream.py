@@ -5,9 +5,9 @@ from rsocket.payload import Payload
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
-def response_stream(response_count: int = 3,
-                    delay_between_messages=timedelta(0),
-                    fragment_size: Optional[int] = None):
+def response_stream_2(response_count: int = 3,
+                      delay_between_messages=timedelta(0),
+                      fragment_size: Optional[int] = None):
     def generator():
         current_response = 0
         for i in range(response_count):

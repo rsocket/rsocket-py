@@ -25,5 +25,5 @@ async def test_metadata_push(pipe):
 
     await metadata_push_received.wait()
 
-    assert received_payload.data == None
+    assert received_payload.data is None
     assert received_payload.metadata == b'cat'

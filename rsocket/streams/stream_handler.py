@@ -3,8 +3,8 @@ from abc import abstractmethod, ABCMeta
 from rsocket.exceptions import RSocketValueErrorException
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
-from rsocket.streams.backpressureapi import BackpressureApi
 from rsocket.payload import Payload
+from rsocket.streams.backpressureapi import BackpressureApi
 
 MAX_REQUEST_N = 0x7FFFFFFF
 

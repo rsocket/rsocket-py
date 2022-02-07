@@ -1,7 +1,6 @@
 from asyncio import StreamReader, StreamWriter
 
 from rsocket.frame import Frame, serialize_with_frame_size_header
-from rsocket.frame_parser import FrameParser
 from rsocket.logger import logger
 from rsocket.transports.transport import Transport
 
