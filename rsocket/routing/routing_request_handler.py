@@ -85,8 +85,7 @@ class RoutingRequestHandler(BaseRequestHandler):
         return future
 
     async def _parse_and_route(self, payload: Payload) -> Union[Future, Publisher, None, Tuple[Publisher, Subscriber]]:
-        composite_metadata = CompositeMetadata()
-        composite_metadata.parse(payload.metadata)
+        composite_metadata = self._parse_composite_metadata(payload.metadata)
         route = self._require_route(composite_metadata)
         await self._verify_authentication(route, composite_metadata)
         return await self.router.route(route, payload, composite_metadata)

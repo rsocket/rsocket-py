@@ -225,7 +225,13 @@ class RSocket:
     async def handle_request_channel(self, frame: RequestChannelFrame):
         stream_id = frame.stream_id
         handler = self._handler
-        publisher, subscriber = await handler.request_channel(Payload(frame.data, frame.metadata))
+
+        try:
+            publisher, subscriber = await handler.request_channel(Payload(frame.data, frame.metadata))
+        except Exception as exception:
+            self.send_error(stream_id, exception)
+            return
+
         channel_responder = RequestChannelResponder(stream_id, self, publisher)
         channel_responder.subscribe(subscriber)
         await channel_responder.frame_received(frame)
