@@ -56,7 +56,8 @@ class RSocket:
                  data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
-                 max_lifetime_period: timedelta = timedelta(minutes=10)
+                 max_lifetime_period: timedelta = timedelta(minutes=10),
+                 setup_payload: Optional[Payload] = None
                  ):
 
         self._transport = transport
@@ -65,6 +66,7 @@ class RSocket:
         self._honor_lease = honor_lease
         self._max_lifetime_period = max_lifetime_period
         self._keep_alive_period = keep_alive_period
+        self._setup_payload = setup_payload
 
         self._data_encoding = self._ensure_encoding_name(data_encoding)
         self._metadata_encoding = self._ensure_encoding_name(metadata_encoding)
@@ -435,13 +437,21 @@ class RSocket:
 
         return True
 
-    def _create_setup_frame(self, data_encoding: bytes, metadata_encoding: bytes) -> SetupFrame:
+    def _create_setup_frame(self,
+                            data_encoding: bytes,
+                            metadata_encoding: bytes,
+                            payload: Optional[Payload] = None) -> SetupFrame:
         setup = SetupFrame()
         setup.flags_lease = self._honor_lease
         setup.keep_alive_milliseconds = to_milliseconds(self._keep_alive_period)
         setup.max_lifetime_milliseconds = to_milliseconds(self._max_lifetime_period)
         setup.data_encoding = data_encoding
         setup.metadata_encoding = metadata_encoding
+
+        if payload is not None:
+            setup.data = payload.data
+            setup.metadata = payload.metadata
+
         return setup
 
     @abc.abstractmethod
