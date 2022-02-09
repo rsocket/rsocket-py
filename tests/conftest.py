@@ -170,7 +170,7 @@ async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, s
     client_arguments = client_arguments or {}
     # client_arguments.update(test_overrides)
     server_task = asyncio.create_task(app.run_task(port=unused_tcp_port))
-    await asyncio.sleep(1)
+    await asyncio.sleep(0.1)
 
     async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
                                 **client_arguments) as client:

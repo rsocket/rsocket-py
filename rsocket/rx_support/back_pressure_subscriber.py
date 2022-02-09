@@ -29,7 +29,7 @@ class BackPressureSubscriber(Subscriber):
         self.wrapped_observer = wrapped_observer
         self._request_count = request_count
 
-        self._message_queue = asyncio.Queue(request_count)
+        self._message_queue = asyncio.Queue()
         self._messages_received = 0
         self._messages_processed = 0
 

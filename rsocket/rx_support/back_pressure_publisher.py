@@ -5,7 +5,7 @@ from typing import Optional
 import rx
 from rx import Observable
 from rx.core import Observer
-from rx.core.notification import OnNext, OnError
+from rx.core.notification import OnNext, OnError, OnCompleted
 from rx.disposable import Disposable
 from rx.operators import materialize
 from rx.subject import Subject
@@ -17,7 +17,7 @@ from rsocket.logger import logger
 from rsocket.rx_support.subscriber_adapter import SubscriberAdapter
 
 
-async def observable_to_async_generator(observable: Observable):
+async def observable_to_async_event_generator(observable: Observable):
     queue = asyncio.Queue()
 
     def on_next(i):
@@ -29,12 +29,9 @@ async def observable_to_async_generator(observable: Observable):
 
     while True:
         value = await queue.get()
-        if isinstance(value, OnNext):
-            yield value.value
+        if isinstance(value, (OnNext, OnError, OnCompleted)):
+            yield value
             queue.task_done()
-        elif isinstance(value, OnError):
-            disposable.dispose()
-            raise (Exception(value.value))
         else:
             disposable.dispose()
             break
@@ -49,19 +46,25 @@ def from_aiter(iterator, feedback: Optional[Observable] = None):
                 async for i in iterator:
                     observer.on_next(i)
                 loop.call_soon(observer.on_completed)
-            except Exception as e:
+            except Exception as exception:
                 loop.call_soon(functools.partial(
-                    observer.on_error, e))
+                    observer.on_error, exception))
 
         async def _aio_next():
             try:
-                i = await iterator.__anext__()
-                observer.on_next(i)
+                event = await iterator.__anext__()
+
+                if isinstance(event, OnNext):
+                    observer.on_next(event.value)
+                elif isinstance(event, OnError):
+                    observer.on_error(event.exception)
+                elif isinstance(event, OnCompleted):
+                    observer.on_completed()
             except StopAsyncIteration:
-                observer.on_completed()
-            except Exception as e:
-                logger().error(str(e), exc_info=True)
-                observer.on_error(e)
+                pass
+            except Exception as exception:
+                logger().error(str(exception), exc_info=True)
+                observer.on_error(exception)
 
         if feedback is not None:
             return feedback.subscribe(
@@ -81,7 +84,7 @@ class BackPressurePublisher(Publisher, Subscription):
     def subscribe(self, subscriber: Subscriber):
         subscriber.on_subscribe(self)
         self._feedback = Subject()
-        async_iterator = observable_to_async_generator(self._wrapped_observable).__aiter__()
+        async_iterator = observable_to_async_event_generator(self._wrapped_observable).__aiter__()
         self._subscriber = subscriber
         from_aiter(async_iterator, self._feedback).subscribe(SubscriberAdapter(subscriber))
 

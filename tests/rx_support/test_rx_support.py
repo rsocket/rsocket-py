@@ -5,6 +5,7 @@ from typing import Tuple, AsyncGenerator, Optional
 import pytest
 import rx
 from rx import operators
+from rx.core import Observer
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
@@ -55,7 +56,7 @@ async def test_rx_support_request_stream_with_error(pipe: Tuple[RSocketServer, R
 
     async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         for x in range(success_count):
-            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == success_count
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), False
 
         raise Exception('Some error from responder')
 
@@ -75,6 +76,67 @@ async def test_rx_support_request_stream_with_error(pipe: Tuple[RSocketServer, R
             operators.map(lambda payload: payload.data),
             operators.to_list()
         )
+
+
+@pytest.mark.allow_error_log
+@pytest.mark.parametrize('success_count, request_limit', (
+        (0, 2),
+        (2, 2),
+        (3, 2),
+))
+async def test_rx_support_request_channel_with_error_from_requester(
+        pipe: Tuple[RSocketServer, RSocketClient],
+        success_count,
+        request_limit):
+    server, client = pipe
+    responder_received_error = asyncio.Event()
+    server_received_messages = []
+    received_error = None
+
+    class ResponderSubscriber(DefaultSubscriber):
+
+        def on_subscribe(self, subscription: Subscription):
+            super().on_subscribe(subscription)
+            self._subscription = subscription
+            self._subscription.request(1)
+
+        def on_next(self, value, is_complete=False):
+            if len(value.data) > 0:
+                server_received_messages.append(value.data)
+            self._subscription.request(1)
+
+        def on_error(self, exception: Exception):
+            nonlocal received_error
+            received_error = exception
+            responder_received_error.set()
+
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        for x in range(success_count):
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == success_count - 1
+
+    class Handler(BaseRequestHandler):
+        async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
+            return StreamFromAsyncGenerator(generator), ResponderSubscriber()
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = RxRSocket(client)
+
+    def test_observable(observer: Observer, scheduler):
+        observer.on_error(Exception('Some error'))
+
+    await rx_client.request_channel(
+        Payload(b'request text'),
+        observable=rx.create(test_observable),
+        request_limit=request_limit
+    ).pipe(
+        operators.map(lambda payload: payload.data),
+        operators.to_list()
+    )
+
+    await responder_received_error.wait()
+
+    assert str(received_error) == 'Some error'
 
 
 async def test_rx_support_request_stream_immediate_complete(pipe: Tuple[RSocketServer, RSocketClient]):
@@ -146,13 +208,11 @@ async def test_rx_support_request_channel_properly_finished(pipe: Tuple[RSocketS
             self._subscription.request(1)
 
         def on_next(self, value, is_complete=False):
-            nonlocal server_received_messages
             if len(value.data) > 0:
                 server_received_messages.append(value.data)
             self._subscription.request(1)
 
         def on_complete(self):
-            nonlocal responder_received_all
             responder_received_all.set()
 
     class Handler(BaseRequestHandler):
@@ -207,6 +267,7 @@ async def test_rx_support_request_channel_response_only_properly_finished(pipe: 
     assert received_messages[0] == b'Feed Item: 0'
     assert received_messages[1] == b'Feed Item: 1'
     assert received_messages[2] == b'Feed Item: 2'
+
 
 async def test_rx_rsocket_context_manager(pipe_tcp_without_auto_connect):
     class Handler(BaseRequestHandler):
