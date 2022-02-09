@@ -3,6 +3,8 @@ from datetime import timedelta, datetime
 from typing import Optional, Type
 from typing import Union
 
+from rsocket.logger import logger
+
 from reactivestreams.publisher import Publisher
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
@@ -52,6 +54,8 @@ class RSocketClient(RSocket):
         return 1
 
     def connect(self):
+        logger().debug('%s: sending setup frame', self._log_identifier())
+
         self.send_frame(self._create_setup_frame(self._data_encoding, self._metadata_encoding))
 
         if self._honor_lease:
