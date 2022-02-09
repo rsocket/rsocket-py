@@ -17,3 +17,6 @@ class Payload:
 
     def __eq__(self, other):
         return self.data == other.data and self.metadata == other.metadata
+
+    def __repr__(self):
+        return "Payload({}, {})".format(self.data, self.metadata)

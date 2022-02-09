@@ -6,7 +6,9 @@ from typing import Tuple
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
+from rsocket.error_codes import ErrorCode
 from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.logger import logger
 from rsocket.payload import Payload
 
 
@@ -18,8 +20,9 @@ class RequestHandler(metaclass=ABCMeta):
 
     @abstractmethod
     async def on_setup(self,
-                       data_encoding: bytes,
-                       metadata_encoding: bytes):
+                 data_encoding: bytes,
+                 metadata_encoding: bytes,
+                 payload: Payload):
         ...
 
     @abstractmethod
@@ -47,6 +50,10 @@ class RequestHandler(metaclass=ABCMeta):
     async def request_stream(self, payload: Payload) -> Publisher:
         ...
 
+    @abstractmethod
+    async def on_error(self, error_code: ErrorCode, payload: Payload):
+        ...
+
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:
         composite_metadata = CompositeMetadata()
         composite_metadata.parse(metadata)
@@ -61,8 +68,9 @@ class BaseRequestHandler(RequestHandler):
             subscriber.on_error(RuntimeError('Not implemented'))
 
     async def on_setup(self,
-                       data_encoding: bytes,
-                       metadata_encoding: bytes):
+                 data_encoding: bytes,
+                 metadata_encoding: bytes,
+                 payload: Payload):
         """Nothing to do on setup by default"""
 
     async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
@@ -81,3 +89,6 @@ class BaseRequestHandler(RequestHandler):
 
     async def request_stream(self, payload: Payload) -> Publisher:
         return self.UnimplementedPublisher()
+
+    async def on_error(self, error_code: ErrorCode, payload: Payload):
+        logger().error('Error: %s, %s', error_code, payload)
