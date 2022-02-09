@@ -105,6 +105,18 @@ class RSocket:
             ErrorFrame: self.handle_error
         }
 
+    def connect(self):
+        logger().debug('%s: sending setup frame', self._log_identifier())
+
+        self.send_frame(self._create_setup_frame(self._data_encoding,
+                                                 self._metadata_encoding,
+                                                 self._setup_payload))
+
+        if self._honor_lease:
+            self._subscribe_to_lease_publisher()
+
+        return self
+
     def _ensure_encoding_name(self, encoding) -> bytes:
         if isinstance(encoding, WellKnownMimeTypes):
             return encoding.value.name
