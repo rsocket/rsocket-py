@@ -22,7 +22,7 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
         self._queue = asyncio.Queue()
         self._fragment_size = fragment_size
         self._delay_between_messages = delay_between_messages
-        self._subscriber = None
+        self._subscriber: Optional[Subscriber] = None
         self._feeder = None
         self._iteration = None
 
@@ -38,24 +38,29 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
         self._n_feeder = asyncio.create_task(self.queue_next_n(n))
 
     async def queue_next_n(self, n):
-        if self._iteration is None:
-            await self._start_generator()
+        try:
+            if self._iteration is None:
+                await self._start_generator()
 
-        async for next_item in self._generate_next_n(n):
-            await self._queue.put(next_item)
+            async for next_item in self._generate_next_n(n):
+                await self._queue.put(next_item)
+        except asyncio.CancelledError:
+            pass
+        except Exception as exception:
+            self._subscriber.on_error(exception)
+            self._cancel_feeders()
 
     async def _generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Payload, bool], None]:
         for i in range(n):
             try:
-                item = next(self._iteration)
+                yield next(self._iteration)
             except StopIteration:
-                return
-            if item != self._iteration:
-                yield item
-            else:
                 return
 
     def cancel(self):
+        self._cancel_feeders()
+
+    def _cancel_feeders(self):
         if self._feeder is not None:
             self._feeder.cancel()
         if self._n_feeder is not None:
@@ -81,7 +86,7 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
                 if is_complete:
                     break
         except asyncio.CancelledError:
-            logger().debug('Canceled')
+            logger().debug('Asyncio task canceled')
 
     def _send_to_subscriber(self, payload: Payload, is_complete=False):
         self._subscriber.on_next(payload, is_complete)

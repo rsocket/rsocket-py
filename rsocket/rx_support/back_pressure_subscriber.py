@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from asyncio import Task
+from enum import Enum, unique, auto
 from typing import Optional
 
 from rx.core import Observer
@@ -11,6 +12,13 @@ from rsocket.payload import Payload
 
 
 def logger(): return logging.getLogger(__name__)
+
+
+@unique
+class EventType(Enum):
+    NEXT = auto()
+    ERROR = auto()
+    COMPLETE = auto()
 
 
 class BackPressureSubscriber(Subscriber):
@@ -28,7 +36,6 @@ class BackPressureSubscriber(Subscriber):
         self._processing_task: Optional[Task] = None
 
         self._is_completed = False
-        self._error: Optional[Exception] = None
 
     def on_subscribe(self, subscription: Subscription):
         self._subscription = subscription
@@ -41,44 +48,55 @@ class BackPressureSubscriber(Subscriber):
         self._processing_task = asyncio.create_task(self._process_message_batch())
 
     def on_complete(self):
-        self._is_completed = True
+        if self._processing_task is None:
+            self.wrapped_observer.on_completed()
+            self._cancel_processing_task()
+        else:
+            self._message_queue.put_nowait((EventType.COMPLETE, None, True))
 
     def on_next(self, value: Payload, is_complete=False):
         self._messages_received += 1
-        self._message_queue.put_nowait((value, is_complete))
+        self._message_queue.put_nowait((EventType.NEXT, value, is_complete))
 
         if self._processing_task is None:
             self._start_processing_messages()
 
     async def _process_message_batch(self):
-        while True:
-            if self._message_queue.empty() and self._error:
-                self.wrapped_observer.on_error(self._error)
-                self._processing_task.cancel()
-                break
+        try:
+            while True:
+                event_type, payload, complete = await self._message_queue.get()
+                if event_type == EventType.NEXT:
+                    self.wrapped_observer.on_next(payload)
+                    self._messages_processed += 1
 
-            if self._message_queue.empty() and self._is_completed:
-                self.wrapped_observer.on_completed()
-                self._processing_task.cancel()
-                break
+                if complete:
+                    self._is_completed = complete
+                    self.wrapped_observer.on_completed()
+                    self._processing_task.cancel()
+                    return
 
-            payload, complete = await self._message_queue.get()
+                if event_type == EventType.ERROR:
+                    self.wrapped_observer.on_error(payload)
+                    self._processing_task.cancel()
+                    return
 
-            self.wrapped_observer.on_next(payload)
-            self._messages_processed += 1
+                if self._messages_processed == self._request_count:
+                    self._messages_processed = 0
+                    self._request_next_n_messages()
+                    break
 
-            if complete:
-                self._is_completed = complete
-                self.wrapped_observer.on_completed()
-                break
-
-            if self._messages_processed == self._request_count:
-                self._messages_processed = 0
+            if not self._is_completed:
                 self._request_next_n_messages()
-                break
-
-        if not self._is_completed and self._error is None:
-            self._request_next_n_messages()
+        except asyncio.CancelledError:
+            pass
 
     def on_error(self, error: Exception):
-        self._error = error
+        if self._processing_task is None:
+            self.wrapped_observer.on_error(error)
+            self._cancel_processing_task()
+        else:
+            self._message_queue.put_nowait((EventType.ERROR, error, None))
+
+    def _cancel_processing_task(self):
+        if self._processing_task is not None:
+            self._processing_task.cancel()
