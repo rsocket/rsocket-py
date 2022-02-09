@@ -1,6 +1,8 @@
 import asyncio
-from asyncio import Future
+from asyncio import Future, Event
+from typing import Optional
 
+from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketRejected, RSocketApplicationError
 from rsocket.extensions.authentication import AuthenticationSimple
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
@@ -58,7 +60,7 @@ async def test_authentication_frame_simple():
     assert serialized_data == data
 
 
-async def test_authentication_on_setup(lazy_pipe):
+async def test_authentication_success_on_setup(lazy_pipe):
     class Handler(BaseRequestHandler):
         def __init__(self, socket):
             super().__init__(socket)
@@ -87,3 +89,45 @@ async def test_authentication_on_setup(lazy_pipe):
             client_arguments={'setup_payload': Payload(metadata=composite(authenticate_simple('user', '12345')))},
             server_arguments={'handler_factory': Handler}) as (server, client):
         result = await client.request_response(Payload(b'request'))
+
+        assert result.data == b'response'
+
+
+async def test_authentication_failure_on_setup(lazy_pipe):
+    received_error_event = Event()
+    received_error: Optional[tuple] = None
+
+    class ServerHandler(BaseRequestHandler):
+        def __init__(self, socket):
+            super().__init__(socket)
+            self._authenticated = False
+
+        async def on_setup(self,
+                           data_encoding: bytes,
+                           metadata_encoding: bytes,
+                           payload: Payload):
+            composite_metadata = self._parse_composite_metadata(payload.metadata)
+            authentication: AuthenticationSimple = composite_metadata.items[0].authentication
+            if authentication.username != b'user' or authentication.password != b'12345':
+                raise RSocketApplicationError('Authentication error')
+
+            self._authenticated = True
+
+    class ClientHandler(BaseRequestHandler):
+        async def on_error(self, error_code: ErrorCode, payload: Payload):
+            nonlocal received_error
+            received_error = (error_code, payload)
+            received_error_event.set()
+
+    async with lazy_pipe(
+            client_arguments={
+                'handler_factory': ClientHandler,
+                'setup_payload': Payload(metadata=composite(authenticate_simple('user', 'wrong_password')))
+            },
+            server_arguments={
+                'handler_factory': ServerHandler
+            }) as (server, client):
+        await received_error_event.wait()
+
+        assert received_error[0] == ErrorCode.APPLICATION_ERROR
+        assert received_error[1] == Payload(b'Authentication error', b'')

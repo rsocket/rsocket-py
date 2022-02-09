@@ -164,7 +164,7 @@ class RSocket:
         pass
 
     async def handle_error(self, frame: ErrorFrame):
-        ...
+        await self._handler.on_error(frame.error_code, Payload(frame.data, frame.metadata))
 
     async def handle_keep_alive(self, frame: KeepAliveFrame):
         logger().debug('%s: Received keepalive', self._log_identifier())
