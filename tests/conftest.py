@@ -23,11 +23,20 @@ tested_transports = [
 ]
 
 
-@pytest.fixture
-def fail_on_error_log(caplog):
+def pytest_configure(config):
+    config.addinivalue_line("markers", "allow_error_log: marks tests which are allowed to have errors in the log")
+
+
+@pytest.fixture(autouse=True)
+def fail_on_error_log(caplog, request):
+    marks = [m.name for m in request.node.iter_markers()]
+
     yield
-    errors = [record for record in caplog.get_records('call') if record.levelno >= logging.ERROR]
-    assert not errors
+
+    if 'allow_error_log' not in marks:
+        records = caplog.get_records('call')
+        errors = [record for record in records if record.levelno >= logging.ERROR]
+        assert not errors
 
 
 @pytest.fixture(params=tested_transports)

@@ -40,9 +40,9 @@ class RoutingRequestHandler(BaseRequestHandler):
 
     # noinspection PyAttributeOutsideInit
     async def on_setup(self,
-                 data_encoding: bytes,
-                 metadata_encoding: bytes,
-                 payload: Payload):
+                       data_encoding: bytes,
+                       metadata_encoding: bytes,
+                       payload: Payload):
 
         if metadata_encoding != WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name:
             raise Exception('Setup frame did not specify composite metadata. required for routing handler')
@@ -51,7 +51,7 @@ class RoutingRequestHandler(BaseRequestHandler):
             self.metadata_encoding = metadata_encoding
             await super().on_setup(data_encoding, metadata_encoding, payload)
 
-    async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
+    async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
         try:
             return await self._parse_and_route(payload)
         except Exception as exception:
@@ -83,7 +83,10 @@ class RoutingRequestHandler(BaseRequestHandler):
         future.set_exception(exception)
         return future
 
-    async def _parse_and_route(self, payload: Payload) -> Union[Future, Publisher, None, Tuple[Publisher, Subscriber]]:
+    async def _parse_and_route(
+            self,
+            payload: Payload
+    ) -> Union[Future, Publisher, None, Tuple[Optional[Publisher], Optional[Subscriber]]]:
         composite_metadata = self._parse_composite_metadata(payload.metadata)
         route = self._require_route(composite_metadata)
         await self._verify_authentication(route, composite_metadata)

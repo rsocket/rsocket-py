@@ -1,20 +1,18 @@
 import asyncio
 import logging
-from typing import List, Tuple
+from typing import List
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
+from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.payload import Payload
 from rsocket.routing.helpers import route, composite
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
-from rsocket.rsocket_client import RSocketClient
-from rsocket.rsocket_server import RSocketServer
 
 
-async def test_routed_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+async def test_routed_request_stream_properly_finished(lazy_pipe):
     stream_finished = asyncio.Event()
 
     router = RequestRouter()
@@ -60,23 +58,23 @@ async def test_routed_request_stream_properly_finished(pipe: Tuple[RSocketServer
         def on_subscribe(self, subscription):
             self.subscription = subscription
 
-    server.set_handler_using_factory(handler_factory)
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
 
-    stream_subscriber = StreamSubscriber()
+        stream_subscriber = StreamSubscriber()
 
-    client.request_stream(Payload(b'', composite(route('test.path')))).subscribe(stream_subscriber)
+        client.request_stream(Payload(b'', composite(route('test.path')))).subscribe(stream_subscriber)
 
-    await stream_finished.wait()
+        await stream_finished.wait()
 
-    assert len(stream_subscriber.received_messages) == 3
-    assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
-    assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
-    assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
+        assert len(stream_subscriber.received_messages) == 3
+        assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
+        assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
+        assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
 
 
-async def test_routed_request_response_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
-
+async def test_routed_request_response_properly_finished(lazy_pipe):
     router = RequestRouter()
 
     def handler_factory(socket):
@@ -88,15 +86,15 @@ async def test_routed_request_response_properly_finished(pipe: Tuple[RSocketServ
         future.set_result(Payload(b'result'))
         return future
 
-    server.set_handler_using_factory(handler_factory)
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        result = await client.request_response(Payload(b'', composite(route('test.path'))))
 
-    result = await client.request_response(Payload(b'', composite(route('test.path'))))
-
-    assert result.data == b'result'
+        assert result.data == b'result'
 
 
-async def test_routed_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+async def test_routed_request_channel_properly_finished(lazy_pipe):
     stream_finished = asyncio.Event()
 
     router = RequestRouter()
@@ -146,15 +144,17 @@ async def test_routed_request_channel_properly_finished(pipe: Tuple[RSocketServe
         def on_subscribe(self, subscription):
             self.subscription = subscription
 
-    server.set_handler_using_factory(handler_factory)
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
 
-    stream_subscriber = StreamSubscriber()
+        stream_subscriber = StreamSubscriber()
 
-    client.request_channel(Payload(b'', composite(route('test.path')))).subscribe(stream_subscriber)
+        client.request_channel(Payload(b'', composite(route('test.path')))).subscribe(stream_subscriber)
 
-    await stream_finished.wait()
+        await stream_finished.wait()
 
-    assert len(stream_subscriber.received_messages) == 3
-    assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
-    assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
-    assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
+        assert len(stream_subscriber.received_messages) == 3
+        assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
+        assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
+        assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'

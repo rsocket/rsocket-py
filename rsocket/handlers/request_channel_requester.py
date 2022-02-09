@@ -19,6 +19,7 @@ class RequestChannelRequester(RequestChannelCommon):
         request.stream_id = self.stream
         request.data = payload.data
         request.metadata = payload.metadata
+        request.flags_complete = self._remote_publisher is None
         self.socket.send_request(request)
 
     def subscribe(self, subscriber: Subscriber):

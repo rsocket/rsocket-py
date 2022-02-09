@@ -23,7 +23,7 @@ async def test_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSoc
             subscriber.on_subscribe(self)
             self.feeder = asyncio.ensure_future(self.feed(subscriber))
 
-        async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
+        async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
             return self, self
 
         @staticmethod
@@ -92,7 +92,7 @@ async def test_request_channel_immediately_finished_without_payloads(pipe: Tuple
         def request(self, n: int):
             self.subscriber.on_complete()
 
-        async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
+        async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
             return self, self
 
     class StreamSubscriber(DefaultSubscriber):

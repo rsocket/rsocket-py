@@ -1,6 +1,6 @@
 import asyncio
 from asyncio import Future
-from typing import Tuple, AsyncGenerator
+from typing import Tuple, AsyncGenerator, Optional
 
 import pytest
 import rx
@@ -156,7 +156,7 @@ async def test_rx_support_request_channel_properly_finished(pipe: Tuple[RSocketS
             responder_received_all.set()
 
     class Handler(BaseRequestHandler):
-        async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
+        async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
             return StreamFromAsyncGenerator(generator), ResponderSubscriber()
 
     server.set_handler_using_factory(Handler)
@@ -181,6 +181,32 @@ async def test_rx_support_request_channel_properly_finished(pipe: Tuple[RSocketS
     assert received_messages[1] == b'Feed Item: 1'
     assert received_messages[2] == b'Feed Item: 2'
 
+
+async def test_rx_support_request_channel_response_only_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        for x in range(3):
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == 2
+
+    class Handler(BaseRequestHandler):
+        async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
+            return StreamFromAsyncGenerator(generator), None
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = RxRSocket(client)
+
+    received_messages = await rx_client.request_channel(Payload(b'request text'),
+                                                        request_limit=2).pipe(
+        operators.map(lambda payload: payload.data),
+        operators.to_list()
+    )
+
+    assert len(received_messages) == 3
+    assert received_messages[0] == b'Feed Item: 0'
+    assert received_messages[1] == b'Feed Item: 1'
+    assert received_messages[2] == b'Feed Item: 2'
 
 async def test_rx_rsocket_context_manager(pipe_tcp_without_auto_connect):
     class Handler(BaseRequestHandler):

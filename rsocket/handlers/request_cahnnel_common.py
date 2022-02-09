@@ -24,13 +24,11 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
         def on_complete(self):
             self._socket.send_payload(
                 self._stream, Payload(b'', b''), complete=True, is_next=False)
-            self._requester._sent_complete = True
-            self._requester._finish_if_both_closed()
+            self._requester.mark_completed_and_finish(sent=True)
 
         def on_error(self, exception):
             self._socket.send_error(self._stream, exception)
-            self._requester._sent_complete = True
-            self._requester._finish_if_both_closed()
+            self._requester.mark_completed_and_finish(sent=True)
 
         def on_subscribe(self, subscription):
             # noinspection PyAttributeOutsideInit
@@ -40,9 +38,11 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
         super().__init__(stream, socket)
         self._sent_complete = False
         self._received_complete = False
-        self.remote_publisher = remote_publisher
+        self._remote_publisher = remote_publisher
         self.subscriber = self.StreamSubscriber(stream, socket, self)
-        self.remote_publisher.subscribe(self.subscriber)
+
+        if self._remote_publisher is not None:
+            self._remote_publisher.subscribe(self.subscriber)
 
     async def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):
@@ -57,12 +57,17 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
                 self._complete_remote_subscriber()
         elif isinstance(frame, ErrorFrame):
             self.remote_subscriber.on_error(error_frame_to_exception(frame))
-            self._received_complete = True
-            self._finish_if_both_closed()
+            self.mark_completed_and_finish(received=True)
 
     def _complete_remote_subscriber(self):
         self.remote_subscriber.on_complete()
-        self._received_complete = True
+        self.mark_completed_and_finish(received=True)
+
+    def mark_completed_and_finish(self, received=None, sent=None):
+        if received:
+            self._received_complete = True
+        if sent:
+            self._sent_complete = True
         self._finish_if_both_closed()
 
     def _finish_stream(self):
@@ -73,8 +78,11 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             self._finish_stream()
 
     def subscribe(self, subscriber: Subscriber):
-        self.remote_subscriber = subscriber
-        self.remote_subscriber.on_subscribe(self)
+        if subscriber is not None:
+            self.remote_subscriber = subscriber
+            self.remote_subscriber.on_subscribe(self)
+        else:
+            self.mark_completed_and_finish(sent=True)
 
     def cancel(self):
         self.send_cancel()

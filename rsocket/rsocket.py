@@ -6,7 +6,6 @@ from typing import Union, Type, Optional, Dict, Any
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
-from rsocket.empty_publisher import EmptyPublisher
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolException, RSocketConnectionRejected, \
     RSocketRejected
@@ -206,8 +205,8 @@ class RSocket:
         handler = self._handler
         try:
             await handler.on_setup(frame.data_encoding,
-                             frame.metadata_encoding,
-                             Payload(frame.data, frame.metadata))
+                                   frame.metadata_encoding,
+                                   Payload(frame.data, frame.metadata))
         except Exception as exception:
             self.send_error(frame.stream_id, exception)
 
@@ -416,9 +415,6 @@ class RSocket:
             local_publisher: Optional[Publisher] = None) -> Union[BackpressureApi, Publisher]:
 
         logger().debug('%s: sending request-channel: %s', self._log_identifier(), payload)
-
-        if local_publisher is None:
-            local_publisher = EmptyPublisher()
 
         stream = self.allocate_stream()
         requester = RequestChannelRequester(stream, self, payload, local_publisher)
