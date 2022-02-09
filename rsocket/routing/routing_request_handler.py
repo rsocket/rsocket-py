@@ -40,16 +40,16 @@ class RoutingRequestHandler(BaseRequestHandler):
 
     # noinspection PyAttributeOutsideInit
     async def on_setup(self,
-                       data_encoding: bytes,
-                       metadata_encoding: bytes,
-                       payload: Payload):
+                 data_encoding: bytes,
+                 metadata_encoding: bytes,
+                 payload: Payload):
 
         if metadata_encoding != WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name:
             raise Exception('Setup frame did not specify composite metadata. required for routing handler')
         else:
             self.data_encoding = data_encoding
             self.metadata_encoding = metadata_encoding
-            await super().on_setup(data_encoding, metadata_encoding)
+            await super().on_setup(data_encoding, metadata_encoding, payload)
 
     async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:
         try:

@@ -2,6 +2,8 @@ import asyncio
 from asyncio import Future, Event
 from typing import Optional
 
+import pytest
+
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketRejected, RSocketApplicationError
 from rsocket.extensions.authentication import AuthenticationSimple
@@ -67,9 +69,9 @@ async def test_authentication_success_on_setup(lazy_pipe):
             self._authenticated = False
 
         async def on_setup(self,
-                           data_encoding: bytes,
-                           metadata_encoding: bytes,
-                           payload: Payload):
+                     data_encoding: bytes,
+                     metadata_encoding: bytes,
+                     payload: Payload):
             composite_metadata = self._parse_composite_metadata(payload.metadata)
             authentication: AuthenticationSimple = composite_metadata.items[0].authentication
             if authentication.username != b'user' or authentication.password != b'12345':
@@ -103,15 +105,23 @@ async def test_authentication_failure_on_setup(lazy_pipe):
             self._authenticated = False
 
         async def on_setup(self,
-                           data_encoding: bytes,
-                           metadata_encoding: bytes,
-                           payload: Payload):
+                     data_encoding: bytes,
+                     metadata_encoding: bytes,
+                     payload: Payload):
             composite_metadata = self._parse_composite_metadata(payload.metadata)
             authentication: AuthenticationSimple = composite_metadata.items[0].authentication
             if authentication.username != b'user' or authentication.password != b'12345':
                 raise RSocketApplicationError('Authentication error')
 
             self._authenticated = True
+
+        async def request_response(self, payload: Payload) -> Future:
+            if not self._authenticated:
+                raise RSocketApplicationError("Not authenticated")
+
+            future = asyncio.get_event_loop().create_future()
+            future.set_result(Payload(b'response'))
+            return future
 
     class ClientHandler(BaseRequestHandler):
         async def on_error(self, error_code: ErrorCode, payload: Payload):
@@ -127,6 +137,10 @@ async def test_authentication_failure_on_setup(lazy_pipe):
             server_arguments={
                 'handler_factory': ServerHandler
             }) as (server, client):
+
+        with pytest.raises(RuntimeError):
+            await client.request_response(Payload(b'request'))
+
         await received_error_event.wait()
 
         assert received_error[0] == ErrorCode.APPLICATION_ERROR

@@ -179,13 +179,25 @@ class RSocket:
     async def handle_request_response(self, frame: RequestResponseFrame):
         stream_id = frame.stream_id
         handler = self._handler
-        response_future = await handler.request_response(Payload(frame.data, frame.metadata))
+
+        try:
+            response_future = await handler.request_response(Payload(frame.data, frame.metadata))
+        except Exception as exception:
+            self.send_error(stream_id, exception)
+            return
+
         self._streams[stream_id] = RequestResponseResponder(stream_id, self, response_future)
 
     async def handle_request_stream(self, frame: RequestStreamFrame):
         stream_id = frame.stream_id
         handler = self._handler
-        publisher = await handler.request_stream(Payload(frame.data, frame.metadata))
+
+        try:
+            publisher = await handler.request_stream(Payload(frame.data, frame.metadata))
+        except Exception as exception:
+            self.send_error(stream_id, exception)
+            return
+
         request_responder = RequestStreamResponder(stream_id, self, publisher)
         await request_responder.frame_received(frame)
         self._streams[stream_id] = request_responder
@@ -194,8 +206,8 @@ class RSocket:
         handler = self._handler
         try:
             await handler.on_setup(frame.data_encoding,
-                                   frame.metadata_encoding,
-                                   Payload(frame.data, frame.metadata))
+                             frame.metadata_encoding,
+                             Payload(frame.data, frame.metadata))
         except Exception as exception:
             self.send_error(frame.stream_id, exception)
 
