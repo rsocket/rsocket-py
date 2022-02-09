@@ -8,7 +8,7 @@ from rx import operators
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
-from reactivestreams.subscription import Subscription
+from reactivestreams.subscription import Subscription, DefaultSubscription
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
@@ -75,6 +75,37 @@ async def test_rx_support_request_stream_with_error(pipe: Tuple[RSocketServer, R
             operators.map(lambda payload: payload.data),
             operators.to_list()
         )
+
+
+async def test_rx_support_request_stream_immediate_complete(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+
+    class SimpleCompleted(Publisher, DefaultSubscription):
+
+        def request(self, n: int):
+            self._subscriber.on_complete()
+
+        def subscribe(self, subscriber: Subscriber):
+            self._subscriber = subscriber
+            subscriber.on_subscribe(self)
+
+    class Handler(BaseRequestHandler):
+        async def request_stream(self, payload: Payload) -> Publisher:
+            return SimpleCompleted()
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = RxRSocket(client)
+
+    result = await rx_client.request_stream(
+        Payload(b'request text'),
+        request_limit=2
+    ).pipe(
+        operators.map(lambda payload: payload.data),
+        operators.to_list()
+    )
+
+    assert len(result) == 0
 
 
 async def test_rx_support_request_response_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
