@@ -1,13 +1,13 @@
 import asyncio
 import logging
 
-from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
 
-class StreamSubscriber(Subscriber):
+class StreamSubscriber(DefaultSubscriber):
 
     def on_next(self, value, is_complete=False):
         logging.info('RS: {}'.format(value))

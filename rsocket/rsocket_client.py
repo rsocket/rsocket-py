@@ -9,6 +9,7 @@ from reactivestreams.publisher import Publisher
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import ErrorFrame
+from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.request_handler import RequestHandler
 from rsocket.rsocket import RSocket, _not_provided
@@ -27,7 +28,8 @@ class RSocketClient(RSocket):
                  data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
-                 max_lifetime_period: timedelta = timedelta(minutes=10)
+                 max_lifetime_period: timedelta = timedelta(minutes=10),
+                 setup_payload: Optional[Payload] = None
                  ):
         self._is_server_alive = True
         self._update_last_keepalive()
@@ -41,7 +43,8 @@ class RSocketClient(RSocket):
                          data_encoding=data_encoding,
                          metadata_encoding=metadata_encoding,
                          keep_alive_period=keep_alive_period,
-                         max_lifetime_period=max_lifetime_period)
+                         max_lifetime_period=max_lifetime_period,
+                         setup_payload=setup_payload)
 
     def _log_identifier(self) -> str:
         return 'client'
@@ -56,7 +59,9 @@ class RSocketClient(RSocket):
     def connect(self):
         logger().debug('%s: sending setup frame', self._log_identifier())
 
-        self.send_frame(self._create_setup_frame(self._data_encoding, self._metadata_encoding))
+        self.send_frame(self._create_setup_frame(self._data_encoding,
+                                                 self._metadata_encoding,
+                                                 self._setup_payload))
 
         if self._honor_lease:
             self._subscribe_to_lease_publisher()
