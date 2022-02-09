@@ -17,10 +17,6 @@ from rsocket.streams.error_stream import ErrorStream
 from rsocket.streams.null_subscrier import NullSubscriber
 
 
-async def always_allow_authenticator(route: str, authentication: Authentication):
-    pass
-
-
 class RoutingRequestHandler(BaseRequestHandler):
     __slots__ = (
         'router',
