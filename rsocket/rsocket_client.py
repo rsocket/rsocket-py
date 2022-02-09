@@ -55,7 +55,9 @@ class RSocketClient(RSocket):
         return 1
 
     def connect(self):
-        self.send_frame(self._create_setup_frame(self._data_encoding, self._metadata_encoding))
+        self.send_frame(self._create_setup_frame(self._data_encoding,
+                                                 self._metadata_encoding,
+                                                 self._setup_payload))
 
         if self._honor_lease:
             self._subscribe_to_lease_publisher()

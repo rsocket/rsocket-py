@@ -19,7 +19,8 @@ class RequestHandler(metaclass=ABCMeta):
     @abstractmethod
     async def on_setup(self,
                        data_encoding: bytes,
-                       metadata_encoding: bytes):
+                       metadata_encoding: bytes,
+                       payload: Payload):
         ...
 
     @abstractmethod
@@ -62,7 +63,8 @@ class BaseRequestHandler(RequestHandler):
 
     async def on_setup(self,
                        data_encoding: bytes,
-                       metadata_encoding: bytes):
+                       metadata_encoding: bytes,
+                       payload: Payload):
         """Nothing to do on setup by default"""
 
     async def request_channel(self, payload: Payload) -> Tuple[Publisher, Subscriber]:

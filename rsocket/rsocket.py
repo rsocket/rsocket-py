@@ -194,7 +194,8 @@ class RSocket:
         handler = self._handler
         try:
             await handler.on_setup(frame.data_encoding,
-                                   frame.metadata_encoding)
+                                   frame.metadata_encoding,
+                                   Payload(frame.data, frame.metadata))
         except Exception as exception:
             self.send_error(frame.stream_id, exception)
 

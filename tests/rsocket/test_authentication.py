@@ -1,6 +1,15 @@
+import asyncio
+from asyncio import Future
+
+from rsocket.exceptions import RSocketRejected, RSocketApplicationError
+from rsocket.extensions.authentication import AuthenticationSimple
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.frame import CONNECTION_STREAM_ID
+from rsocket.payload import Payload
+from rsocket.request_handler import BaseRequestHandler
+from rsocket.routing.helpers import composite, authenticate_simple
 from tests.rsocket.helpers import bits, data_bits, build_frame
 
 
@@ -47,3 +56,34 @@ async def test_authentication_frame_simple():
     serialized_data = composite_metadata.serialize()
 
     assert serialized_data == data
+
+
+async def test_authentication_on_setup(lazy_pipe):
+    class Handler(BaseRequestHandler):
+        def __init__(self, socket):
+            super().__init__(socket)
+            self._authenticated = False
+
+        async def on_setup(self,
+                           data_encoding: bytes,
+                           metadata_encoding: bytes,
+                           payload: Payload):
+            composite_metadata = self._parse_composite_metadata(payload.metadata)
+            authentication: AuthenticationSimple = composite_metadata.items[0].authentication
+            if authentication.username != b'user' or authentication.password != b'12345':
+                raise RSocketRejected(CONNECTION_STREAM_ID)
+
+            self._authenticated = True
+
+        async def request_response(self, payload: Payload) -> Future:
+            if not self._authenticated:
+                raise RSocketApplicationError("Not authenticated")
+
+            future = asyncio.get_event_loop().create_future()
+            future.set_result(Payload(b'response'))
+            return future
+
+    async with lazy_pipe(
+            client_arguments={'setup_payload': Payload(metadata=composite(authenticate_simple('user', '12345')))},
+            server_arguments={'handler_factory': Handler}) as (server, client):
+        result = await client.request_response(Payload(b'request'))
