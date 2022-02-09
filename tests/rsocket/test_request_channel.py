@@ -15,19 +15,19 @@ async def test_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSoc
     server, client = pipe
     stream_finished = asyncio.Event()
 
-    class Handler(BaseRequestHandler, Publisher, DefaultSubscription, DefaultSubscriber):
+    class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
         def cancel(self):
             self.feeder.cancel()
 
-        def subscribe(self, subscriber):
+        def subscribe(self, subscriber:Subscriber):
             subscriber.on_subscribe(self)
             self.feeder = asyncio.ensure_future(self.feed(subscriber))
 
         async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
-            return self, self
+            return self, None
 
         @staticmethod
-        async def feed(subscriber):
+        async def feed(subscriber: Subscriber):
             try:
                 for x in range(3):
                     value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
@@ -47,7 +47,7 @@ async def test_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSoc
             logging.info('Complete')
             stream_finished.set()
 
-        def on_subscribe(self, subscription):
+        def on_subscribe(self, subscription: Subscription):
             self.subscription = subscription
 
     server.set_handler_using_factory(Handler)
@@ -110,13 +110,10 @@ async def test_request_channel_immediately_finished_without_payloads(pipe: Tuple
         def on_subscribe(self, subscription: Subscription):
             self.subscription = subscription
 
-    class RequesterPublisher(Publisher, Subscription):
+    class RequesterPublisher(Publisher, DefaultSubscription):
 
         def request(self, n: int):
             self.subscriber.on_complete()
-
-        def cancel(self):
-            pass
 
         def subscribe(self, subscriber: Subscriber):
             subscriber.on_subscribe(self)

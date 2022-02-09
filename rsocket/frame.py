@@ -20,6 +20,7 @@ _FLAG_FOLLOWS_BIT = 0x80
 _FLAG_LEASE_BIT = 0x40
 _FLAG_RESUME_BIT = 0x80
 _FLAG_RESPOND_BIT = 0x80
+_FLAG_NEXT_BIT = 0x20
 
 
 class ParseError(ValueError):
@@ -327,22 +328,20 @@ class RequestFrame(Frame):
         'flags_follows',
     )
 
-    _FLAG_FOLLOWS_BIT = 0x80
-
     def __init__(self, frame_type):
         super().__init__(frame_type)
         self.flags_follows = False
 
     def parse(self, buffer, offset: int) -> Tuple[int, int]:
         flags = parse_header(self, buffer, offset)
-        self.flags_follows = is_flag_set(flags, self._FLAG_FOLLOWS_BIT)
+        self.flags_follows = is_flag_set(flags, _FLAG_FOLLOWS_BIT)
         return HEADER_LENGTH, flags
 
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
-        flags &= ~self._FLAG_FOLLOWS_BIT
+        flags &= ~_FLAG_FOLLOWS_BIT
 
         if self.flags_follows:
-            flags |= self._FLAG_FOLLOWS_BIT
+            flags |= _FLAG_FOLLOWS_BIT
 
         return Frame.serialize(self, middle, flags)
 
@@ -421,7 +420,12 @@ class RequestChannelFrame(RequestFrame):
 
     def serialize(self, middle=b'', flags=0):
         middle = struct.pack('>I', self.initial_request_n)
-        return RequestFrame.serialize(self, middle)
+
+        flags &= ~_FLAG_COMPLETE_BIT
+        if self.flags_complete:
+            flags |= _FLAG_COMPLETE_BIT
+
+        return RequestFrame.serialize(self, middle, flags)
 
 
 class RequestNFrame(RequestFrame):
@@ -457,10 +461,6 @@ class PayloadFrame(Frame):
         'flags_next'
     )
 
-    _FLAG_FOLLOWS_BIT = 0x80
-    _FLAG_COMPLETE_BIT = 0x40
-    _FLAG_NEXT_BIT = 0x20
-
     def __init__(self):
         super().__init__(Type.PAYLOAD)
         self.flags_follows = False
@@ -470,21 +470,21 @@ class PayloadFrame(Frame):
     def parse(self, buffer, offset):
         flags = parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.flags_follows = is_flag_set(flags, self._FLAG_FOLLOWS_BIT)
-        self.flags_complete = is_flag_set(flags, self._FLAG_COMPLETE_BIT)
-        self.flags_next = is_flag_set(flags, self._FLAG_NEXT_BIT)
+        self.flags_follows = is_flag_set(flags, _FLAG_FOLLOWS_BIT)
+        self.flags_complete = is_flag_set(flags, _FLAG_COMPLETE_BIT)
+        self.flags_next = is_flag_set(flags, _FLAG_NEXT_BIT)
         offset += self.parse_metadata(buffer, offset)
         offset += self.parse_data(buffer, offset)
 
     def serialize(self, middle=b'', flags=0):
-        flags &= ~(self._FLAG_FOLLOWS_BIT | self._FLAG_COMPLETE_BIT |
-                   self._FLAG_NEXT_BIT)
+        flags &= ~(_FLAG_FOLLOWS_BIT | _FLAG_COMPLETE_BIT |
+                   _FLAG_NEXT_BIT)
         if self.flags_follows:
-            flags |= self._FLAG_FOLLOWS_BIT
+            flags |= _FLAG_FOLLOWS_BIT
         if self.flags_complete:
-            flags |= self._FLAG_COMPLETE_BIT
+            flags |= _FLAG_COMPLETE_BIT
         if self.flags_next:
-            flags |= self._FLAG_NEXT_BIT
+            flags |= _FLAG_NEXT_BIT
         return Frame.serialize(self, flags=flags)
 
 

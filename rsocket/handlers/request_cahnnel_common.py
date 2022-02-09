@@ -36,6 +36,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
 
     def __init__(self, stream: int, socket, remote_publisher: Optional[Publisher] = None):
         super().__init__(stream, socket)
+        self.remote_subscriber = None
         self._sent_complete = False
         self._received_complete = False
         self._remote_publisher = remote_publisher
@@ -60,7 +61,9 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             self.mark_completed_and_finish(received=True)
 
     def _complete_remote_subscriber(self):
-        self.remote_subscriber.on_complete()
+        if self.remote_subscriber is not None:
+            self.remote_subscriber.on_complete()
+
         self.mark_completed_and_finish(received=True)
 
     def mark_completed_and_finish(self, received=None, sent=None):

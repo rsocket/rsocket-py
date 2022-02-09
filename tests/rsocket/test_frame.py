@@ -7,7 +7,7 @@ from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
                            MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
-                           serialize_with_frame_size_header, RequestStreamFrame)
+                           serialize_with_frame_size_header, RequestStreamFrame, RequestChannelFrame)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -186,6 +186,57 @@ async def test_request_stream_frame(connection, follows):
 
     assert composite_metadata.serialize() == frame.metadata
 
+
+@pytest.mark.parametrize('follows, complete', (
+        (0, 1),
+        (1, 1),
+        (0, 0),
+        (1, 0)
+))
+async def test_request_channel_frame(connection, follows, complete):
+    data = build_frame(
+        bits(24, 32, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 15, 'Stream id'),
+        bits(6, Type.REQUEST_CHANNEL.value, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 1, 'Metadata'),
+        bits(1, follows, 'Follows'),
+        bits(1, complete, 'Complete'),
+        bits(6, 0, 'Empty flags'),
+        bits(1, 0, 'Padding'),
+        bits(31, 10, 'Initial request N'),
+        # Metadata
+        bits(24, 16, 'Metadata length'),
+        # Composite metadata
+        bits(1, 1, 'Well known metadata type'),
+        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value.id, 'Mime ID'),
+        bits(24, 12, 'Metadata length'),
+        bits(8, 11, 'Tag Length'),
+        data_bits(b'target.path'),
+
+        # Payload
+        data_bits(b'\x01\x02\x03'),
+    )
+
+    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
+    frame = frames[0]
+    assert isinstance(frame, RequestChannelFrame)
+    assert serialize_with_frame_size_header(frame) == data
+
+    assert frame.data == b'\x01\x02\x03'
+    assert frame.flags_follows == bool(follows)
+    assert frame.flags_complete == bool(complete)
+    assert frame.stream_id == 15
+
+    composite_metadata = CompositeMetadata()
+    composite_metadata.parse(frame.metadata)
+
+    assert composite_metadata.items[0].encoding == b'message/x.rsocket.routing.v0'
+    assert composite_metadata.items[0].tags == [b'target.path']
+
+    assert composite_metadata.serialize() == frame.metadata
 
 async def test_request_with_composite_metadata(connection):
     data = build_frame(
