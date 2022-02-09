@@ -77,7 +77,7 @@ class RSocketClient(RSocket):
             pass
 
     def _before_sender(self):
-        self._keepalive_task = self._start_task_if_not_closing(self._keepalive_send_task())
+        self._keepalive_task = self._start_task_if_not_closing(self._keepalive_send_task)
 
     async def _finally_sender(self):
         await self._cancel_if_task_exists(self._keepalive_task)
@@ -105,7 +105,7 @@ class RSocketClient(RSocket):
             pass
 
     async def _receiver_listen(self):
-        keepalive_timeout_task = self._start_task_if_not_closing(self._keepalive_timeout_task())
+        keepalive_timeout_task = self._start_task_if_not_closing(self._keepalive_timeout_task)
 
         try:
             return await super()._receiver_listen()

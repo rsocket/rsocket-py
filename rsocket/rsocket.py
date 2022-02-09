@@ -1,8 +1,8 @@
 import abc
 import asyncio
-from asyncio import Future, QueueEmpty
+from asyncio import Future, QueueEmpty, Task
 from datetime import timedelta
-from typing import Union, Type, Optional, Dict, Any
+from typing import Union, Type, Optional, Dict, Any, Coroutine, Callable
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
@@ -89,8 +89,8 @@ class RSocket:
             loop = asyncio.get_event_loop()
         self._loop = loop
 
-        self._receiver_task = self._start_task_if_not_closing(self._receiver())
-        self._sender_task = self._start_task_if_not_closing(self._sender())
+        self._receiver_task = self._start_task_if_not_closing(self._receiver)
+        self._sender_task = self._start_task_if_not_closing(self._sender)
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -111,9 +111,9 @@ class RSocket:
 
         return encoding
 
-    def _start_task_if_not_closing(self, task):
+    def _start_task_if_not_closing(self, task_factory: Callable[[], Coroutine]) -> Optional[Task]:
         if not self._is_closing:
-            return self._loop.create_task(task)
+            return self._loop.create_task(task_factory())
 
     def set_handler_using_factory(self, handler_factory) -> RequestHandler:
         self._handler = handler_factory(self)
