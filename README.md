@@ -22,6 +22,7 @@ are in java to show compatibility with a different implementation.
 # Build Status
 
 ![build master](https://github.com/rsocket/rsocket-py/actions/workflows/python-package.yml/badge.svg?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/rsocket/rsocket-py/badge.svg?branch=master)](https://coveralls.io/github/rsocket/rsocket-py?branch=master)
 
 # Progress
 
