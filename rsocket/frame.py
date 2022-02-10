@@ -1,15 +1,16 @@
 import abc
 import struct
 from abc import ABCMeta
-from enum import IntEnum
+from enum import IntEnum, unique
 from typing import Tuple
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolException, RSocketRejected
+from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit
 
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
-MASK_63_BITS = 0x7FFFFFFFFFFFFFFF
+
 MASK_31_BITS = 0x7FFFFFFF
 CONNECTION_STREAM_ID = 0
 MAX_REQUEST_N = 0x7FFFFFFF
@@ -28,21 +29,22 @@ class ParseError(ValueError):
     pass
 
 
+@unique
 class FrameType(IntEnum):
-    SETUP = 1,
-    LEASE = 2,
-    KEEPALIVE = 3,
-    REQUEST_RESPONSE = 4,
-    REQUEST_FNF = 5,
-    REQUEST_STREAM = 6,
-    REQUEST_CHANNEL = 7,
-    REQUEST_N = 8,
-    CANCEL = 9,
-    PAYLOAD = 10,
-    ERROR = 11,
-    METADATA_PUSH = 12,
-    RESUME = 13,
-    RESUME_OK = 14,
+    SETUP = 1
+    LEASE = 2
+    KEEPALIVE = 3
+    REQUEST_RESPONSE = 4
+    REQUEST_FNF = 5
+    REQUEST_STREAM = 6
+    REQUEST_CHANNEL = 7
+    REQUEST_N = 8
+    CANCEL = 9
+    PAYLOAD = 10
+    ERROR = 11
+    METADATA_PUSH = 12
+    RESUME = 13
+    RESUME_OK = 14
     EXT = 0xFFFF
 
 
@@ -67,14 +69,6 @@ def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
     frame.flags_ignore = is_flag_set(flags, _FLAG_IGNORE_BIT)
     frame.flags_metadata = is_flag_set(flags, _FLAG_METADATA_BIT)
     return flags
-
-
-def pack_position(position: int) -> bytes:
-    return struct.pack('>Q', position & MASK_63_BITS)
-
-
-def unpack_position(chunk: bytes) -> int:
-    return struct.unpack('>Q', chunk)[0] & MASK_63_BITS
 
 
 class Frame(Header, metaclass=ABCMeta):
@@ -105,7 +99,7 @@ class Frame(Header, metaclass=ABCMeta):
             return 0
 
         if not self.metadata_only:
-            length, = struct.unpack('>I', b'\x00' + buffer[offset:offset + 3])
+            length = unpack_24bit(buffer, offset)
             offset += 3
         else:
             length = self.length - offset + 3
@@ -154,7 +148,7 @@ class Frame(Header, metaclass=ABCMeta):
         if self.flags_metadata and self.metadata:
             length = len(self.metadata)
             if not self.metadata_only:
-                buffer[offset:offset + 3] = struct.pack('>I', length)[1:]
+                buffer[offset:offset + 3] = pack_24bit(length)
                 offset += 3
             buffer[offset:offset + length] = self.metadata[:]
             offset += length
@@ -223,7 +217,7 @@ class SetupFrame(Frame):
 
         def unpack_string():
             nonlocal offset
-            length, = struct.unpack_from('b', buffer, offset)
+            length = struct.unpack_from('b', buffer, offset)[0]
             result = buffer[offset + 1:offset + length + 1]
             offset += length + 1
             return result
@@ -263,7 +257,7 @@ class ErrorFrame(Frame):
     def parse(self, buffer: bytes, offset: int):
         parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.error_code, = struct.unpack_from('>I', buffer, offset)
+        self.error_code = ErrorCode(unpack_32bit(buffer, offset))
         offset += 4
         offset += self.parse_data(buffer, offset)
 
@@ -386,7 +380,7 @@ class RequestStreamFrame(RequestFrame):
     def parse(self, buffer, offset):
         header = RequestFrame.parse(self, buffer, offset)
         offset += header[0]
-        self.initial_request_n, = struct.unpack_from('>I', buffer, offset)
+        self.initial_request_n = unpack_32bit(buffer, offset)
         offset += 4
         self._parse_payload(buffer, offset)
 
@@ -415,7 +409,7 @@ class RequestChannelFrame(RequestFrame):
         flags = header[1]
         self.flags_complete = is_flag_set(flags, _FLAG_COMPLETE_BIT)
         self.flags_follows = is_flag_set(flags, _FLAG_FOLLOWS_BIT)
-        self.initial_request_n, = struct.unpack_from('>I', buffer, offset)
+        self.initial_request_n = unpack_32bit(buffer, offset)
         offset += 4
         self._parse_payload(buffer, offset)
 
@@ -439,7 +433,7 @@ class RequestNFrame(RequestFrame):
     def parse(self, buffer, offset):
         parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.request_n, = struct.unpack_from('>I', buffer, offset)
+        self.request_n = unpack_32bit(buffer, offset)
 
     def serialize(self, middle=b'', flags=0):
         middle = struct.pack('>I', self.request_n)
@@ -657,10 +651,6 @@ def error_frame_to_exception(frame: ErrorFrame) -> Exception:
         return RSocketProtocolException(frame.error_code)
 
     return RuntimeError(frame.data.decode('utf-8'))
-
-
-def is_flag_set(flags: int, bit: int) -> bool:
-    return (flags & bit) != 0
 
 
 def serialize_with_frame_size_header(frame: Frame) -> bytes:

@@ -57,7 +57,7 @@ class RoutingRequestHandler(BaseRequestHandler):
         try:
             await self._parse_and_route(payload)
         except Exception:
-            logger().error('Error', exc_info=True)
+            logger().error('Fire and forget error: %s', payload, exc_info=True)
 
     async def request_response(self, payload: Payload) -> Future:
         try:
@@ -70,6 +70,12 @@ class RoutingRequestHandler(BaseRequestHandler):
             return await self._parse_and_route(payload)
         except Exception as exception:
             return self._error_stream_handler(exception)
+
+    async def metadata_push(self, payload: Payload):
+        try:
+            await self._parse_and_route(payload)
+        except Exception:
+            logger().error('Metadata push error: %s', payload, exc_info=True)
 
     def _error_stream_handler(self, exception):
         return ErrorStream(exception)

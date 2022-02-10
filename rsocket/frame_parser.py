@@ -20,7 +20,7 @@ class FrameParser:
 
         while total >= frame_length_byte_count:
             if header_length > 0:
-                length, = struct.unpack('>I', b'\x00' + self._buffer[:frame_length_byte_count])
+                length = struct.unpack('>I', b'\x00' + self._buffer[:frame_length_byte_count])[0]
             else:
                 length = len(data)
 

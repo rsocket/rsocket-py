@@ -1,7 +1,7 @@
-import struct
 from typing import Union, List, Optional, Type
 
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.frame_helpers import pack_24bit_length, unpack_24bit
 from rsocket.helpers import parse_well_known_encoding, serialize_well_known_encoding
 
 _default = object()
@@ -73,7 +73,7 @@ class CompositeMetadata:
                                                                            WellKnownMimeTypes.require_by_id)
             offset += relative_offset
 
-            length, = struct.unpack('>I', b'\x00' + metadata[offset:offset + 3])
+            length = unpack_24bit(metadata, offset)
             offset += 3
 
             item = metadata_item_factory(metadata_encoding)()
@@ -95,7 +95,7 @@ class CompositeMetadata:
 
             item_serialized = b''
             item_serialized += metadata_header
-            item_serialized += struct.pack('>I', len(item_metadata))[1:]
+            item_serialized += pack_24bit_length(item_metadata)
             item_serialized += item_metadata
 
             serialized += item_serialized

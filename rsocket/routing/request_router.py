@@ -15,6 +15,7 @@ class RequestRouter:
         '_stream_routes',
         '_response_routes',
         '_fnf_routes',
+        '_metadata_push',
         '_route_parameters'
     )
 
@@ -23,6 +24,7 @@ class RequestRouter:
         self._stream_routes = {}
         self._response_routes = {}
         self._fnf_routes = {}
+        self._metadata_push = {}
         self._route_parameters = {}
 
     def response(self, route: str):
@@ -65,11 +67,22 @@ class RequestRouter:
 
         return decorator
 
+    def metadata_push(self, route: str):
+        def decorator(function: decorated_method):
+            self._assert_not_route_already_registered(route)
+
+            self._metadata_push[route] = function
+            self._route_parameters[route] = inspect.getfullargspec(function)
+            return function
+
+        return decorator
+
     def _assert_not_route_already_registered(self, route):
         if (route in self._fnf_routes
                 or route in self._response_routes
                 or route in self._stream_routes
-                or route in self._channel_routes):
+                or route in self._channel_routes
+                or route in self._metadata_push):
             raise KeyError('Duplicate route "%s" already registered', route)
 
     async def route(self,
@@ -87,3 +100,6 @@ class RequestRouter:
 
         if route in self._channel_routes:
             return await self._channel_routes[route](payload=payload, composite_metadata=composite_metadata)
+
+        if route in self._metadata_push:
+            return self._metadata_push[route](payload=payload, composite_metadata=composite_metadata)

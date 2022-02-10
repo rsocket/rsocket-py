@@ -1,6 +1,7 @@
 import asyncstdlib
 import pytest
 
+from rsocket.error_codes import ErrorCode
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
@@ -238,6 +239,26 @@ async def test_request_channel_frame(connection, follows, complete):
 
     assert composite_metadata.serialize() == frame.metadata
 
+
+async def test_basic_composite_metadata_item():
+    data = build_frame(
+
+        bits(1, 1, 'Well known metadata type'),
+        bits(7, WellKnownMimeTypes.TEXT_PLAIN.value.id, 'Mime ID'),
+        bits(24, 9, 'Metadata length'),
+        data_bits(b'some data')
+    )
+
+    composite_metadata = CompositeMetadata()
+    composite_metadata.parse(data)
+
+    assert composite_metadata.items[0].content == b'some data'
+
+    serialized = composite_metadata.serialize()
+
+    assert data == serialized
+
+
 async def test_request_with_composite_metadata(connection):
     data = build_frame(
         bits(24, 28, 'Frame size'),
@@ -332,7 +353,17 @@ async def test_composite_metadata_multiple_items():
 
 
 async def test_cancel(connection):
-    data = b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
+    data = build_frame(
+        bits(24, 6, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, 9, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+    )
+
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     frame = frames[0]
     assert isinstance(frame, CancelFrame)
@@ -340,12 +371,27 @@ async def test_cancel(connection):
 
 
 async def test_error(connection):
-    data = b'\x00\x00\x13\x00\x00\x26\x6a\x2c\x00\x00\x00\x02\x04\x77\x65\x69'
-    data += b'\x72\x64\x6e\x65\x73\x73'
+    data = build_frame(
+        bits(24, 20, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, FrameType.ERROR.value, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        # Request N
+        bits(32, ErrorCode.REJECTED_SETUP.value, 'Number of frames to request'),
+        data_bits(b'error data')
+    )
+
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     frame = frames[0]
     assert isinstance(frame, ErrorFrame)
     assert serialize_with_frame_size_header(frame) == data
+
+    assert frame.error_code == ErrorCode.REJECTED_SETUP
+    assert frame.data == b'error data'
 
 
 async def test_multiple_frames(connection):
