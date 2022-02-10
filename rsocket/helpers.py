@@ -63,11 +63,11 @@ async def payload_to_n_size_fragments(data_reader: BytesIO,
                                       metadata_reader: BytesIO,
                                       fragment_size: int
                                       ) -> AsyncGenerator[Fragment, None]:
-    last_metadata_fragment = b''
     while True:
         metadata_fragment = metadata_reader.read(fragment_size)
 
         if len(metadata_fragment) == 0:
+            last_metadata_fragment = b''
             break
 
         if len(metadata_fragment) < fragment_size:
@@ -80,8 +80,11 @@ async def payload_to_n_size_fragments(data_reader: BytesIO,
     data_fragment = data_reader.read(expected_data_fragment_length)
 
     if len(last_metadata_fragment) > 0 or len(data_fragment) > 0:
-        yield Fragment(data_fragment, last_metadata_fragment,
-                       is_last=len(data_fragment) < expected_data_fragment_length)
+        last_fragment_sent = len(data_fragment) < expected_data_fragment_length
+        yield Fragment(data_fragment, last_metadata_fragment, is_last=last_fragment_sent)
+
+        if last_fragment_sent:
+            return
 
     if len(data_fragment) == 0:
         yield Fragment(None, None, is_last=True)

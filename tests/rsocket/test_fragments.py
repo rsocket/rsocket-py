@@ -17,6 +17,11 @@ from rsocket.helpers import payload_to_n_size_fragments
         (b'123abc89', b'456def', 3, 5),
         (b'123ab', b'456def', 3, 4),
         (b'123', b'456def', 3, 4),
+        (b'123', b'45', 3, 2),
+        (b'12', b'45', 3, 2),
+        (b'12', b'456', 3, 2),
+        (b'123', b'45', 3, 2),
+        (b'123', b'456', 3, 3),
         (b'', b'', 3, 1),
 ))
 async def test_fragment_only_metadata(data, metadata, fragment_size, expected_frame_count):
