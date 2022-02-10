@@ -2,12 +2,15 @@ import asyncio
 import logging
 from typing import List
 
+import pytest
+
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.payload import Payload
 from rsocket.routing.helpers import route, composite
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
+from rsocket.rx_support.rx_rsocket import RxRSocket
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
@@ -110,7 +113,7 @@ async def test_routed_request_channel_properly_finished(lazy_pipe):
 
     def feed():
         for x in range(3):
-            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x== 2
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == 2
 
     @router.channel('test.path')
     async def response_stream(payload, composite_metadata):
@@ -137,7 +140,6 @@ async def test_routed_request_channel_properly_finished(lazy_pipe):
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
             server_arguments={'handler_factory': handler_factory}) as (server, client):
-
         stream_subscriber = StreamSubscriber()
 
         client.request_channel(Payload(b'', composite(route('test.path')))).subscribe(stream_subscriber)
@@ -172,3 +174,60 @@ async def test_routed_push_metadata(lazy_pipe):
 
         await received.wait()
         assert received_metadata == metadata
+
+
+async def test_invalid_request_response(lazy_pipe):
+    router = RequestRouter()
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router)
+
+    @router.response('test.path')
+    async def request_response(payload, composite_metadata):
+        raise Exception('error from server')
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        with pytest.raises(Exception) as exc_info:
+            await client.request_response(Payload(b'', composite(route('test.path'))))
+
+        assert str(exc_info.value) == 'error from server'
+
+
+async def test_invalid_request_stream(lazy_pipe):
+    router = RequestRouter()
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router)
+
+    @router.response('test.path')
+    async def request_stream(payload, composite_metadata):
+        raise Exception('error from server')
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        with pytest.raises(Exception) as exc_info:
+            await RxRSocket(client).request_stream(Payload(b'', composite(route('test.path'))))
+
+        assert str(exc_info.value) == 'error from server'
+
+
+async def test_invalid_request_channel(lazy_pipe):
+    router = RequestRouter()
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router)
+
+    @router.channel('test.path')
+    async def request_channel(payload, composite_metadata):
+        raise Exception('error from server')
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        with pytest.raises(Exception) as exc_info:
+            await RxRSocket(client).request_channel(Payload(b'', composite(route('test.path'))))
+
+        assert str(exc_info.value) == 'error from server'
