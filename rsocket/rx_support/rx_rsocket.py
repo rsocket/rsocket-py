@@ -5,12 +5,12 @@ from rx import Observable
 from rx.subject import Subject
 
 from reactivestreams.publisher import Publisher
+from rsocket.frame import MAX_REQUEST_N
 from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 from rsocket.rx_support.back_pressure_publisher import BackPressurePublisher
 from rsocket.rx_support.back_pressure_subscriber import BackPressureSubscriber
 from rsocket.streams.backpressureapi import BackpressureApi
-from rsocket.streams.stream_handler import MAX_REQUEST_N
 
 
 class RxRSocket:

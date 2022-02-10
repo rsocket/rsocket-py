@@ -2,7 +2,7 @@ import abc
 import asyncio
 from asyncio import Future, QueueEmpty, Task
 from datetime import timedelta
-from typing import Union, Type, Optional, Dict, Any, Coroutine, Callable
+from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
@@ -12,7 +12,8 @@ from rsocket.exceptions import RSocketProtocolException, RSocketConnectionReject
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
-    RequestStreamFrame, Frame, exception_to_error_frame, LeaseFrame, ErrorFrame, RequestFrame
+    RequestStreamFrame, Frame, exception_to_error_frame, LeaseFrame, ErrorFrame, RequestFrame, \
+    initiate_request_frame_types
 from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_frame, CONNECTION_STREAM_ID
 from rsocket.frame import SetupFrame
 from rsocket.frame_builders import to_payload_frame
@@ -171,7 +172,7 @@ class RSocket:
     def send_payload(self, stream_id: int, payload: Payload, complete=False, is_next=True):
         logger().debug('%s: Sending payload: %s (complete=%s, next=%s)', self._log_identifier(), payload, complete,
                        is_next)
-        self.send_frame(to_payload_frame(payload, complete, stream_id, is_next=is_next))
+        self.send_frame(to_payload_frame(stream_id, payload, complete, is_next=is_next))
 
     def _update_last_keepalive(self):
         pass
@@ -326,13 +327,15 @@ class RSocket:
             if frame is None:
                 return
 
-        stream = frame.stream_id
+        stream_id = frame.stream_id
 
-        if stream and stream in self._streams:
-            await self._streams[stream].frame_received(frame)
+        if stream_id == CONNECTION_STREAM_ID or isinstance(frame, initiate_request_frame_types):
+            await self._handle_frame_by_type(frame)
+        elif stream_id in self._streams:
+            await self._streams[stream_id].frame_received(frame)
             return
-
-        await self._handle_frame_by_type(frame)
+        else:
+            logger().debug('%s: Dropping frame from unknown stream %d', self._log_identifier(), frame.stream_id)
 
     async def _handle_frame_by_type(self, frame: Frame):
 
@@ -441,11 +444,7 @@ class RSocket:
         self.send_frame(frame)
 
     def _is_frame_allowed_to_send(self, frame: Frame) -> bool:
-        if isinstance(frame, (RequestResponseFrame,
-                              RequestStreamFrame,
-                              RequestChannelFrame,
-                              RequestFireAndForgetFrame
-                              )):
+        if isinstance(frame, initiate_request_frame_types):
             return self._requester_lease.is_request_allowed(frame.stream_id)
 
         return True

@@ -4,7 +4,7 @@ import pytest
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, Type,
+from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, FrameType,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
                            MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
                            serialize_with_frame_size_header, RequestStreamFrame, RequestChannelFrame)
@@ -148,7 +148,7 @@ async def test_request_stream_frame(connection, follows):
         bits(24, 32, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 15, 'Stream id'),
-        bits(6, Type.REQUEST_STREAM.value, 'Frame type'),
+        bits(6, FrameType.REQUEST_STREAM.value, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
@@ -198,7 +198,7 @@ async def test_request_channel_frame(connection, follows, complete):
         bits(24, 32, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 15, 'Stream id'),
-        bits(6, Type.REQUEST_CHANNEL.value, 'Frame type'),
+        bits(6, FrameType.REQUEST_CHANNEL.value, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
@@ -243,7 +243,7 @@ async def test_request_with_composite_metadata(connection):
         bits(24, 28, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 17, 'Stream id'),
-        bits(6, Type.REQUEST_RESPONSE.value, 'Frame type'),
+        bits(6, FrameType.REQUEST_RESPONSE.value, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
@@ -387,7 +387,7 @@ async def test_resume_frame(connection):
         bits(24, 40, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 0, 'Stream id'),
-        bits(6, Type.RESUME, 'Frame type'),
+        bits(6, FrameType.RESUME, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 0, 'Metadata'),
@@ -417,7 +417,7 @@ async def test_metadata_push_frame(connection):
         bits(24, 14, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 0, 'Stream id'),
-        bits(6, Type.METADATA_PUSH, 'Frame type'),
+        bits(6, FrameType.METADATA_PUSH, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
@@ -437,7 +437,7 @@ async def test_payload_frame(connection):
         bits(24, 28, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 6, 'Stream id'),
-        bits(6, Type.PAYLOAD, 'Frame type'),
+        bits(6, FrameType.PAYLOAD, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
@@ -461,7 +461,7 @@ async def test_lease_frame(connection):
         bits(24, 37, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 0, 'Stream id'),
-        bits(6, Type.LEASE, 'Frame type'),
+        bits(6, FrameType.LEASE, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
@@ -487,7 +487,7 @@ async def test_resume_ok_frame(connection):
         bits(24, 14, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 0, 'Stream id'),
-        bits(6, Type.RESUME_OK, 'Frame type'),
+        bits(6, FrameType.RESUME_OK, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 0, 'Metadata'),
@@ -508,7 +508,7 @@ async def test_keepalive_frame(connection):
         bits(24, 29, 'Frame size'),
         bits(1, 0, 'Padding'),
         bits(31, 0, 'Stream id'),
-        bits(6, Type.KEEPALIVE, 'Frame type'),
+        bits(6, FrameType.KEEPALIVE, 'Frame type'),
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 0, 'Metadata'),

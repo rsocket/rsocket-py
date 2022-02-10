@@ -12,6 +12,7 @@ PROTOCOL_MINOR_VERSION = 0
 MASK_63_BITS = 0x7FFFFFFFFFFFFFFF
 MASK_31_BITS = 0x7FFFFFFF
 CONNECTION_STREAM_ID = 0
+MAX_REQUEST_N = 0x7FFFFFFF
 
 _FLAG_METADATA_BIT = 0x100
 _FLAG_IGNORE_BIT = 0x200
@@ -27,7 +28,7 @@ class ParseError(ValueError):
     pass
 
 
-class Type(IntEnum):
+class FrameType(IntEnum):
     SETUP = 1,
     LEASE = 2,
     KEEPALIVE = 3,
@@ -85,7 +86,7 @@ class Frame(Header, metaclass=ABCMeta):
         'metadata_only'
     )
 
-    def __init__(self, frame_type: Type):
+    def __init__(self, frame_type: FrameType):
         self.length = 0
         self.frame_type = frame_type
         self.stream_id = CONNECTION_STREAM_ID
@@ -194,7 +195,7 @@ class SetupFrame(Frame):
     )
 
     def __init__(self):
-        super().__init__(Type.SETUP)
+        super().__init__(FrameType.SETUP)
         self.major_version = PROTOCOL_MAJOR_VERSION
         self.minor_version = PROTOCOL_MINOR_VERSION
         self.flags_lease = False
@@ -256,7 +257,7 @@ class ErrorFrame(Frame):
     __slots__ = 'error_code'
 
     def __init__(self):
-        super().__init__(Type.ERROR)
+        super().__init__(FrameType.ERROR)
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer: bytes, offset: int):
@@ -278,7 +279,7 @@ class LeaseFrame(Frame):
     )
 
     def __init__(self):
-        super().__init__(Type.LEASE)
+        super().__init__(FrameType.LEASE)
         self.metadata_only = True
 
     def parse(self, buffer: bytes, offset: int):
@@ -300,7 +301,7 @@ class KeepAliveFrame(Frame):
     __slots__ = ('flags_respond', 'last_received_position')
 
     def __init__(self, data=b'', metadata=b''):
-        super().__init__(Type.KEEPALIVE)
+        super().__init__(FrameType.KEEPALIVE)
         self.stream_id = CONNECTION_STREAM_ID
         self.flags_respond = False
         self.data = data
@@ -354,7 +355,7 @@ class RequestResponseFrame(RequestFrame):
     __slots__ = ()
 
     def __init__(self):
-        super().__init__(Type.REQUEST_RESPONSE)
+        super().__init__(FrameType.REQUEST_RESPONSE)
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
@@ -367,7 +368,7 @@ class RequestFireAndForgetFrame(RequestFrame):
     __slots__ = ()
 
     def __init__(self):
-        super().__init__(Type.REQUEST_FNF)
+        super().__init__(FrameType.REQUEST_FNF)
 
     def parse(self, buffer, offset):
         header = RequestFrame.parse(self, buffer, offset)
@@ -379,7 +380,7 @@ class RequestStreamFrame(RequestFrame):
     __slots__ = 'initial_request_n'
 
     def __init__(self):
-        super().__init__(Type.REQUEST_STREAM)
+        super().__init__(FrameType.REQUEST_STREAM)
         self.initial_request_n = 0
 
     def parse(self, buffer, offset):
@@ -403,7 +404,7 @@ class RequestChannelFrame(RequestFrame):
     )
 
     def __init__(self):
-        super().__init__(Type.REQUEST_CHANNEL)
+        super().__init__(FrameType.REQUEST_CHANNEL)
         self.flags_complete = False
         self.flags_initial = False
 
@@ -432,7 +433,7 @@ class RequestNFrame(RequestFrame):
     __slots__ = 'request_n'
 
     def __init__(self):
-        super().__init__(Type.REQUEST_N)
+        super().__init__(FrameType.REQUEST_N)
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
@@ -448,7 +449,7 @@ class RequestNFrame(RequestFrame):
 class CancelFrame(Frame):
 
     def __init__(self):
-        super().__init__(Type.CANCEL)
+        super().__init__(FrameType.CANCEL)
 
     def parse(self, buffer, offset):
         parse_header(self, buffer, offset)
@@ -462,7 +463,7 @@ class PayloadFrame(Frame):
     )
 
     def __init__(self):
-        super().__init__(Type.PAYLOAD)
+        super().__init__(FrameType.PAYLOAD)
         self.flags_follows = False
         self.flags_complete = False
         self.flags_next = False
@@ -492,7 +493,7 @@ class MetadataPushFrame(Frame):
     __slots__ = ()
 
     def __init__(self):
-        super().__init__(Type.METADATA_PUSH)
+        super().__init__(FrameType.METADATA_PUSH)
         self.stream_id = CONNECTION_STREAM_ID
         self.metadata_only = True
         self.flags_metadata = True
@@ -514,7 +515,7 @@ class ResumeFrame(Frame):
     )
 
     def __init__(self):
-        super().__init__(Type.RESUME)
+        super().__init__(FrameType.RESUME)
         self.major_version = PROTOCOL_MAJOR_VERSION
         self.minor_version = PROTOCOL_MINOR_VERSION
 
@@ -559,7 +560,7 @@ class ResumeOKFrame(Frame):
     )
 
     def __init__(self):
-        super().__init__(Type.RESUME_OK)
+        super().__init__(FrameType.RESUME_OK)
         self.last_received_client_position = 0
 
     def parse(self, buffer: bytes, offset: int):
@@ -578,7 +579,7 @@ class ExtendedFrame(Frame, metaclass=abc.ABCMeta):
     )
 
     def __init__(self):
-        super().__init__(Type.EXT)
+        super().__init__(FrameType.EXT)
 
     def parse(self, buffer: bytes, offset: int):
         ...
@@ -588,20 +589,20 @@ class ExtendedFrame(Frame, metaclass=abc.ABCMeta):
 
 
 _frame_class_by_id = {
-    Type.SETUP: SetupFrame,
-    Type.LEASE: LeaseFrame,
-    Type.KEEPALIVE: KeepAliveFrame,
-    Type.REQUEST_RESPONSE: RequestResponseFrame,
-    Type.REQUEST_FNF: RequestFireAndForgetFrame,
-    Type.REQUEST_STREAM: RequestStreamFrame,
-    Type.REQUEST_CHANNEL: RequestChannelFrame,
-    Type.REQUEST_N: RequestNFrame,
-    Type.CANCEL: CancelFrame,
-    Type.PAYLOAD: PayloadFrame,
-    Type.ERROR: ErrorFrame,
-    Type.METADATA_PUSH: MetadataPushFrame,
-    Type.RESUME: ResumeFrame,
-    Type.RESUME_OK: ResumeOKFrame,
+    FrameType.SETUP: SetupFrame,
+    FrameType.LEASE: LeaseFrame,
+    FrameType.KEEPALIVE: KeepAliveFrame,
+    FrameType.REQUEST_RESPONSE: RequestResponseFrame,
+    FrameType.REQUEST_FNF: RequestFireAndForgetFrame,
+    FrameType.REQUEST_STREAM: RequestStreamFrame,
+    FrameType.REQUEST_CHANNEL: RequestChannelFrame,
+    FrameType.REQUEST_N: RequestNFrame,
+    FrameType.CANCEL: CancelFrame,
+    FrameType.PAYLOAD: PayloadFrame,
+    FrameType.ERROR: ErrorFrame,
+    FrameType.METADATA_PUSH: MetadataPushFrame,
+    FrameType.RESUME: ResumeFrame,
+    FrameType.RESUME_OK: ResumeOKFrame,
 }
 
 
@@ -667,3 +668,10 @@ def serialize_with_frame_size_header(frame: Frame) -> bytes:
     header = struct.pack('>I', len(serialized_frame))[1:]
     full_frame = header + serialized_frame
     return full_frame
+
+
+initiate_request_frame_types = (RequestResponseFrame,
+                                RequestStreamFrame,
+                                RequestChannelFrame,
+                                RequestFireAndForgetFrame
+                                )

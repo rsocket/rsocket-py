@@ -52,6 +52,12 @@ async def pipe(request, aiohttp_raw_server, unused_tcp_port):
         yield components
 
 
+@pytest.fixture
+async def pipe_tcp(unused_tcp_port):
+    async with pipe_factory_tcp(unused_tcp_port) as components:
+        yield components
+
+
 def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
     if transport_id == 'tcp':
         return pipe_factory_tcp

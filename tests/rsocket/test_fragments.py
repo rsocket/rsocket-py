@@ -33,7 +33,7 @@ async def test_fragment_only_metadata(data, metadata, fragment_size, expected_fr
 
     combined_payload = None
     for fragment in fragments:
-        combined_payload = cache.append(to_payload_frame(fragment, True, 1))
+        combined_payload = cache.append(to_payload_frame(1, fragment, complete=True))
 
     if metadata is None or len(metadata) == 0:
         assert combined_payload.metadata is None or combined_payload.metadata == b''

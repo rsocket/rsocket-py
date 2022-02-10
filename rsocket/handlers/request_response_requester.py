@@ -1,6 +1,7 @@
 from asyncio import Future
 
-from rsocket.frame import ErrorFrame, RequestResponseFrame, PayloadFrame, Frame, error_frame_to_exception
+from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception
+from rsocket.frame_builders import to_request_response_frame
 from rsocket.payload import Payload
 from rsocket.streams.stream_handler import StreamHandler
 
@@ -8,10 +9,8 @@ from rsocket.streams.stream_handler import StreamHandler
 class RequestResponseRequester(StreamHandler, Future):
     def __init__(self, stream: int, socket, payload: Payload):
         super().__init__(stream, socket)
-        request = RequestResponseFrame()
-        request.stream_id = self.stream
-        request.data = payload.data
-        request.metadata = payload.metadata
+        stream_id = self.stream
+        request = to_request_response_frame(stream_id, payload)
         self.socket.send_request(request)
 
     async def frame_received(self, frame: Frame):
