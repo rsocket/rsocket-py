@@ -320,7 +320,7 @@ async def test_composite_metadata_multiple_items():
         bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value.id, 'Mime ID'),
         bits(24, 26, 'Metadata length'),
         bits(1, 0, 'Not well known metadata type'),
-        bits(7, 25, 'Encoding length'),
+        bits(7, 24, 'Encoding length'),
         data_bits(b'some-custom-encoding/type'),
 
         bits(1, 1, 'Well known metadata type'),

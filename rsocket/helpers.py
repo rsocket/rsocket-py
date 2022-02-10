@@ -29,16 +29,22 @@ T = TypeVar('T')
 V = TypeVar('V')
 
 
-def serialize_well_known_encoding(encoding: bytes, encoding_parser: Callable[[bytes], Optional[T]]) -> bytes:
-    known_type = encoding_parser(encoding)
+def serialize_well_known_encoding(
+        encoding: bytes,
+        encoding_parser: Optional[Callable[[bytes], Optional[T]]] = None) -> bytes:
+    known_type = None
+
+    if encoding_parser is not None:
+        known_type = encoding_parser(encoding)
 
     if known_type is None:
         encoding_length = len(encoding)
+        encoded_encoding_length = encoding_length - 1  # mime length cannot be 0
 
-        if encoding_length > 0b1111111:
+        if encoded_encoding_length > 0b1111111:
             raise Exception('metadata encoding type too long')
 
-        serialized = ((0 << 7) | encoding_length & 0b1111111).to_bytes(1, 'big')
+        serialized = ((0 << 7) | encoded_encoding_length & 0b1111111).to_bytes(1, 'big')
         serialized += encoding
     else:
         serialized = ((1 << 7) | known_type.id & 0b1111111).to_bytes(1, 'big')
@@ -53,8 +59,9 @@ def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[T
         metadata_encoding = encoding_name_provider(mime_length_or_type).name
         offset = 1
     else:
-        metadata_encoding = buffer[1:1 + mime_length_or_type]
-        offset = 1 + mime_length_or_type
+        real_mime_type_length = mime_length_or_type + 1  # mime length cannot be 0
+        metadata_encoding = bytes(buffer[1:1 + real_mime_type_length])
+        offset = 1 + real_mime_type_length
 
     return metadata_encoding, offset
 

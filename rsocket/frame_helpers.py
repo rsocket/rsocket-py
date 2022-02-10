@@ -16,8 +16,7 @@ def unpack_position(chunk: bytes) -> int:
 
 
 def pack_24bit_length(item_metadata: bytes) -> bytes:
-    length = len(item_metadata)
-    return pack_24bit(length)
+    return pack_24bit(len(item_metadata))
 
 
 def pack_24bit(length) -> bytes:
