@@ -71,7 +71,7 @@ class RoutingRequestHandler(BaseRequestHandler):
         except Exception as exception:
             return self._error_stream_handler(exception)
 
-    async def metadata_push(self, payload: Payload):
+    async def on_metadata_push(self, payload: Payload):
         try:
             await self._parse_and_route(payload)
         except Exception:

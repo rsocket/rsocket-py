@@ -2,14 +2,13 @@ import asyncio
 import logging
 from typing import List
 
-from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
-from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.payload import Payload
 from rsocket.routing.helpers import route, composite
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
+from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
 async def test_routed_request_stream_properly_finished(lazy_pipe):
@@ -20,28 +19,13 @@ async def test_routed_request_stream_properly_finished(lazy_pipe):
     def handler_factory(socket):
         return RoutingRequestHandler(socket, router)
 
-    class ResponseStream(Publisher, DefaultSubscription):
-        def cancel(self):
-            self.feeder.cancel()
-
-        def subscribe(self, subscriber):
-            subscriber.on_subscribe(self)
-            self.feeder = asyncio.ensure_future(self.feed(subscriber))
-
-        @staticmethod
-        async def feed(subscriber):
-            loop = asyncio.get_event_loop()
-            try:
-                for x in range(3):
-                    value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                    subscriber.on_next(value)
-                loop.call_soon(subscriber.on_complete)
-            except asyncio.CancelledError:
-                pass
+    def feed():
+        for x in range(3):
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == 2
 
     @router.stream('test.path')
     async def response_stream(payload, composite_metadata):
-        return ResponseStream()
+        return StreamFromGenerator(feed)
 
     class StreamSubscriber(DefaultSubscriber):
         def __init__(self):
@@ -61,7 +45,6 @@ async def test_routed_request_stream_properly_finished(lazy_pipe):
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
             server_arguments={'handler_factory': handler_factory}) as (server, client):
-
         stream_subscriber = StreamSubscriber()
 
         client.request_stream(Payload(b'', composite(route('test.path')))).subscribe(stream_subscriber)
@@ -125,29 +108,13 @@ async def test_routed_request_channel_properly_finished(lazy_pipe):
     def handler_factory(socket):
         return RoutingRequestHandler(socket, router)
 
-    class ResponseStream(Publisher, DefaultSubscription, DefaultSubscriber):
-        def cancel(self):
-            self.feeder.cancel()
-
-        def subscribe(self, subscriber):
-            subscriber.on_subscribe(self)
-            self.feeder = asyncio.ensure_future(self.feed(subscriber))
-
-        @staticmethod
-        async def feed(subscriber):
-            loop = asyncio.get_event_loop()
-            try:
-                for x in range(3):
-                    value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                    subscriber.on_next(value)
-                loop.call_soon(subscriber.on_complete)
-            except asyncio.CancelledError:
-                pass
+    def feed():
+        for x in range(3):
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x== 2
 
     @router.channel('test.path')
     async def response_stream(payload, composite_metadata):
-        response = ResponseStream()
-        return response, response
+        return StreamFromGenerator(feed), DefaultSubscriber()
 
     class StreamSubscriber(DefaultSubscriber):
         def __init__(self):
@@ -181,3 +148,27 @@ async def test_routed_request_channel_properly_finished(lazy_pipe):
         assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
         assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
         assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
+
+
+async def test_routed_push_metadata(lazy_pipe):
+    router = RequestRouter()
+    received_metadata = None
+    received = asyncio.Event()
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router)
+
+    @router.metadata_push('test.path')
+    async def metadata_push(payload, composite_metadata):
+        nonlocal received_metadata
+        received_metadata = payload.metadata
+        received.set()
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        metadata = composite(route('test.path'))
+        client.metadata_push(metadata)
+
+        await received.wait()
+        assert received_metadata == metadata

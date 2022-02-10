@@ -12,6 +12,7 @@ from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
@@ -142,29 +143,15 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
     server, client = pipe
     stream_canceled = asyncio.Event()
 
-    class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
-        def cancel(self):
-            self.feeder.cancel()
-            stream_canceled.set()
+    async def feed():
+        for x in range(3):
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == 2
+            await asyncio.sleep(1)
 
-        def subscribe(self, subscriber):
-            subscriber.on_subscribe(self)
-            self.feeder = asyncio.ensure_future(self.feed(subscriber))
+    class Handler(BaseRequestHandler):
 
         async def request_stream(self, payload: Payload) -> Publisher:
-            return self
-
-        @staticmethod
-        async def feed(subscriber):
-            loop = asyncio.get_event_loop()
-            try:
-                for x in range(3):
-                    value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                    await asyncio.sleep(1)
-                    subscriber.on_next(value)
-                loop.call_soon(subscriber.on_complete)
-            except asyncio.CancelledError:
-                pass
+            return StreamFromAsyncGenerator(feed, on_cancel=lambda: stream_canceled.set())
 
     class StreamSubscriber(DefaultSubscriber):
         def __init__(self):

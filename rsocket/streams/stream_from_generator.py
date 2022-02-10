@@ -17,7 +17,8 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
     def __init__(self,
                  generator,
                  delay_between_messages=timedelta(0),
-                 fragment_size: Optional[int] = None):
+                 fragment_size: Optional[int] = None,
+                 on_cancel=None):
         self._generator = generator
         self._queue = asyncio.Queue()
         self._fragment_size = fragment_size
@@ -25,6 +26,7 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
         self._subscriber: Optional[Subscriber] = None
         self._feeder = None
         self._iteration = None
+        self._on_cancel = on_cancel
 
     async def _start_generator(self):
         self._iteration = iter(self._generator())
@@ -59,6 +61,9 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
 
     def cancel(self):
         self._cancel_feeders()
+
+        if self._on_cancel is not None:
+            self._on_cancel()
 
     def _cancel_feeders(self):
         if self._feeder is not None:

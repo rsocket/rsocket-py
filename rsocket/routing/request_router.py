@@ -102,4 +102,4 @@ class RequestRouter:
             return await self._channel_routes[route](payload=payload, composite_metadata=composite_metadata)
 
         if route in self._metadata_push:
-            return self._metadata_push[route](payload=payload, composite_metadata=composite_metadata)
+            return await self._metadata_push[route](payload=payload, composite_metadata=composite_metadata)
