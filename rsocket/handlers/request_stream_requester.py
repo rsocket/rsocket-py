@@ -1,7 +1,8 @@
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
-from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception
+from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception, RequestStreamFrame
+from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.streams.stream_handler import StreamHandler
 
@@ -14,7 +15,7 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
     def subscribe(self, subscriber: Subscriber):
         # noinspection PyAttributeOutsideInit
         self.subscriber = subscriber
-        self.send_stream_request(self.payload)
+        self._send_stream_request(self.payload)
         self.subscriber.on_subscribe(self)
 
     def cancel(self):
@@ -34,3 +35,14 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
         elif isinstance(frame, ErrorFrame):
             self.subscriber.on_error(error_frame_to_exception(frame))
             self.socket.finish_stream(self.stream)
+
+    def _send_stream_request(self, payload: Payload):
+        logger().debug('%s: Sending stream request: %s', self.socket._log_identifier(), payload)
+
+        request = RequestStreamFrame()
+        request.initial_request_n = self._initial_request_n
+        request.stream_id = self.stream
+        request.data = payload.data
+        request.metadata = payload.metadata
+
+        self.socket.send_request(request)

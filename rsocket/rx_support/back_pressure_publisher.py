@@ -1,12 +1,10 @@
 import asyncio
-import functools
 from typing import Optional
 
 import rx
 from rx import Observable
 from rx.core import Observer
 from rx.core.notification import OnNext, OnError, OnCompleted
-from rx.disposable import Disposable
 from rx.operators import materialize
 from rx.subject import Subject
 
@@ -23,33 +21,18 @@ async def observable_to_async_event_generator(observable: Observable):
     def on_next(i):
         queue.put_nowait(i)
 
-    disposable = observable.pipe(materialize()).subscribe(
+    observable.pipe(materialize()).subscribe(
         on_next=on_next
     )
 
     while True:
         value = await queue.get()
-        if isinstance(value, (OnNext, OnError, OnCompleted)):
-            yield value
-            queue.task_done()
-        else:
-            disposable.dispose()
-            break
+        yield value
+        queue.task_done()
 
 
 def from_aiter(iterator, feedback: Optional[Observable] = None):
-    loop = asyncio.get_event_loop()
-
     def on_subscribe(observer: Observer, scheduler):
-        async def _aio_sub():
-            try:
-                async for i in iterator:
-                    observer.on_next(i)
-                loop.call_soon(observer.on_completed)
-            except Exception as exception:
-                loop.call_soon(functools.partial(
-                    observer.on_error, exception))
-
         async def _aio_next():
             try:
                 event = await iterator.__anext__()
@@ -66,13 +49,9 @@ def from_aiter(iterator, feedback: Optional[Observable] = None):
                 logger().error(str(exception), exc_info=True)
                 observer.on_error(exception)
 
-        if feedback is not None:
-            return feedback.subscribe(
-                on_next=lambda i: asyncio.ensure_future(_aio_next())
-            )
-        else:
-            task = asyncio.ensure_future(_aio_sub())
-            return Disposable(lambda: task.cancel())
+        return feedback.subscribe(
+            on_next=lambda i: asyncio.ensure_future(_aio_next())
+        )
 
     return rx.create(on_subscribe)
 

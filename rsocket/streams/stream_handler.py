@@ -2,8 +2,8 @@ from abc import abstractmethod, ABCMeta
 
 from rsocket.exceptions import RSocketValueErrorException
 from rsocket.frame import CancelFrame, RequestNFrame, \
-    RequestStreamFrame, Frame
-from rsocket.payload import Payload
+    Frame
+from rsocket.logger import logger
 from rsocket.streams.backpressureapi import BackpressureApi
 
 MAX_REQUEST_N = 0x7FFFFFFF
@@ -32,24 +32,18 @@ class StreamHandler(BackpressureApi, metaclass=ABCMeta):
 
     def send_cancel(self):
         """Convenience method for use by requester subclasses."""
+        logger().debug('%s: Sending cancel', self.socket._log_identifier())
+
         frame = CancelFrame()
         frame.stream_id = self.stream
         self.socket.send_frame(frame)
         self.socket.finish_stream(self.stream)
 
     def send_request_n(self, n: int):
-        """Convenience method for use by requester subclasses."""
+        logger().debug('%s: Sending request N: %d', self.socket._log_identifier(), n)
+
         frame = RequestNFrame()
         frame.stream_id = self.stream
         frame.request_n = n
 
         self.socket.send_frame(frame)
-
-    def send_stream_request(self, payload: Payload):
-        request = RequestStreamFrame()
-        request.initial_request_n = self._initial_request_n
-        request.stream_id = self.stream
-        request.data = payload.data
-        request.metadata = payload.metadata
-
-        self.socket.send_request(request)
