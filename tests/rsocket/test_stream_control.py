@@ -1,7 +1,8 @@
 import pytest
 
 from rsocket.exceptions import RSocketStreamAllocationFailure
-from rsocket.stream_control import StreamControl
+from rsocket.frame import CONNECTION_STREAM_ID
+from rsocket.stream_control import StreamControl, MAX_STREAM_ID
 
 
 @pytest.mark.parametrize('first_stream_id', (1, 2))
@@ -17,6 +18,20 @@ def test_stream_control_allocate_relevant_streams(first_stream_id):
 
     for i in range(3000):
         assert control.allocate_stream() % 2 == first_stream_id % 2
+
+
+def test_stream_control_disallow_registering_connection_stream_id():
+    control = StreamControl(1)
+
+    with pytest.raises(RuntimeError):
+        control.register_stream(CONNECTION_STREAM_ID, object())
+
+
+def test_stream_control_disallow_registering_stream_id_larger_than_max():
+    control = StreamControl(1)
+
+    with pytest.raises(RuntimeError):
+        control.register_stream(MAX_STREAM_ID + 1, object())
 
 
 @pytest.mark.parametrize('first_stream_id', (1, 2))

@@ -46,12 +46,6 @@ class StreamControl:
 
         self._streams[stream_id] = handler
 
-    def get_stream_handler(self, stream_id: int) -> StreamHandler:
-        return self._streams[stream_id]
-
-    def get_all_streams(self):
-        return self._streams
-
     def handle_stream(self, stream_id: int, frame: Frame) -> bool:
         if stream_id in self._streams:
             self._streams[stream_id].frame_received(frame)
