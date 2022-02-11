@@ -35,7 +35,7 @@ class BackPressureSubscriber(Subscriber):
 
         self._processing_task: Optional[Task] = None
 
-        self._is_completed = False
+        self._is_done = False
 
     def on_subscribe(self, subscription: Subscription):
         self._subscription = subscription
@@ -70,22 +70,22 @@ class BackPressureSubscriber(Subscriber):
                     self._messages_processed += 1
 
                 if complete:
-                    self._is_completed = complete
+                    self._is_done = complete
                     self.wrapped_observer.on_completed()
                     self._processing_task.cancel()
                     return
 
                 if event_type == EventType.ERROR:
+                    self._is_done = True
                     self.wrapped_observer.on_error(payload)
                     self._processing_task.cancel()
                     return
 
                 if self._messages_processed == self._request_count:
                     self._messages_processed = 0
-                    self._request_next_n_messages()
                     break
 
-            if not self._is_completed:
+            if not self._is_done:
                 self._request_next_n_messages()
         except asyncio.CancelledError:
             pass
