@@ -20,7 +20,9 @@ from rsocket.transports.tcp import TransportTCP
 logging.basicConfig(level=logging.DEBUG)
 
 tested_transports = [
-    'tcp', 'websocket', 'quart'
+    'tcp',
+    'websocket',
+    'quart'
 ]
 
 

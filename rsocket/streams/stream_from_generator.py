@@ -18,7 +18,8 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
                  generator,
                  delay_between_messages=timedelta(0),
                  fragment_size: Optional[int] = None,
-                 on_cancel=None):
+                 on_cancel=None,
+                 on_complete=None):
         self._generator = generator
         self._queue = asyncio.Queue()
         self._fragment_size = fragment_size
@@ -26,6 +27,8 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
         self._subscriber: Optional[Subscriber] = None
         self._feeder = None
         self._iteration = None
+
+        self._on_complete = on_complete
         self._on_cancel = on_cancel
 
     async def _start_generator(self):
@@ -89,6 +92,8 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
 
                 self._queue.task_done()
                 if is_complete:
+                    if self._on_complete is not None:
+                        self._on_complete()
                     break
         except asyncio.CancelledError:
             logger().debug('Asyncio task canceled')
