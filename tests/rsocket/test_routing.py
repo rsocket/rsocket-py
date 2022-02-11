@@ -5,9 +5,10 @@ from typing import List
 import pytest
 
 from reactivestreams.subscriber import DefaultSubscriber
+from rsocket.extensions.authentication import Authentication
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.payload import Payload
-from rsocket.routing.helpers import route, composite
+from rsocket.routing.helpers import route, composite, authenticate_simple
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rx_support.rx_rsocket import RxRSocket
@@ -89,7 +90,7 @@ async def test_routed_fire_and_forget(lazy_pipe):
         return RoutingRequestHandler(socket, router)
 
     @router.fire_and_forget('test.path')
-    async def response(payload, composite_metadata):
+    async def fire_and_forget(payload, composite_metadata):
         nonlocal received_data
         received_data = payload.data
         received.set()
@@ -231,3 +232,69 @@ async def test_invalid_request_channel(lazy_pipe):
             await RxRSocket(client).request_channel(Payload(b'', composite(route('test.path'))))
 
         assert str(exc_info.value) == 'error from server'
+
+
+async def test_no_route_in_request(lazy_pipe):
+    router = RequestRouter()
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router)
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        with pytest.raises(Exception) as exc_info:
+            await RxRSocket(client).request_channel(Payload(b'', composite(authenticate_simple('user', 'pass'))))
+
+        assert str(exc_info.value) == 'No route found in request'
+
+
+async def test_invalid_authentication_in_routing_handler(lazy_pipe):
+    router = RequestRouter()
+
+    async def authenticate(path: str, authentication: Authentication):
+        if authentication.password != b'pass':
+            raise Exception('Invalid credentials')
+
+    @router.channel('test.path')
+    async def request_channel(payload, composite_metadata):
+        raise Exception('error from server')
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router, authentication_verifier=authenticate)
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        with pytest.raises(Exception) as exc_info:
+            await RxRSocket(client).request_channel(
+                Payload(b'', composite(route('test.path'),
+                                       authenticate_simple('user', 'wrong_password')))
+            )
+
+        assert str(exc_info.value) == 'Invalid credentials'
+
+
+async def test_valid_authentication_in_routing_handler(lazy_pipe):
+    router = RequestRouter()
+
+    async def authenticate(path: str, authentication: Authentication):
+        if authentication.password != b'pass':
+            raise Exception('Invalid credentials')
+
+    @router.response('test.path')
+    async def response(payload, composite_metadata):
+        future = asyncio.Future()
+        future.set_result(Payload(b'result'))
+        return future
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router, authentication_verifier=authenticate)
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        result = await RxRSocket(client).request_response(Payload(b'', composite(route('test.path'),
+                                                                                 authenticate_simple('user', 'pass'))))
+
+        assert result.data == b'result'

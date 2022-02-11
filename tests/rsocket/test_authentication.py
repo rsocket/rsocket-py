@@ -145,3 +145,14 @@ async def test_authentication_failure_on_setup(lazy_pipe):
 
         assert received_error[0] == ErrorCode.APPLICATION_ERROR
         assert received_error[1] == Payload(b'Authentication error', b'')
+
+
+async def test_authentication_types_unknown_id_raises_exception():
+    with pytest.raises(Exception):
+        WellKnownAuthenticationTypes.require_by_id(98987)
+
+
+async def test_authentication_types_unknown_name_returns_none():
+    result = WellKnownAuthenticationTypes.get_by_name(b'non-existing-authentication-type')
+
+    assert result is None

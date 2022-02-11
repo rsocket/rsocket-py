@@ -28,9 +28,6 @@ class TransportTCP(Transport):
             logger().debug(str(exception))
             return  # todo: workaround to silence errors on client closing. this needs a better solution.
 
-        if not is_server_alive:
-            return
-
         if not data:
             self._writer.close()
             return
