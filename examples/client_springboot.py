@@ -27,7 +27,7 @@ async def main():
         data=str(uuid4()).encode(),
         metadata=composite(route('shell-client'), authenticate_simple('user', 'pass')))
     async with RSocketClient(TransportTCP(*connection),
-                             setup_payload=setup_payload) as client:
+                             setup_payload=setup_payload):
         await asyncio.sleep(5)
 
 

@@ -48,7 +48,7 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
 
     server.set_handler_using_factory(Handler)
 
-    result = await AwaitableRSocket(client).request_stream(Payload(b''))
+    result = await AwaitableRSocket(client).request_stream(Payload())
 
     assert len(result) == 3
     assert result[0].data == b'Feed Item: 0'
@@ -93,7 +93,7 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
 
     stream_subscriber = StreamSubscriber()
 
-    client.request_stream(Payload(b'')).subscribe(stream_subscriber)
+    client.request_stream(Payload()).subscribe(stream_subscriber)
 
     await stream_finished.wait()
 
@@ -173,7 +173,7 @@ async def test_request_stream_immediately_completed_by_server_without_payloads(
 
     stream_subscriber = StreamSubscriber()
 
-    client.request_stream(Payload(b'')).subscribe(stream_subscriber)
+    client.request_stream(Payload()).subscribe(stream_subscriber)
 
     await stream_done.wait()
 
@@ -278,7 +278,7 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
 
     server.set_handler_using_factory(Handler)
     stream_subscriber = StreamSubscriber()
-    client.request_stream(Payload(b'')).subscribe(stream_subscriber)
+    client.request_stream(Payload()).subscribe(stream_subscriber)
 
     await stream_completed.wait()
 

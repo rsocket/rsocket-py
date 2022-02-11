@@ -22,7 +22,7 @@ def sample_publisher(wait_for_requester_complete: Event,
             is_complete = (current_response + 1) == response_count
 
             message = 'Item to server from client on channel: %s' % current_response
-            yield Fragment(message.encode('utf-8'), b''), is_complete
+            yield Fragment(message.encode('utf-8')), is_complete
 
             if is_complete:
                 wait_for_requester_complete.set()

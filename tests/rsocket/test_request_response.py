@@ -33,7 +33,7 @@ async def test_request_response_failure(pipe):
     server._handler = Handler(server)
 
     with pytest.raises(RuntimeError):
-        await client.request_response(Payload(b''))
+        await client.request_response(Payload())
 
 
 async def test_request_response_cancellation(pipe):
@@ -45,7 +45,7 @@ async def test_request_response_cancellation(pipe):
     server, client = pipe
     server._handler = handler = Handler(server)
 
-    future = client.request_response(Payload(b''))
+    future = client.request_response(Payload())
 
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(asyncio.shield(handler), 0.1)

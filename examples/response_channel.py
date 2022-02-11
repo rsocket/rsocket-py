@@ -16,7 +16,7 @@ def response_stream_1(response_count: int = 3, local_subscriber: Optional[Subscr
             is_complete = (current_response + 1) == response_count
 
             message = 'Item on channel: %s' % current_response
-            yield Fragment(message.encode('utf-8'), b''), is_complete
+            yield Fragment(message.encode('utf-8')), is_complete
 
             if local_subscriber is not None:
                 local_subscriber.subscription.request(2)
