@@ -53,7 +53,6 @@ class RSocket:
     def __init__(self,
                  transport: Transport, *,
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
-                 loop=_not_provided,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
@@ -89,10 +88,6 @@ class RSocket:
 
         self._send_queue = asyncio.Queue()
         self._request_queue = asyncio.Queue(request_queue_size)
-
-        if loop is _not_provided:
-            loop = asyncio.get_event_loop()
-        self._loop = loop
 
         self._receiver_task = self._start_task_if_not_closing(self._receiver)
         self._sender_task = self._start_task_if_not_closing(self._sender)
@@ -130,7 +125,7 @@ class RSocket:
 
     def _start_task_if_not_closing(self, task_factory: Callable[[], Coroutine]) -> Optional[Task]:
         if not self._is_closing:
-            return self._loop.create_task(task_factory())
+            return asyncio.create_task(task_factory())
 
     def set_handler_using_factory(self, handler_factory) -> RequestHandler:
         self._handler = handler_factory(self)

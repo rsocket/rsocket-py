@@ -31,12 +31,11 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
 
         @staticmethod
         async def feed(subscriber):
-            loop = asyncio.get_event_loop()
             try:
                 for x in range(3):
                     value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
                     subscriber.on_next(value)
-                loop.call_soon(subscriber.on_complete)
+                subscriber.on_complete()
             except asyncio.CancelledError:
                 pass
 

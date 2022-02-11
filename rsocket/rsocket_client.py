@@ -10,7 +10,7 @@ from rsocket.frame import ErrorFrame
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.request_handler import RequestHandler
-from rsocket.rsocket import RSocket, _not_provided
+from rsocket.rsocket import RSocket
 from rsocket.transports.transport import Transport
 
 
@@ -19,7 +19,6 @@ class RSocketClient(RSocket):
     def __init__(self,
                  transport: Transport, *,
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
-                 loop=_not_provided,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
@@ -34,7 +33,6 @@ class RSocketClient(RSocket):
 
         super().__init__(transport,
                          handler_factory=handler_factory,
-                         loop=loop,
                          honor_lease=honor_lease,
                          lease_publisher=lease_publisher,
                          request_queue_size=request_queue_size,
