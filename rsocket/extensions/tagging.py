@@ -2,7 +2,7 @@ import struct
 from typing import Union, List, Optional
 
 from rsocket.extensions.composite_metadata import CompositeMetadataItem
-from rsocket.helpers import ensure_bytes
+from rsocket.frame_helpers import ensure_bytes
 
 
 class TaggingMetadata(CompositeMetadataItem):

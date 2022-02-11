@@ -7,7 +7,7 @@ from rsocket.exceptions import RSocketFrameFragmentDifferentType
 from rsocket.frame import PayloadFrame, RequestResponseFrame
 from rsocket.frame_builders import to_payload_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
-from rsocket.helpers import payload_to_n_size_fragments
+from rsocket.frame_helpers import payload_to_n_size_fragments
 
 
 @pytest.mark.parametrize('data, metadata, fragment_size, expected_frame_count', (

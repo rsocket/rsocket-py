@@ -2,39 +2,16 @@ import asyncio
 import logging
 from typing import List, Tuple, AsyncGenerator
 
-import pytest
-
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
 from reactivestreams.subscription import DefaultSubscription
-from rsocket.helpers import ensure_bytes
+from rsocket.frame_helpers import ensure_bytes
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
-
-
-async def test_request_stream_not_implemented_by_server(pipe: Tuple[RSocketServer, RSocketClient]):
-    payload = Payload(b'abc', b'def')
-    server, client = pipe
-
-    with pytest.raises(RuntimeError):
-        await client.request_response(payload)
-
-    with pytest.raises(RuntimeError):
-        class Receiver(DefaultSubscriber):
-            def on_error(self, exception: Exception):
-                error.set_exception(exception)
-
-        error = asyncio.Future()
-
-        client.request_stream(payload).subscribe(Receiver())
-
-        await asyncio.wait_for(error, 0.25)
-
-        not error.done() or error.exception()
 
 
 async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):

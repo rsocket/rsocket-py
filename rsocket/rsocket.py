@@ -6,6 +6,7 @@ from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
+from rsocket.datetime_helpers import to_milliseconds
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolException, RSocketConnectionRejected, \
     RSocketRejected
@@ -24,7 +25,6 @@ from rsocket.handlers.request_response_requester import RequestResponseRequester
 from rsocket.handlers.request_response_responder import RequestResponseResponder
 from rsocket.handlers.request_stream_requester import RequestStreamRequester
 from rsocket.handlers.request_stream_responder import RequestStreamResponder
-from rsocket.helpers import noop_frame_handler, to_milliseconds
 from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -36,6 +36,10 @@ from rsocket.transports.transport import Transport
 MAX_STREAM_ID = 0x7FFFFFFF
 
 _not_provided = object()
+
+
+async def noop_frame_handler(frame):
+    pass
 
 
 class RSocket:

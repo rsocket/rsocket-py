@@ -5,8 +5,8 @@ from typing import Optional
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
+from rsocket.datetime_helpers import to_milliseconds
 from rsocket.frame import LeaseFrame
-from rsocket.helpers import to_milliseconds
 
 MAX_31_BIT = pow(2, 31) - 1
 

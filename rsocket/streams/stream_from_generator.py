@@ -7,7 +7,7 @@ from typing import AsyncGenerator, Tuple, Optional
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
-from rsocket.helpers import payload_to_n_size_fragments
+from rsocket.frame_helpers import payload_to_n_size_fragments
 from rsocket.logger import logger
 from rsocket.payload import Payload
 

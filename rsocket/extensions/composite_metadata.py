@@ -1,8 +1,8 @@
 from typing import Union, List, Optional, Type
 
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame_helpers import pack_24bit_length, unpack_24bit
-from rsocket.helpers import parse_well_known_encoding, serialize_well_known_encoding
+from rsocket.frame_helpers import (pack_24bit_length, unpack_24bit,
+                                   parse_well_known_encoding, serialize_well_known_encoding)
 
 _default = object()
 

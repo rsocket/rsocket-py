@@ -3,7 +3,7 @@ import struct
 from typing import Optional, Union
 
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
-from rsocket.helpers import ensure_bytes
+from rsocket.frame_helpers import ensure_bytes
 
 
 class Authentication(metaclass=abc.ABCMeta):
