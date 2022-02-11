@@ -2,9 +2,12 @@ import asyncio
 import logging
 from typing import List, Tuple, AsyncGenerator
 
+import pytest
+
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
 from reactivestreams.subscription import DefaultSubscription
+from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -14,9 +17,10 @@ from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
-async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
+@pytest.mark.parametrize('complete_inline',
+                         (True, False))
+async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient], complete_inline):
     server, client = pipe
-    stream_completed = asyncio.Event()
 
     class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
         def cancel(self):
@@ -34,38 +38,21 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
             try:
                 for x in range(3):
                     value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                    subscriber.on_next(value)
-                subscriber.on_complete()
+                    subscriber.on_next(value, complete_inline and x == 2)
+
+                if not complete_inline:
+                    subscriber.on_complete()
             except asyncio.CancelledError:
                 pass
 
-    class StreamSubscriber(DefaultSubscriber):
-        def __init__(self):
-            self.received_messages: List[Payload] = []
-
-        def on_next(self, value, is_complete=False):
-            self.received_messages.append(value)
-            logging.info(value)
-
-        def on_complete(self):
-            logging.info('Complete')
-            stream_completed.set()
-
-        def on_subscribe(self, subscription):
-            self.subscription = subscription
-
     server.set_handler_using_factory(Handler)
 
-    stream_subscriber = StreamSubscriber()
+    result = await AwaitableRSocket(client).request_stream(Payload(b''))
 
-    client.request_stream(Payload(b'')).subscribe(stream_subscriber)
-
-    await stream_completed.wait()
-
-    assert len(stream_subscriber.received_messages) == 3
-    assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
-    assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
-    assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
+    assert len(result) == 3
+    assert result[0].data == b'Feed Item: 0'
+    assert result[1].data == b'Feed Item: 1'
+    assert result[2].data == b'Feed Item: 2'
 
 
 async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSocketServer, RSocketClient]):
