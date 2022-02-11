@@ -24,3 +24,6 @@ class RequestChannelRequester(RequestChannelCommon):
     def subscribe(self, subscriber: Subscriber):
         super().subscribe(subscriber)
         self._send_channel_request(self._payload)
+
+        if self._remote_publisher is None:
+            self.mark_completed_and_finish(sent=True)

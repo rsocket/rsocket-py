@@ -11,6 +11,10 @@ class RSocketApplicationError(RSocketError):
     pass
 
 
+class RSocketStreamAllocationFailure(RSocketError):
+    pass
+
+
 class RSocketAuthenticationError(RSocketError):
     pass
 

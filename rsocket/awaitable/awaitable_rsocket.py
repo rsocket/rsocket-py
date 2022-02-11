@@ -1,7 +1,6 @@
 from typing import List, Optional
 
 from reactivestreams.publisher import Publisher
-
 from rsocket.awaitable.collector_subscriber import CollectorSubscriber
 from rsocket.payload import Payload
 from rsocket.rsocket import RSocket

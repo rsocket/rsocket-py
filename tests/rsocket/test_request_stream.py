@@ -15,6 +15,7 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
+from tests.rsocket.helpers import DefaultPublisherSubscription
 
 
 @pytest.mark.parametrize('complete_inline',
@@ -132,7 +133,7 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
 
     stream_subscriber = StreamSubscriber()
 
-    client.request_stream(Payload(b'')).subscribe(stream_subscriber)
+    client.request_stream(Payload()).subscribe(stream_subscriber)
 
     await stream_canceled.wait()
 
@@ -145,11 +146,10 @@ async def test_request_stream_immediately_completed_by_server_without_payloads(
     server, client = pipe
     stream_done = asyncio.Event()
 
-    class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
+    class Handler(BaseRequestHandler, DefaultPublisherSubscription):
 
-        def subscribe(self, subscriber):
-            subscriber.on_subscribe(self)
-            subscriber.on_complete()
+        def request(self, n: int):
+            self._subscriber.on_complete()
 
         async def request_stream(self, payload: Payload) -> Publisher:
             return self
@@ -226,7 +226,7 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
 
     stream_subscriber = StreamSubscriber()
 
-    client.request_stream(Payload(b'')).initial_request_n(1).subscribe(stream_subscriber)
+    client.request_stream(Payload()).initial_request_n(1).subscribe(stream_subscriber)
 
     await stream_completed.wait()
 

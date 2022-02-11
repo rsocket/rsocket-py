@@ -4,9 +4,7 @@ from typing import Optional, Type
 from typing import Union
 
 from reactivestreams.publisher import Publisher
-from rsocket.error_codes import ErrorCode
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import ErrorFrame
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.request_handler import RequestHandler
@@ -79,12 +77,7 @@ class RSocketClient(RSocket):
                 now = datetime.now()
                 if now - self._last_server_keepalive > self._max_lifetime_period:
                     self._is_server_alive = False
-                    for stream_id, stream in list(self._streams.items()):
-                        frame = ErrorFrame()
-                        frame.stream_id = stream_id
-                        frame.error_code = ErrorCode.CANCELED
-                        frame.data = 'Server not alive'.encode()
-                        await stream.frame_received(frame)
+                    self._stream_control.cancel_all_handlers()
         except asyncio.CancelledError:
             pass
 

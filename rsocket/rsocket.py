@@ -29,13 +29,10 @@ from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
+from rsocket.stream_control import StreamControl
 from rsocket.streams.backpressureapi import BackpressureApi
 from rsocket.streams.stream_handler import StreamHandler
 from rsocket.transports.transport import Transport
-
-MAX_STREAM_ID = 0x7FFFFFFF
-
-_not_provided = object()
 
 
 async def noop_frame_handler(frame):
@@ -65,7 +62,7 @@ class RSocket:
 
         self._transport = transport
         self._handler = handler_factory(self)
-        self._next_stream = self._get_first_stream_id()
+        self._stream_control = StreamControl(self._get_first_stream_id())
         self._honor_lease = honor_lease
         self._max_lifetime_period = max_lifetime_period
         self._keep_alive_period = keep_alive_period
@@ -83,7 +80,6 @@ class RSocket:
         self._responder_lease = NullLease()
         self._lease_publisher = lease_publisher
 
-        self._streams: Dict[int, StreamHandler] = {}
         self._frame_fragment_cache = FrameFragmentCache()
 
         self._send_queue = asyncio.Queue()
@@ -131,24 +127,15 @@ class RSocket:
         self._handler = handler_factory(self)
         return self._handler
 
-    def allocate_stream(self) -> int:
-        stream = self._next_stream
-        self._increment_next_stream()
-
-        while self._next_stream == CONNECTION_STREAM_ID or self._next_stream in self._streams:
-            self._increment_next_stream()
-
-        return stream
+    def _allocate_stream(self) -> int:
+        return self._stream_control.allocate_stream()
 
     @abc.abstractmethod
     def _get_first_stream_id(self) -> int:
         ...
 
-    def _increment_next_stream(self):
-        self._next_stream = (self._next_stream + 2) & MAX_STREAM_ID
-
-    def finish_stream(self, stream):
-        self._streams.pop(stream, None)
+    def finish_stream(self, stream_id: int):
+        self._stream_control.finish_stream(stream_id)
 
     def send_request(self, frame: RequestFrame):
         if self._honor_lease and not self._is_frame_allowed_to_send(frame):
@@ -176,6 +163,9 @@ class RSocket:
     def _update_last_keepalive(self):
         pass
 
+    def _register_stream(self, stream_id: int, handler: StreamHandler):
+        self._stream_control.register_stream(stream_id, handler)
+
     async def handle_error(self, frame: ErrorFrame):
         await self._handler.on_error(frame.error_code, Payload(frame.data, frame.metadata))
 
@@ -199,7 +189,7 @@ class RSocket:
             self.send_error(stream_id, exception)
             return
 
-        self._streams[stream_id] = RequestResponseResponder(stream_id, self, response_future)
+        self._register_stream(stream_id, RequestResponseResponder(stream_id, self, response_future))
 
     async def handle_request_stream(self, frame: RequestStreamFrame):
         stream_id = frame.stream_id
@@ -212,8 +202,8 @@ class RSocket:
             return
 
         request_responder = RequestStreamResponder(stream_id, self, publisher)
-        await request_responder.frame_received(frame)
-        self._streams[stream_id] = request_responder
+        self._register_stream(stream_id, request_responder)
+        request_responder.frame_received(frame)
 
     async def handle_setup(self, frame: SetupFrame):
         handler = self._handler
@@ -261,9 +251,9 @@ class RSocket:
             return
 
         channel_responder = RequestChannelResponder(stream_id, self, publisher)
+        self._register_stream(stream_id, channel_responder)
         channel_responder.subscribe(subscriber)
-        await channel_responder.frame_received(frame)
-        self._streams[stream_id] = channel_responder
+        channel_responder.frame_received(frame)
 
     async def handle_resume(self, frame: ResumeFrame):
         ...
@@ -330,8 +320,7 @@ class RSocket:
 
         if stream_id == CONNECTION_STREAM_ID or isinstance(frame, initiate_request_frame_types):
             await self._handle_frame_by_type(frame)
-        elif stream_id in self._streams:
-            await self._streams[stream_id].frame_received(frame)
+        elif self._stream_control.handle_stream(stream_id, frame):
             return
         else:
             logger().debug('%s: Dropping frame from unknown stream %d', self._log_identifier(), frame.stream_id)
@@ -401,15 +390,15 @@ class RSocket:
     def request_response(self, payload: Payload) -> Future:
         logger().debug('%s: sending request-response: %s', self._log_identifier(), payload)
 
-        stream = self.allocate_stream()
-        requester = RequestResponseRequester(stream, self, payload)
-        self._streams[stream] = requester
+        stream_id = self._allocate_stream()
+        requester = RequestResponseRequester(stream_id, self, payload)
+        self._register_stream(stream_id, requester)
         return requester
 
     def fire_and_forget(self, payload: Payload):
         logger().debug('%s: sending fire-and-forget: %s', self._log_identifier(), payload)
 
-        stream = self.allocate_stream()
+        stream = self._allocate_stream()
         frame = RequestFireAndForgetFrame()
         frame.stream_id = stream
         frame.data = payload.data
@@ -420,9 +409,9 @@ class RSocket:
     def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:
         logger().debug('%s: sending request-stream: %s', self._log_identifier(), payload)
 
-        stream = self.allocate_stream()
-        requester = RequestStreamRequester(stream, self, payload)
-        self._streams[stream] = requester
+        stream_id = self._allocate_stream()
+        requester = RequestStreamRequester(stream_id, self, payload)
+        self._register_stream(stream_id, requester)
         return requester
 
     def request_channel(
@@ -432,9 +421,9 @@ class RSocket:
 
         logger().debug('%s: sending request-channel: %s', self._log_identifier(), payload)
 
-        stream = self.allocate_stream()
-        requester = RequestChannelRequester(stream, self, payload, local_publisher)
-        self._streams[stream] = requester
+        stream_id = self._allocate_stream()
+        requester = RequestChannelRequester(stream_id, self, payload, local_publisher)
+        self._register_stream(stream_id, requester)
         return requester
 
     def metadata_push(self, metadata: bytes):

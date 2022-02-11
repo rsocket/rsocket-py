@@ -1,5 +1,9 @@
 from math import ceil
 
+from reactivestreams.publisher import Publisher
+from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscription import DefaultSubscription
+
 
 def data_bits(data: bytes, name: str = None):
     return ''.join(format(byte, '08b') for byte in data)
@@ -19,3 +23,9 @@ def bitstring_to_bytes(s: str) -> bytes:
 
 def bits(bit_count, value, comment) -> str:
     return f'{value:b}'.zfill(bit_count)
+
+
+class DefaultPublisherSubscription(Publisher, DefaultSubscription):
+    def subscribe(self, subscriber: Subscriber):
+        subscriber.on_subscribe(self)
+        self._subscriber = subscriber

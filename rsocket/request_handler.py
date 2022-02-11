@@ -5,7 +5,6 @@ from typing import Tuple, Optional
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import DefaultSubscription
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.logger import logger
@@ -61,11 +60,6 @@ class RequestHandler(metaclass=ABCMeta):
 
 
 class BaseRequestHandler(RequestHandler):
-    class UnimplementedPublisher(Publisher, DefaultSubscription):
-
-        def subscribe(self, subscriber: Subscriber):
-            subscriber.on_subscribe(self)
-            subscriber.on_error(RuntimeError('Not implemented'))
 
     async def on_setup(self,
                        data_encoding: bytes,
@@ -88,7 +82,7 @@ class BaseRequestHandler(RequestHandler):
         return future
 
     async def request_stream(self, payload: Payload) -> Publisher:
-        return self.UnimplementedPublisher()
+        raise RuntimeError('Not implemented')
 
     async def on_error(self, error_code: ErrorCode, payload: Payload):
         logger().error('Error: %s, %s', error_code, payload)

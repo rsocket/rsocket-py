@@ -25,7 +25,7 @@ class StreamHandler(BackpressureApi, metaclass=ABCMeta):
         """Not being marked abstract, since most handlers won't override."""
 
     @abstractmethod
-    async def frame_received(self, frame: Frame):
+    def frame_received(self, frame: Frame):
         ...
 
     def send_cancel(self):
@@ -33,9 +33,12 @@ class StreamHandler(BackpressureApi, metaclass=ABCMeta):
         logger().debug('%s: Sending cancel', self.socket._log_identifier())
 
         self.socket.send_frame(to_cancel_frame(self.stream))
-        self.socket.finish_stream(self.stream)
+        self._finish_stream()
 
     def send_request_n(self, n: int):
         logger().debug('%s: Sending request N: %d', self.socket._log_identifier(), n)
 
         self.socket.send_frame(to_request_n_frame(self.stream, n))
+
+    def _finish_stream(self):
+        self.socket.finish_stream(self.stream)

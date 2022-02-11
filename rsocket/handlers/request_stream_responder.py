@@ -18,9 +18,12 @@ class RequestStreamResponder(StreamHandler):
             self.socket.send_payload(
                 self.stream, value, complete=is_complete)
 
+            if is_complete:
+                self.socket.finish_stream(self.stream)
+
         def on_complete(self):
             self.socket.send_payload(
-                self.stream, Payload(b'', b''), complete=True, is_next=False)
+                self.stream, Payload(), complete=True, is_next=False)
 
             self.socket.finish_stream(self.stream)
 
@@ -38,10 +41,11 @@ class RequestStreamResponder(StreamHandler):
         self.subscriber = self.StreamSubscriber(stream, socket)
         self.publisher.subscribe(self.subscriber)
 
-    async def frame_received(self, frame: Frame):
+    def frame_received(self, frame: Frame):
         if isinstance(frame, RequestStreamFrame):
             self.subscriber.subscription.request(frame.initial_request_n)
         elif isinstance(frame, CancelFrame):
             self.subscriber.subscription.cancel()
+            self._finish_stream()
         elif isinstance(frame, RequestNFrame):
             self.subscriber.subscription.request(frame.request_n)

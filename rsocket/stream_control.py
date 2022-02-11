@@ -1,0 +1,69 @@
+from typing import Dict
+
+from rsocket.error_codes import ErrorCode
+from rsocket.exceptions import RSocketStreamAllocationFailure
+from rsocket.frame import CONNECTION_STREAM_ID, Frame, ErrorFrame
+from rsocket.streams.stream_handler import StreamHandler
+
+MAX_STREAM_ID = 0x7FFFFFFF
+
+
+class StreamControl:
+    def __init__(self, first_stream_id: int):
+        self._first_stream_id = first_stream_id
+        self._current_stream_id = self._first_stream_id
+        self._streams: Dict[int, StreamHandler] = {}
+        self._maximum_stream_id = MAX_STREAM_ID
+
+    def allocate_stream(self) -> int:
+        attempt_counter = 0
+
+        while (self._current_stream_id == CONNECTION_STREAM_ID
+               or self._current_stream_id in self._streams):
+
+            if attempt_counter > self._maximum_stream_id / 2:
+                raise RSocketStreamAllocationFailure()
+
+            self._increment_stream_id()
+            attempt_counter += 1
+
+        return self._current_stream_id
+
+    def _increment_stream_id(self):
+        self._current_stream_id = (self._current_stream_id + 2) & self._maximum_stream_id
+        if self._current_stream_id > self._maximum_stream_id:
+            self._current_stream_id = self._first_stream_id
+
+    def finish_stream(self, stream_id: int):
+        self._streams.pop(stream_id, None)
+
+    def register_stream(self, stream_id: int, handler: StreamHandler):
+        if stream_id == CONNECTION_STREAM_ID:
+            raise RuntimeError('Attempt to allocate handler to connection stream id')
+
+        if stream_id > self._maximum_stream_id:
+            raise RuntimeError('Stream id larger then maximum allowed')
+
+        self._streams[stream_id] = handler
+
+    def get_stream_handler(self, stream_id: int) -> StreamHandler:
+        return self._streams[stream_id]
+
+    def get_all_streams(self):
+        return self._streams
+
+    def handle_stream(self, stream_id: int, frame: Frame) -> bool:
+        if stream_id in self._streams:
+            self._streams[stream_id].frame_received(frame)
+            return True
+
+        return False
+
+    def cancel_all_handlers(self):
+        for stream_id, stream in list(self._streams.items()):
+            frame = ErrorFrame()
+            frame.stream_id = stream_id
+            frame.error_code = ErrorCode.CANCELED
+            frame.data = 'Server not alive'.encode()
+            stream.frame_received(frame)
+            self.finish_stream(stream_id)

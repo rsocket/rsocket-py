@@ -19,8 +19,9 @@ class RequestResponseResponder(StreamHandler):
         else:
             self.socket.send_error(self.stream, future.exception())
 
-        self.socket.finish_stream(self.stream)
+        self._finish_stream()
 
-    async def frame_received(self, frame: Frame):
+    def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):
             self.future.cancel()
+            self._finish_stream()

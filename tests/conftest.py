@@ -10,6 +10,7 @@ from aiohttp.test_utils import RawTestServer
 from quart import Quart
 
 from rsocket.frame_parser import FrameParser
+from rsocket.rsocket import RSocket
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
@@ -111,8 +112,14 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
     await start()
     try:
         yield server, client
+        assert_no_open_streams(client, server)
     finally:
         await finish()
+
+
+def assert_no_open_streams(client: RSocket, server: RSocket):
+    assert len(client._stream_control._streams) == 0, 'Client has open streams'
+    assert len(server._stream_control._streams) == 0, 'Server has open streams'
 
 
 @pytest.fixture
@@ -157,6 +164,7 @@ async def pipe_factory_websocket(aiohttp_raw_server, unused_tcp_port, client_arg
                                 **client_arguments) as client:
         yield server, client
         await server.close()
+        assert_no_open_streams(client, server)
 
 
 @asynccontextmanager
@@ -182,6 +190,7 @@ async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, s
                                 **client_arguments) as client:
         yield server, client
         await server.close()
+        assert_no_open_streams(client, server)
 
     try:
         server_task.cancel()
