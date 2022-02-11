@@ -69,9 +69,9 @@ async def test_authentication_success_on_setup(lazy_pipe):
             self._authenticated = False
 
         async def on_setup(self,
-                     data_encoding: bytes,
-                     metadata_encoding: bytes,
-                     payload: Payload):
+                           data_encoding: bytes,
+                           metadata_encoding: bytes,
+                           payload: Payload):
             composite_metadata = self._parse_composite_metadata(payload.metadata)
             authentication: AuthenticationSimple = composite_metadata.items[0].authentication
             if authentication.username != b'user' or authentication.password != b'12345':
@@ -105,9 +105,9 @@ async def test_authentication_failure_on_setup(lazy_pipe):
             self._authenticated = False
 
         async def on_setup(self,
-                     data_encoding: bytes,
-                     metadata_encoding: bytes,
-                     payload: Payload):
+                           data_encoding: bytes,
+                           metadata_encoding: bytes,
+                           payload: Payload):
             composite_metadata = self._parse_composite_metadata(payload.metadata)
             authentication: AuthenticationSimple = composite_metadata.items[0].authentication
             if authentication.username != b'user' or authentication.password != b'12345':

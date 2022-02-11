@@ -19,7 +19,7 @@ async def test_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSoc
         def cancel(self):
             self.feeder.cancel()
 
-        def subscribe(self, subscriber:Subscriber):
+        def subscribe(self, subscriber: Subscriber):
             subscriber.on_subscribe(self)
             self.feeder = asyncio.ensure_future(self.feed(subscriber))
 

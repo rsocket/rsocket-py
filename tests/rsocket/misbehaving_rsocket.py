@@ -3,7 +3,7 @@ from rsocket.rsocket import RSocket
 
 
 class MisbehavingRSocket:
-    def __init__(self, socket:RSocket):
+    def __init__(self, socket: RSocket):
         self._socket = socket
 
     async def send_frame(self, frame: Frame):

@@ -27,5 +27,5 @@ def unpack_24bit(metadata: bytes, offset: int) -> int:
     return struct.unpack('>I', b'\x00' + metadata[offset:offset + 3])[0]
 
 
-def unpack_32bit(buffer:bytes, offset:int) -> int:
+def unpack_32bit(buffer: bytes, offset: int) -> int:
     return struct.unpack_from('>I', buffer, offset)[0]
