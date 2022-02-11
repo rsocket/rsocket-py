@@ -14,7 +14,11 @@ from rsocket.rx_support.rx_rsocket import RxRSocket
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 
 
-@pytest.mark.parametrize('take_only_n', (1, 2, 5))
+@pytest.mark.parametrize('take_only_n', (
+        1,
+        2,
+        5,
+))
 async def test_rx_support_request_stream_take_only_n(pipe: Tuple[RSocketServer, RSocketClient],
                                                      take_only_n):
     server, client = pipe
@@ -57,7 +61,7 @@ async def test_rx_support_request_stream_take_only_n(pipe: Tuple[RSocketServer, 
         assert received_messages[i] == ('Feed Item: %d' % i).encode()
 
 
-@pytest.mark.parametrize('take_only_n', (1, 2, 5))
+@pytest.mark.parametrize('take_only_n', (1, 2, 6))
 async def test_rx_support_request_channel_response_take_only_n(pipe: Tuple[RSocketServer, RSocketClient],
                                                                take_only_n):
     server, client = pipe

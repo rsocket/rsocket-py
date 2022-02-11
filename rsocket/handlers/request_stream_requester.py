@@ -29,9 +29,12 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
     def frame_received(self, frame: Frame):
         if isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                self.subscriber.on_next(Payload(frame.data, frame.metadata))
-            if frame.flags_complete:
+                self.subscriber.on_next(Payload(frame.data, frame.metadata),
+                                        is_complete=frame.flags_complete)
+            elif frame.flags_complete:
                 self.subscriber.on_complete()
+
+            if frame.flags_complete:
                 self._finish_stream()
         elif isinstance(frame, ErrorFrame):
             self.subscriber.on_error(error_frame_to_exception(frame))

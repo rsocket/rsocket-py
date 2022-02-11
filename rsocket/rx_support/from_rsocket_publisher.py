@@ -29,6 +29,7 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
             def on_next(self, value, is_complete=False):
                 if self.is_done:
                     return
+
                 self._received_messages += 1
                 observer.on_next(value)
                 if is_complete:

@@ -57,9 +57,13 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
 
         elif isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                self.remote_subscriber.on_next(Payload(frame.data, frame.metadata))
+                self.remote_subscriber.on_next(Payload(frame.data, frame.metadata),
+                                               is_complete=frame.flags_complete)
+            elif frame.flags_complete:
+                self.remote_subscriber.on_complete()
+
             if frame.flags_complete:
-                self._complete_remote_subscriber()
+                self.mark_completed_and_finish(received=True)
         elif isinstance(frame, ErrorFrame):
             self.remote_subscriber.on_error(error_frame_to_exception(frame))
             self.mark_completed_and_finish(received=True)

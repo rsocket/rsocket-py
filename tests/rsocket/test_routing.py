@@ -1,10 +1,9 @@
 import asyncio
-import logging
-from typing import List
 
 import pytest
 
 from reactivestreams.subscriber import DefaultSubscriber
+from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.authentication import Authentication
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.payload import Payload
@@ -16,8 +15,6 @@ from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
 async def test_routed_request_stream_properly_finished(lazy_pipe):
-    stream_finished = asyncio.Event()
-
     router = RequestRouter()
 
     def handler_factory(socket):
@@ -31,34 +28,16 @@ async def test_routed_request_stream_properly_finished(lazy_pipe):
     async def response_stream(payload, composite_metadata):
         return StreamFromGenerator(feed)
 
-    class StreamSubscriber(DefaultSubscriber):
-        def __init__(self):
-            self.received_messages: List[Payload] = []
-
-        def on_next(self, value, is_complete=False):
-            self.received_messages.append(value)
-            logging.info(value)
-
-        def on_complete(self):
-            logging.info('Complete')
-            stream_finished.set()
-
-        def on_subscribe(self, subscription):
-            self.subscription = subscription
-
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
             server_arguments={'handler_factory': handler_factory}) as (server, client):
-        stream_subscriber = StreamSubscriber()
+        received_messages = await AwaitableRSocket(client).request_stream(
+            Payload(metadata=composite(route('test.path'))))
 
-        client.request_stream(Payload(metadata=composite(route('test.path')))).subscribe(stream_subscriber)
-
-        await stream_finished.wait()
-
-        assert len(stream_subscriber.received_messages) == 3
-        assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
-        assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
-        assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
+        assert len(received_messages) == 3
+        assert received_messages[0].data == b'Feed Item: 0'
+        assert received_messages[1].data == b'Feed Item: 1'
+        assert received_messages[2].data == b'Feed Item: 2'
 
 
 async def test_routed_request_response_properly_finished(lazy_pipe):
@@ -105,8 +84,6 @@ async def test_routed_fire_and_forget(lazy_pipe):
 
 
 async def test_routed_request_channel_properly_finished(lazy_pipe):
-    stream_finished = asyncio.Event()
-
     router = RequestRouter()
 
     def handler_factory(socket):
@@ -120,37 +97,16 @@ async def test_routed_request_channel_properly_finished(lazy_pipe):
     async def response_stream(payload, composite_metadata):
         return StreamFromGenerator(feed), DefaultSubscriber()
 
-    class StreamSubscriber(DefaultSubscriber):
-        def __init__(self):
-            self.received_messages: List[Payload] = []
-
-        def on_next(self, value, is_complete=False):
-            self.received_messages.append(value)
-            logging.info(value)
-
-        def on_complete(self):
-            logging.info('Complete')
-            stream_finished.set()
-
-        def on_error(self, exception: Exception):
-            stream_finished.set()
-
-        def on_subscribe(self, subscription):
-            self.subscription = subscription
-
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
             server_arguments={'handler_factory': handler_factory}) as (server, client):
-        stream_subscriber = StreamSubscriber()
+        received_messages = await AwaitableRSocket(client).request_channel(
+            Payload(metadata=composite(route('test.path'))))
 
-        client.request_channel(Payload(metadata=composite(route('test.path')))).subscribe(stream_subscriber)
-
-        await stream_finished.wait()
-
-        assert len(stream_subscriber.received_messages) == 3
-        assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
-        assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
-        assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
+        assert len(received_messages) == 3
+        assert received_messages[0].data == b'Feed Item: 0'
+        assert received_messages[1].data == b'Feed Item: 1'
+        assert received_messages[2].data == b'Feed Item: 2'
 
 
 async def test_routed_push_metadata(lazy_pipe):

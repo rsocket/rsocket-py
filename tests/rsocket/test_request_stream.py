@@ -214,6 +214,8 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
             self.received_messages.append(value)
             self.subscription.request(1)
             logging.info(value)
+            if is_complete:
+                stream_completed.set()
 
         def on_complete(self):
             logging.info('Complete')
@@ -240,7 +242,6 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
 
 async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
-    stream_completed = asyncio.Event()
     fragments_sent = 0
 
     def generate() -> AsyncGenerator[Tuple[Payload, bool], None]:
@@ -261,30 +262,12 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
         async def request_stream(self, payload: Payload) -> Publisher:
             return self
 
-    class StreamSubscriber(DefaultSubscriber):
-        def __init__(self):
-            self.received_messages: List[Payload] = []
-
-        def on_next(self, value, is_complete=False):
-            self.received_messages.append(value)
-            logging.info(value)
-
-        def on_complete(self):
-            logging.info('Complete')
-            stream_completed.set()
-
-        def on_subscribe(self, subscription):
-            self.subscription = subscription
-
     server.set_handler_using_factory(Handler)
-    stream_subscriber = StreamSubscriber()
-    client.request_stream(Payload()).subscribe(stream_subscriber)
+    received_messages = await AwaitableRSocket(client).request_stream(Payload())
 
-    await stream_completed.wait()
-
-    assert len(stream_subscriber.received_messages) == 3
-    assert stream_subscriber.received_messages[0].data == b'some long data which should be fragmented 0'
-    assert stream_subscriber.received_messages[1].data == b'some long data which should be fragmented 1'
-    assert stream_subscriber.received_messages[2].data == b'some long data which should be fragmented 2'
+    assert len(received_messages) == 3
+    assert received_messages[0].data == b'some long data which should be fragmented 0'
+    assert received_messages[1].data == b'some long data which should be fragmented 1'
+    assert received_messages[2].data == b'some long data which should be fragmented 2'
 
     assert fragments_sent == 24
