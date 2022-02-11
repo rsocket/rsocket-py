@@ -20,6 +20,9 @@ class CollectorSubscriber(Subscriber):
     def on_next(self, value, is_complete=False):
         self.values.append(value)
 
+        if is_complete:
+            self.is_done.set()
+
     def on_error(self, exception: Exception):
         self.error = exception
         self.is_done.set()
