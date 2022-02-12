@@ -1,6 +1,7 @@
 import struct
 from typing import Union, List, Optional
 
+from rsocket.exceptions import RSocketError
 from rsocket.extensions.composite_metadata import CompositeMetadataItem
 from rsocket.frame_helpers import ensure_bytes
 
@@ -25,7 +26,7 @@ class TaggingMetadata(CompositeMetadataItem):
 
         for tag in list(map(ensure_bytes, self.tags)):
             if len(tag) > 256:
-                raise Exception('Tag length longer than 256 characters')
+                raise RSocketError('Tag length longer than 256 characters: "%s"' % tag)
 
             serialized += struct.pack('>b', len(tag))
             serialized += tag

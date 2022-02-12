@@ -240,7 +240,7 @@ async def test_request_channel_frame(connection, follows, complete):
     assert composite_metadata.serialize() == frame.metadata
 
 
-async def test_basic_composite_metadata_item():
+def test_basic_composite_metadata_item():
     data = build_frame(
 
         bits(1, 1, 'Well known metadata type'),
