@@ -2,10 +2,13 @@ import asyncio
 from typing import Tuple, AsyncGenerator, Optional
 
 import pytest
+import rx
 from rx import operators
 
 from reactivestreams.publisher import Publisher
-from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscriber import Subscriber, DefaultSubscriber
+from reactivestreams.subscription import Subscription
+from rsocket.error_codes import ErrorCode
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
@@ -104,3 +107,67 @@ async def test_rx_support_request_channel_response_take_only_n(pipe: Tuple[RSock
 
     for i in range(maximum_message_received):
         assert received_messages[i] == ('Feed Item: %d' % i).encode()
+
+
+@pytest.mark.parametrize('take_only_n', (
+        1,
+        2,
+        6,
+))
+async def test_rx_support_request_channel_server_take_only_n(pipe: Tuple[RSocketServer, RSocketClient],
+                                                             take_only_n):
+    server, client = pipe
+    received_messages = []
+    items_generated = 0
+    maximum_message_count = 3
+    wait_for_server_finish = asyncio.Event()
+
+    class Handler(BaseRequestHandler, DefaultSubscriber):
+
+        def on_next(self, value: Payload, is_complete=False):
+            received_messages.append(value)
+            if len(received_messages) < take_only_n:
+                self.subscription.request(1)
+            else:
+                self.subscription.cancel()
+                wait_for_server_finish.set()
+
+        def on_complete(self):
+            wait_for_server_finish.set()
+
+        async def on_error(self, error_code: ErrorCode, payload: Payload):
+            wait_for_server_finish.set()
+
+        def on_subscribe(self, subscription: Subscription):
+            subscription.request(1)
+            self.subscription = subscription
+
+        async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
+            return None, self
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = RxRSocket(client)
+
+    def generator():
+        nonlocal items_generated
+        for x in range(maximum_message_count):
+            items_generated += 1
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8'))
+
+    await rx_client.request_channel(
+        Payload(b'request text'),
+        observable=rx.from_iterable(generator())
+    ).pipe(
+        operators.to_list()
+    )
+
+    await wait_for_server_finish.wait()
+
+    maximum_message_received = min(maximum_message_count, take_only_n)
+
+    # assert items_generated == maximum_message_received # todo: Stop async generator on cancel from server requester
+
+    assert len(received_messages) == maximum_message_received
+    for i in range(maximum_message_received):
+        assert received_messages[i].data == ('Feed Item: %d' % i).encode()

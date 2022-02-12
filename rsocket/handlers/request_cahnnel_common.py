@@ -16,6 +16,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             self._stream = stream
             self._socket = socket
             self._requester = requester
+            self.subscription = None
 
         def on_next(self, value, is_complete=False):
             self._socket.send_payload(

@@ -85,6 +85,6 @@ class RSocketClient(RSocket):
         keepalive_timeout_task = self._start_task_if_not_closing(self._keepalive_timeout_task)
 
         try:
-            return await super()._receiver_listen()
+            await super()._receiver_listen()
         finally:
             await self._cancel_if_task_exists(keepalive_timeout_task)

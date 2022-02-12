@@ -151,9 +151,13 @@ class RSocket:
     def send_frame(self, frame: Frame):
         self._send_queue.put_nowait(frame)
 
-    def send_error(self, stream: int, exception: Exception):
+    def send_complete(self, stream_id: int):
+        logger().debug('%s: Sending complete', self._log_identifier())
+        self.send_payload(stream_id, Payload(), complete=True, is_next=False)
+
+    def send_error(self, stream_id: int, exception: Exception):
         logger().debug('%s: Sending error: %s', self._log_identifier(), str(exception))
-        self.send_frame(exception_to_error_frame(stream, exception))
+        self.send_frame(exception_to_error_frame(stream_id, exception))
 
     def send_payload(self, stream_id: int, payload: Payload, complete=False, is_next=True):
         logger().debug('%s: Sending payload: %s (complete=%s, next=%s)', self._log_identifier(), payload, complete,
