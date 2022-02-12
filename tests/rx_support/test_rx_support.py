@@ -189,3 +189,45 @@ async def test_rx_rsocket_context_manager(pipe_tcp_without_auto_connect):
         )
 
         assert received_message == b'Response'
+
+
+async def test_rx_support_metadata_push(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+    received_item_event = asyncio.Event()
+    received_item = None
+
+    class Handler(BaseRequestHandler):
+        async def on_metadata_push(self, payload: Payload):
+            nonlocal received_item
+            received_item = payload.metadata
+            received_item_event.set()
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = RxRSocket(client)
+    rx_client.metadata_push(b'request text')
+
+    await received_item_event.wait()
+
+    assert received_item == b'request text'
+
+
+async def test_rx_support_fire_and_forget(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+    received_item_event = asyncio.Event()
+    received_item = None
+
+    class Handler(BaseRequestHandler):
+        async def request_fire_and_forget(self, payload: Payload):
+            nonlocal received_item
+            received_item = payload.data
+            received_item_event.set()
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = RxRSocket(client)
+    rx_client.fire_and_forget(Payload(b'request text'))
+
+    await received_item_event.wait()
+
+    assert received_item == b'request text'
