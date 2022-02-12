@@ -16,6 +16,7 @@ class StreamHandler(BackpressureApi, metaclass=ABCMeta):
 
     def initial_request_n(self, n: int):
         if n <= 0:
+            self.socket.finish_stream(self.stream)
             raise RSocketValueErrorException('Initial request N must be > 0')
 
         self._initial_request_n = n

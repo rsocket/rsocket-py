@@ -8,6 +8,7 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
+from rsocket.exceptions import RSocketValueErrorException
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -54,6 +55,15 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
     assert result[0].data == b'Feed Item: 0'
     assert result[1].data == b'Feed Item: 1'
     assert result[2].data == b'Feed Item: 2'
+
+
+@pytest.mark.parametrize('initial_request_n', (0, -1))
+async def test_request_stream_prevent_negative_initial_request_n(pipe: Tuple[RSocketServer, RSocketClient],
+                                                                 initial_request_n):
+    server, client = pipe
+
+    with pytest.raises(RSocketValueErrorException):
+        client.request_stream(Payload()).initial_request_n(initial_request_n)
 
 
 async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSocketServer, RSocketClient]):
