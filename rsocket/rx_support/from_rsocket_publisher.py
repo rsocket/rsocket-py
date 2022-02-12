@@ -27,9 +27,6 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
                 self.subscription = subscription
 
             def on_next(self, value, is_complete=False):
-                if self.is_done:
-                    return
-
                 self._received_messages += 1
                 observer.on_next(value)
                 if is_complete:
@@ -46,14 +43,10 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
                 self.is_done = True
 
             def on_error(self, exception: Exception):
-                if self.is_done:
-                    return
                 observer.on_error(exception)
                 self._finish()
 
             def on_complete(self):
-                if self.is_done:
-                    return
                 observer.on_completed()
                 self._finish()
 
@@ -64,9 +57,6 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
                 publisher.subscribe(subscriber)
                 await done.wait()
 
-                if not subscriber.is_done:
-                    subscriber.subscription.cancel()
-
             except asyncio.CancelledError:
                 if not subscriber.is_done:
                     subscriber.subscription.cancel()
@@ -76,7 +66,6 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
         async def _trigger_next_request_n():
             try:
                 while True:
-                    nonlocal get_next_n
                     await get_next_n.wait()
                     subscriber.subscription.request(limit_rate)
                     get_next_n.clear()
@@ -89,7 +78,6 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
         def dispose():
             get_next_task.cancel()
             task.cancel()
-            done.set()
 
         return Disposable(dispose)
 
