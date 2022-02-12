@@ -16,7 +16,7 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
 
     def on_subscribe(observer: Observer, scheduler):
         done = asyncio.Event()
-        get_next_n = None
+        get_next_n = asyncio.Event()
 
         class RxSubscriber(Subscriber):
             def __init__(self):
@@ -79,11 +79,10 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
                     nonlocal get_next_n
                     await get_next_n.wait()
                     subscriber.subscription.request(limit_rate)
-                    get_next_n = asyncio.Event()
+                    get_next_n.clear()
             except asyncio.CancelledError:
                 pass
 
-        get_next_n = asyncio.Event()
         get_next_task = asyncio.create_task(_trigger_next_request_n())
         task = asyncio.create_task(_aio_sub())
 
