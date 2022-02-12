@@ -31,8 +31,6 @@ class StreamControl:
 
     def _increment_stream_id(self):
         self._current_stream_id = (self._current_stream_id + 2) & self._maximum_stream_id
-        if self._current_stream_id > self._maximum_stream_id:
-            self._current_stream_id = self._first_stream_id
 
     def finish_stream(self, stream_id: int):
         self._streams.pop(stream_id, None)
