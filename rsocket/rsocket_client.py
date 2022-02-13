@@ -15,7 +15,7 @@ from rsocket.transports.transport import Transport
 class RSocketClient(RSocket):
 
     def __init__(self,
-                 transport: Transport, *,
+                 transport: Transport,
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,

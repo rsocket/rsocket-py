@@ -15,23 +15,7 @@ class RSocketStreamAllocationFailure(RSocketError):
     pass
 
 
-class RSocketAuthenticationError(RSocketError):
-    pass
-
-
-class RSocketLeaseNotImplementedError(RSocketError):
-    pass
-
-
-class RSocketLeaseNotReceivedTimeoutError(RSocketError):
-    pass
-
-
 class RSocketValueErrorException(RSocketError):
-    pass
-
-
-class RSocketConnectionRejected(RSocketError):
     pass
 
 

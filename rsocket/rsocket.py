@@ -8,8 +8,7 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.datetime_helpers import to_milliseconds
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException, RSocketConnectionRejected, \
-    RSocketRejected
+from rsocket.exceptions import RSocketProtocolException, RSocketRejected
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
@@ -48,7 +47,7 @@ class RSocket:
             self._socket.send_lease(value)
 
     def __init__(self,
-                 transport: Transport, *,
+                 transport: Transport,
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
@@ -210,19 +209,24 @@ class RSocket:
         request_responder.frame_received(frame)
 
     async def handle_setup(self, frame: SetupFrame):
+        if frame.flags_resume:
+            raise RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP, data='Resume not supported')
+
+        if frame.flags_lease:
+            if self._lease_publisher is None:
+                raise RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP, data='Lease not available')
+            else:
+                self._subscribe_to_lease_publisher()
+
         handler = self._handler
+
         try:
             await handler.on_setup(frame.data_encoding,
                                    frame.metadata_encoding,
                                    Payload(frame.data, frame.metadata))
         except Exception as exception:
-            self.send_error(frame.stream_id, exception)
-
-        if frame.flags_lease:
-            if self._lease_publisher is None:
-                self.send_error(CONNECTION_STREAM_ID, RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP))
-            else:
-                self._subscribe_to_lease_publisher()
+            logger().error('%s: Setup error', self._log_identifier(), exc_info=True)
+            raise RSocketProtocolException(ErrorCode.REJECTED_SETUP, data=str(exception))
 
     def _subscribe_to_lease_publisher(self):
         if self._lease_publisher is not None:
@@ -260,7 +264,7 @@ class RSocket:
         channel_responder.frame_received(frame)
 
     async def handle_resume(self, frame: ResumeFrame):
-        ...
+        raise RSocketProtocolException(ErrorCode.REJECTED_RESUME, data='Resume not supported')
 
     async def handle_lease(self, frame: LeaseFrame):
         logger().debug('%s: received lease frame', self._log_identifier())
@@ -294,24 +298,21 @@ class RSocket:
 
         while self.is_server_alive():
 
-            try:
-                next_frame_generator = await self._transport.next_frame_generator(self.is_server_alive())
-                if next_frame_generator is None:
-                    break
-                async for frame in next_frame_generator:
+            next_frame_generator = await self._transport.next_frame_generator(self.is_server_alive())
+            if next_frame_generator is None:
+                break
+            async for frame in next_frame_generator:
+                try:
                     await self._handle_next_frames(frame)
-            except RSocketConnectionRejected:
-                logger().error('%s: RSocket connection rejected', self._log_identifier())
-                raise
-            except RSocketRejected as exception:
-                logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
-                self.send_error(exception.stream_id, exception)
-            except RSocketProtocolException as exception:
-                logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
-                self.send_error(CONNECTION_STREAM_ID, exception)
-            except Exception as exception:
-                logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
-                self.send_error(CONNECTION_STREAM_ID, exception)
+                except RSocketRejected as exception:
+                    logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
+                    self.send_error(exception.stream_id, exception)
+                except RSocketProtocolException as exception:
+                    logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
+                    self.send_error(CONNECTION_STREAM_ID, exception)
+                except Exception as exception:
+                    logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
+                    self.send_error(CONNECTION_STREAM_ID, exception)
 
     async def _handle_next_frames(self, frame: Frame):
 

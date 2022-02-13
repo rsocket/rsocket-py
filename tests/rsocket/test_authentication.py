@@ -5,12 +5,11 @@ from typing import Optional
 import pytest
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketRejected, RSocketApplicationError
+from rsocket.exceptions import RSocketApplicationError
 from rsocket.extensions.authentication import AuthenticationSimple
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import CONNECTION_STREAM_ID
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.routing.helpers import composite, authenticate_simple
@@ -75,7 +74,7 @@ async def test_authentication_success_on_setup(lazy_pipe):
             composite_metadata = self._parse_composite_metadata(payload.metadata)
             authentication: AuthenticationSimple = composite_metadata.items[0].authentication
             if authentication.username != b'user' or authentication.password != b'12345':
-                raise RSocketRejected(CONNECTION_STREAM_ID)
+                raise Exception('Authentication rejected')
 
             self._authenticated = True
 
@@ -95,6 +94,7 @@ async def test_authentication_success_on_setup(lazy_pipe):
         assert result.data == b'response'
 
 
+@pytest.mark.allow_error_log
 async def test_authentication_failure_on_setup(lazy_pipe):
     received_error_event = Event()
     received_error: Optional[tuple] = None
@@ -111,13 +111,13 @@ async def test_authentication_failure_on_setup(lazy_pipe):
             composite_metadata = self._parse_composite_metadata(payload.metadata)
             authentication: AuthenticationSimple = composite_metadata.items[0].authentication
             if authentication.username != b'user' or authentication.password != b'12345':
-                raise RSocketApplicationError('Authentication error')
+                raise Exception('Authentication error')
 
             self._authenticated = True
 
         async def request_response(self, payload: Payload) -> Future:
             if not self._authenticated:
-                raise RSocketApplicationError("Not authenticated")
+                raise Exception("Not authenticated")
 
             future = asyncio.get_event_loop().create_future()
             future.set_result(Payload(b'response'))
@@ -143,7 +143,7 @@ async def test_authentication_failure_on_setup(lazy_pipe):
 
         await received_error_event.wait()
 
-        assert received_error[0] == ErrorCode.APPLICATION_ERROR
+        assert received_error[0] == ErrorCode.REJECTED_SETUP
         assert received_error[1] == Payload(b'Authentication error', b'')
 
 

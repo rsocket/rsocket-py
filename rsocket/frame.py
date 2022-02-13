@@ -6,7 +6,8 @@ from typing import Tuple
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolException, RSocketRejected
-from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit
+from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
+    ensure_bytes
 
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
@@ -633,12 +634,13 @@ def is_fragmentable_frame(frame: Frame) -> bool:
 def exception_to_error_frame(stream_id: int, exception: Exception) -> ErrorFrame:
     frame = ErrorFrame()
     frame.stream_id = stream_id
-    frame.data = str(exception).encode()
 
     if isinstance(exception, RSocketProtocolException):
         frame.error_code = exception.error_code
+        frame.data = ensure_bytes(exception.data)
     else:
         frame.error_code = ErrorCode.APPLICATION_ERROR
+        frame.data = str(exception).encode()
 
     return frame
 

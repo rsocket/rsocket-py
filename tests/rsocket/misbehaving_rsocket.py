@@ -1,9 +1,9 @@
 from rsocket.frame import Frame
-from rsocket.rsocket import RSocket
+from rsocket.transports.transport import Transport
 
 
 class MisbehavingRSocket:
-    def __init__(self, socket: RSocket):
+    def __init__(self, socket: Transport):
         self._socket = socket
 
     async def send_frame(self, frame: Frame):
