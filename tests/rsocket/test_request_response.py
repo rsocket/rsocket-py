@@ -3,8 +3,24 @@ import functools
 
 import pytest
 
+from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
+
+
+async def test_request_response_awaitable_wrapper(pipe):
+    class Handler(BaseRequestHandler):
+        async def request_response(self, request: Payload):
+            future = asyncio.Future()
+            future.set_result(Payload(b'data: ' + request.data,
+                                      b'meta: ' + request.metadata))
+            return future
+
+    server, client = pipe
+    server._handler = Handler(server)
+
+    response = await AwaitableRSocket(client).request_response(Payload(b'dog', b'cat'))
+    assert response == Payload(b'data: dog', b'meta: cat')
 
 
 async def test_request_response_repeated(pipe):

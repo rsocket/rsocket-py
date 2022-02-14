@@ -12,7 +12,7 @@ from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from rsocket.routing.helpers import composite, authenticate_simple
+from rsocket.routing.helpers import composite, authenticate_simple, authenticate_bearer
 from tests.rsocket.helpers import bits, data_bits, build_frame
 
 
@@ -156,3 +156,12 @@ async def test_authentication_types_unknown_name_returns_none():
     result = WellKnownAuthenticationTypes.get_by_name(b'non-existing-authentication-type')
 
     assert result is None
+
+
+async def test_authentication_helper_bearer():
+    metadata = composite(authenticate_bearer('token'))
+
+    composite_metadata = CompositeMetadata()
+    composite_metadata.parse(metadata)
+
+    assert composite_metadata.items[0].authentication.token == b'token'
