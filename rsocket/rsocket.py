@@ -18,6 +18,7 @@ from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_fram
 from rsocket.frame import SetupFrame
 from rsocket.frame_builders import to_payload_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
+from rsocket.frame_helpers import ensure_bytes
 from rsocket.handlers.request_cahnnel_responder import RequestChannelResponder
 from rsocket.handlers.request_channel_requester import RequestChannelRequester
 from rsocket.handlers.request_response_requester import RequestResponseRequester
@@ -38,7 +39,7 @@ async def noop_frame_handler(frame):
     pass
 
 
-class RSocket:
+class RSocket(metaclass=abc.ABCMeta):
     class LeaseSubscriber(DefaultSubscriber):
         def __init__(self, socket: 'RSocket'):
             self._socket = socket
@@ -52,8 +53,8 @@ class RSocket:
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
-                 data_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
-                 metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
+                 data_encoding: Union[str, bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
+                 metadata_encoding: Union[str, bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  setup_payload: Optional[Payload] = None
@@ -116,7 +117,7 @@ class RSocket:
         if isinstance(encoding, WellKnownMimeTypes):
             return encoding.value.name
 
-        return encoding
+        return ensure_bytes(encoding)
 
     def _start_task_if_not_closing(self, task_factory: Callable[[], Coroutine]) -> Optional[Task]:
         if not self._is_closing:
