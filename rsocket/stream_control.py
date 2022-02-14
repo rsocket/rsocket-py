@@ -56,6 +56,6 @@ class StreamControl:
             frame = ErrorFrame()
             frame.stream_id = stream_id
             frame.error_code = ErrorCode.CANCELED
-            frame.data = 'Server not alive'.encode()
+            frame.data = b'Server not alive'
             stream.frame_received(frame)
             self.finish_stream(stream_id)

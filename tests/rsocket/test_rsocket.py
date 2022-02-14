@@ -1,11 +1,15 @@
 import asyncio
 import logging
 from datetime import timedelta
+from typing import Callable
 
 import pytest
 
+from rsocket.error_codes import ErrorCode
+from rsocket.exceptions import RSocketProtocolException
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
+from tests.rsocket.helpers import create_future
 
 
 async def test_rsocket_client_closed_without_requests(lazy_pipe):
@@ -16,15 +20,27 @@ async def test_rsocket_client_closed_without_requests(lazy_pipe):
 async def test_rsocket_max_server_keepalive_reached(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)
+            return create_future(Payload(b'response'))
+
+    class ClientHandler(BaseRequestHandler):
+
+        async def on_keepalive_timeout(self,
+                                       time_since_last_keepalive: timedelta,
+                                       cancel_all_streams: Callable):
+            cancel_all_streams()
 
     async with lazy_pipe(
             client_arguments={
-                'keep_alive_period': timedelta(seconds=10),
-                'max_lifetime_period': timedelta(seconds=1)},
+                'keep_alive_period': timedelta(seconds=3),
+                'max_lifetime_period': timedelta(seconds=1),
+                'handler_factory': ClientHandler},
             server_arguments={'handler_factory': Handler}) as (server, client):
-        with pytest.raises(Exception):
+        with pytest.raises(RSocketProtocolException) as exc_info:
             await client.request_response(Payload(b'dog', b'cat'))
+
+        assert exc_info.value.data == 'Server not alive'
+        assert exc_info.value.error_code == ErrorCode.CANCELED
 
 
 async def test_rsocket_keepalive(pipe, caplog):

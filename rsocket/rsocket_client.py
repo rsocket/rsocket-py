@@ -75,9 +75,14 @@ class RSocketClient(RSocket):
             while True:
                 await asyncio.sleep(self._max_lifetime_period.total_seconds())
                 now = datetime.now()
-                if now - self._last_server_keepalive > self._max_lifetime_period:
+                time_since_last_keepalive = now - self._last_server_keepalive
+
+                if time_since_last_keepalive > self._max_lifetime_period:
                     self._is_server_alive = False
-                    self._stream_control.cancel_all_handlers()
+                    await self._handler.on_keepalive_timeout(
+                        time_since_last_keepalive,
+                        self._stream_control.cancel_all_handlers
+                    )
         except asyncio.CancelledError:
             pass
 

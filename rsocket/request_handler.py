@@ -1,7 +1,8 @@
 import asyncio
 from abc import ABCMeta, abstractmethod
 from asyncio import Future
-from typing import Tuple, Optional
+from datetime import timedelta
+from typing import Tuple, Optional, Callable
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
@@ -53,6 +54,12 @@ class RequestHandler(metaclass=ABCMeta):
     async def on_error(self, error_code: ErrorCode, payload: Payload):
         ...
 
+    @abstractmethod
+    async def on_keepalive_timeout(self,
+                                   time_since_last_keepalive: timedelta,
+                                   cancel_all_streams: Callable):
+        ...
+
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:
         composite_metadata = CompositeMetadata()
         composite_metadata.parse(metadata)
@@ -86,3 +93,8 @@ class BaseRequestHandler(RequestHandler):
 
     async def on_error(self, error_code: ErrorCode, payload: Payload):
         logger().error('Error: %s, %s', error_code, payload)
+
+    async def on_keepalive_timeout(self,
+                                   time_since_last_keepalive: timedelta,
+                                   cancel_all_streams: Callable):
+        pass
