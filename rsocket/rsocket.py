@@ -8,12 +8,12 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.datetime_helpers import to_milliseconds
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException, RSocketRejected
+from rsocket.exceptions import RSocketProtocolException
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, Frame, exception_to_error_frame, LeaseFrame, ErrorFrame, RequestFrame, \
-    initiate_request_frame_types
+    initiate_request_frame_types, InvalidFrame
 from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_frame, CONNECTION_STREAM_ID
 from rsocket.frame import SetupFrame
 from rsocket.frame_builders import to_payload_frame
@@ -304,17 +304,17 @@ class RSocket:
             async for frame in next_frame_generator:
                 try:
                     await self._handle_next_frames(frame)
-                except RSocketRejected as exception:
-                    logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
-                    self.send_error(exception.stream_id, exception)
                 except RSocketProtocolException as exception:
                     logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
-                    self.send_error(CONNECTION_STREAM_ID, exception)
+                    self.send_error(frame.stream_id, exception)
                 except Exception as exception:
                     logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
-                    self.send_error(CONNECTION_STREAM_ID, exception)
+                    self.send_error(frame.stream_id, exception)
 
     async def _handle_next_frames(self, frame: Frame):
+
+        if isinstance(frame, InvalidFrame):
+            return
 
         if is_fragmentable_frame(frame):
             frame = self._frame_fragment_cache.append(frame)

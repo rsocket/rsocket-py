@@ -2,10 +2,11 @@ import struct
 from typing import AsyncGenerator
 
 from rsocket import frame
+from rsocket.logger import logger
 
 __all__ = ['FrameParser']
 
-from rsocket.frame import Frame
+from rsocket.frame import Frame, InvalidFrame
 
 
 class FrameParser:
@@ -27,7 +28,11 @@ class FrameParser:
             if total < length + frame_length_byte_count:
                 return
 
-            yield frame.parse(self._buffer[frame_length_byte_count:length + frame_length_byte_count])
+            try:
+                yield frame.parse(self._buffer[frame_length_byte_count:length + frame_length_byte_count])
+            except Exception:
+                logger().debug('Error parsing frame', exc_info=True)
+                yield InvalidFrame()
 
             self._buffer = self._buffer[length + frame_length_byte_count:]
             total -= length + frame_length_byte_count

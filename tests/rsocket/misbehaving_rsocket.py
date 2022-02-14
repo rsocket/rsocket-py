@@ -16,3 +16,11 @@ class BrokenFrame:
 
     def serialize(self) -> bytes:
         return self._content
+
+
+class UnknownFrame(Frame):
+    def __init__(self):
+        super().__init__(34)
+
+    def parse(self, buffer: bytes, offset: int):
+        pass

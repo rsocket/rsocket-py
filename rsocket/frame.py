@@ -5,7 +5,7 @@ from enum import IntEnum, unique
 from typing import Tuple
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException, RSocketRejected
+from rsocket.exceptions import RSocketProtocolException
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
     ensure_bytes
 
@@ -246,6 +246,10 @@ class SetupFrame(Frame):
         middle += self.pack_string(self.metadata_encoding)
         middle += self.pack_string(self.data_encoding)
         return Frame.serialize(self, middle, flags)
+
+
+class InvalidFrame:
+    pass
 
 
 class ErrorFrame(Frame):
@@ -646,11 +650,8 @@ def exception_to_error_frame(stream_id: int, exception: Exception) -> ErrorFrame
 
 
 def error_frame_to_exception(frame: ErrorFrame) -> Exception:
-    if frame.error_code == ErrorCode.REJECTED:
-        return RSocketRejected(frame.stream_id)
-
     if frame.error_code != ErrorCode.APPLICATION_ERROR:
-        return RSocketProtocolException(frame.error_code)
+        return RSocketProtocolException(frame.error_code, data=frame.data.decode())
 
     return RuntimeError(frame.data.decode('utf-8'))
 

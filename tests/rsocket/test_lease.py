@@ -4,7 +4,7 @@ from datetime import timedelta
 import pytest
 
 from reactivestreams.subscriber import Subscriber
-from rsocket.exceptions import RSocketRejected
+from rsocket.exceptions import RSocketProtocolException
 from rsocket.lease import SingleLeasePublisher, DefinedLease
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -159,5 +159,5 @@ async def test_request_response_with_lease_server_side_exception(lazy_pipe):
             response = await client.request_response(Payload(b'dog', b'cat'))
             assert response == Payload(b'data: dog', b'meta: cat')
 
-        with pytest.raises(RSocketRejected):
+        with pytest.raises(RSocketProtocolException):
             await client.request_response(Payload(b'invalid request'))
