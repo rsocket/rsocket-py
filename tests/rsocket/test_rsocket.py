@@ -17,10 +17,28 @@ async def test_rsocket_client_closed_without_requests(lazy_pipe):
         pass  # This should not raise an exception
 
 
-async def test_rsocket_max_server_keepalive_reached(lazy_pipe):
+async def test_rsocket_max_server_keepalive_reached_and_request_not_canceled_by_default(lazy_pipe_tcp):
+    """todo: find why test only works using tcp transport"""
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            await asyncio.sleep(10)
+            await asyncio.sleep(4)
+            return create_future(Payload(b'response'))
+
+    async with lazy_pipe_tcp(
+            client_arguments={
+                'keep_alive_period': timedelta(seconds=2),
+                'max_lifetime_period': timedelta(seconds=1)
+            },
+            server_arguments={'handler_factory': Handler}) as (server, client):
+        result = await client.request_response(Payload(b'dog', b'cat'))
+
+        assert result.data == b'response'
+
+
+async def test_rsocket_max_server_keepalive_reached_and_request_canceled_explicitly(lazy_pipe):
+    class Handler(BaseRequestHandler):
+        async def request_response(self, request: Payload):
+            await asyncio.sleep(4)
             return create_future(Payload(b'response'))
 
     class ClientHandler(BaseRequestHandler):
@@ -32,7 +50,7 @@ async def test_rsocket_max_server_keepalive_reached(lazy_pipe):
 
     async with lazy_pipe(
             client_arguments={
-                'keep_alive_period': timedelta(seconds=3),
+                'keep_alive_period': timedelta(seconds=2),
                 'max_lifetime_period': timedelta(seconds=1),
                 'handler_factory': ClientHandler},
             server_arguments={'handler_factory': Handler}) as (server, client):

@@ -10,6 +10,7 @@ from aiohttp.test_utils import RawTestServer
 from quart import Quart
 
 from rsocket.frame_parser import FrameParser
+from rsocket.logger import logger
 from rsocket.rsocket import RSocket
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
@@ -21,7 +22,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 tested_transports = [
     'tcp',
-    'websocket',
+    'aiohttp',
     'quart'
 ]
 
@@ -61,13 +62,18 @@ async def pipe_tcp(unused_tcp_port):
         yield components
 
 
+@pytest.fixture
+async def lazy_pipe_tcp(aiohttp_raw_server, unused_tcp_port):
+    yield functools.partial(pipe_factory_tcp, unused_tcp_port)
+
+
 def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
     if transport_id == 'tcp':
         return pipe_factory_tcp
     if transport_id == 'quart':
         return pipe_factory_quart_websocket
-    if transport_id == 'websocket':
-        return functools.partial(pipe_factory_websocket, aiohttp_raw_server)
+    if transport_id == 'aiohttp':
+        return functools.partial(pipe_factory_aiohttp_websocket, aiohttp_raw_server)
 
 
 @pytest.fixture
@@ -120,6 +126,8 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
 
 
 def assert_no_open_streams(client: RSocket, server: RSocket):
+    logger().info('Checking for open streams')
+
     assert len(client._stream_control._streams) == 0, 'Client has open streams'
     assert len(server._stream_control._streams) == 0, 'Server has open streams'
 
@@ -149,7 +157,8 @@ def aiohttp_raw_server(event_loop, unused_tcp_port):
 
 
 @asynccontextmanager
-async def pipe_factory_websocket(aiohttp_raw_server, unused_tcp_port, client_arguments=None, server_arguments=None):
+async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, client_arguments=None,
+                                         server_arguments=None):
     server = None
 
     def store_server(new_server):
