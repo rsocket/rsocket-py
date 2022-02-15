@@ -1,6 +1,8 @@
 import asyncio
 from asyncio import Future
 
+import pytest
+
 from rsocket.frame_builders import to_payload_frame
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -37,6 +39,7 @@ async def test_send_frame_for_non_existing_stream(pipe_tcp, caplog):
     assert len(dropped_frame_log) > 0
 
 
+@pytest.mark.allow_error_log
 async def test_send_frame_for_unknown_type(pipe_tcp, caplog):
     (client, server) = pipe_tcp
 

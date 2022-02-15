@@ -29,9 +29,13 @@ class FrameParser:
                 return
 
             try:
-                yield frame.parse(self._buffer[frame_length_byte_count:length + frame_length_byte_count])
+                new_frame = frame.parse_or_ignore(
+                    self._buffer[frame_length_byte_count:length + frame_length_byte_count])
+
+                if new_frame is not None:
+                    yield new_frame
             except Exception:
-                logger().debug('Error parsing frame', exc_info=True)
+                logger().error('Error parsing frame', exc_info=True)
                 yield InvalidFrame()
 
             self._buffer = self._buffer[length + frame_length_byte_count:]

@@ -3,6 +3,10 @@ from typing import Optional
 from rsocket.error_codes import ErrorCode
 
 
+class ParseError(ValueError):
+    pass
+
+
 class RSocketError(Exception):
     pass
 

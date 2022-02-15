@@ -158,6 +158,28 @@ async def test_authentication_types_unknown_name_returns_none():
     assert result is None
 
 
+def test_metadata_authentication_bearer():
+    metadata = build_frame(
+        bits(1, 1, 'Well known metadata type'),
+        bits(7, WellKnownMimeTypes.MESSAGE_RSOCKET_AUTHENTICATION.value.id, 'Mime ID'),
+        bits(24, 6, 'Metadata length'),
+        bits(1, 1, 'Well known authentication type'),
+        bits(7, WellKnownAuthenticationTypes.BEARER.value.id, 'Authentication ID'),
+        data_bits(b'12345'),
+    )
+
+    composite_metadata = CompositeMetadata()
+    composite_metadata.parse(metadata)
+
+    assert composite_metadata.items[0].authentication.token == b'12345'
+
+    assert composite_metadata.serialize() == metadata
+
+    metadata_from_helper = composite(authenticate_bearer('12345'))
+
+    assert metadata_from_helper == metadata
+
+
 async def test_authentication_helper_bearer():
     metadata = composite(authenticate_bearer('token'))
 

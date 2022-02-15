@@ -2,10 +2,10 @@ import abc
 import struct
 from abc import ABCMeta
 from enum import IntEnum, unique
-from typing import Tuple
+from typing import Tuple, Optional
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException
+from rsocket.exceptions import RSocketProtocolException, ParseError
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
     ensure_bytes
 
@@ -24,10 +24,6 @@ _FLAG_LEASE_BIT = 0x40
 _FLAG_RESUME_BIT = 0x80
 _FLAG_RESPOND_BIT = 0x80
 _FLAG_NEXT_BIT = 0x20
-
-
-class ParseError(ValueError):
-    pass
 
 
 @unique
@@ -580,9 +576,7 @@ class ExtendedFrame(Frame, metaclass=abc.ABCMeta):
     def __init__(self):
         super().__init__(FrameType.EXT)
 
-    def parse(self, buffer: bytes, offset: int):
-        ...
-
+    @abc.abstractmethod
     def serialize(self, middle=b'', flags: int = 0) -> bytes:
         ...
 
@@ -605,7 +599,7 @@ _frame_class_by_id = {
 }
 
 
-def parse(buffer: bytes) -> Frame:
+def parse_or_ignore(buffer: bytes) -> Optional[Frame]:
     if len(buffer) < HEADER_LENGTH:
         raise ParseError('Frame too short: {} bytes'.format(len(buffer)))
 
