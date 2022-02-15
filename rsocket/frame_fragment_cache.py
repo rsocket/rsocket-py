@@ -33,10 +33,9 @@ class FrameFragmentCache:
             if current_frame_from_fragments is not next_frame:
                 self.merge_frame_content_inplace(current_frame_from_fragments, next_frame)
         else:
-            if current_frame_from_fragments is not None:
-                self.merge_frame_content_inplace(current_frame_from_fragments, next_frame)
-                next_frame = current_frame_from_fragments
-                next_frame.flags_follows = False
+            self.merge_frame_content_inplace(current_frame_from_fragments, next_frame)
+            next_frame = current_frame_from_fragments
+            next_frame.flags_follows = False
 
         return current_frame_from_fragments
 
@@ -47,6 +46,4 @@ class FrameFragmentCache:
             current_frame_from_fragments.data += next_frame.data
 
         if next_frame.metadata is not None:
-            if current_frame_from_fragments.metadata is None:
-                current_frame_from_fragments.metadata = b''
             current_frame_from_fragments.metadata += next_frame.metadata
