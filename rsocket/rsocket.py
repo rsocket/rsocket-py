@@ -286,7 +286,7 @@ class RSocket(metaclass=abc.ABCMeta):
         try:
             await self._receiver_listen()
         except asyncio.CancelledError:
-            logger().debug('%s: Canceled', self._log_identifier())
+            logger().debug('%s: Asyncio task canceled: receiver', self._log_identifier())
         except Exception:
             logger().error('%s: Unknown error', self._log_identifier(), exc_info=True)
             raise
@@ -366,7 +366,7 @@ class RSocket(metaclass=abc.ABCMeta):
         except ConnectionResetError as exception:
             logger().debug(str(exception))
         except asyncio.CancelledError:
-            logger().info('%s: Canceled', self._log_identifier())
+            logger().debug('%s: Asyncio task canceled: sender', self._log_identifier())
         except Exception:
             logger().error('%s: RSocket error', self._log_identifier(), exc_info=True)
             raise
@@ -385,7 +385,7 @@ class RSocket(metaclass=abc.ABCMeta):
             try:
                 await task
             except asyncio.CancelledError:
-                pass
+                logger().debug('%s: Asyncio task canceled', self._log_identifier())
 
     async def __aenter__(self) -> 'RSocket':
         return self

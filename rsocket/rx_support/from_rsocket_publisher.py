@@ -2,6 +2,7 @@ import asyncio
 import functools
 
 import rx
+from rsocket.logger import logger
 from rx import Observable
 from rx.core import Observer
 from rx.disposable import Disposable
@@ -70,7 +71,7 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
                     subscriber.subscription.request(limit_rate)
                     get_next_n.clear()
             except asyncio.CancelledError:
-                pass
+                logger().debug('Asyncio task canceled: trigger_next_request_n')
 
         get_next_task = asyncio.create_task(_trigger_next_request_n())
         task = asyncio.create_task(_aio_sub())

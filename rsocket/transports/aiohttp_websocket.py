@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import aiohttp
 from aiohttp import web
+from rsocket.logger import logger
 
 from rsocket.frame import Frame
 from rsocket.rsocket_client import RSocketClient
@@ -52,7 +53,7 @@ class TransportAioHttpWebsocket(Transport):
                     async for frame in self._frame_parser.receive_data(msg.data, 0):
                         self._incoming_frame_queue.put_nowait(frame)
         except asyncio.CancelledError:
-            pass
+            logger().debug('Asyncio task canceled: aiohttp_handle_incoming_ws_messages')
 
     async def send_frame(self, frame: Frame):
         await self._ws.send_bytes(frame.serialize())

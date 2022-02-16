@@ -3,6 +3,8 @@ from datetime import timedelta, datetime
 from typing import Optional, Type
 from typing import Union
 
+from rsocket.logger import logger
+
 from reactivestreams.publisher import Publisher
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.payload import Payload
@@ -56,7 +58,7 @@ class RSocketClient(RSocket):
                 await asyncio.sleep(self._keep_alive_period.total_seconds())
                 self._send_new_keepalive()
         except asyncio.CancelledError:
-            pass
+            logger().debug('%s: Asyncio task canceled: keepalive_send', self._log_identifier())
 
     def _before_sender(self):
         self._keepalive_task = self._start_task_if_not_closing(self._keepalive_send_task)
@@ -84,7 +86,7 @@ class RSocketClient(RSocket):
                         self._stream_control.cancel_all_handlers
                     )
         except asyncio.CancelledError:
-            pass
+            logger().debug('%s: Asyncio task canceled: keepalive_timeout', self._log_identifier())
 
     async def _receiver_listen(self):
         keepalive_timeout_task = self._start_task_if_not_closing(self._keepalive_timeout_task)

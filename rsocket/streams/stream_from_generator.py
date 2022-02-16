@@ -50,7 +50,7 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
             async for next_item in self._generate_next_n(n):
                 await self._queue.put(next_item)
         except asyncio.CancelledError:
-            pass
+            logger().debug('Asyncio task canceled: queue_next_n')
         except Exception as exception:
             self._subscriber.on_error(exception)
             self._cancel_feeders()
@@ -96,7 +96,7 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
                         self._on_complete()
                     break
         except asyncio.CancelledError:
-            logger().debug('Asyncio task canceled')
+            logger().debug('Asyncio task canceled: stream_from_generator')
 
     def _send_to_subscriber(self, payload: Payload, is_complete=False):
         self._subscriber.on_next(payload, is_complete)

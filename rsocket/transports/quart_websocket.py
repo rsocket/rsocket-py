@@ -1,6 +1,7 @@
 import asyncio
 
 from quart import websocket
+from rsocket.logger import logger
 
 from rsocket.frame import Frame
 from rsocket.rsocket_server import RSocketServer
@@ -30,7 +31,7 @@ class TransportQuartWebsocket(Transport):
                 async for frame in self._frame_parser.receive_data(data, 0):
                     self._incoming_frame_queue.put_nowait(frame)
         except asyncio.CancelledError:
-            pass
+            logger().debug('Asyncio task canceled: quart_handle_incoming_ws_messages')
 
     async def send_frame(self, frame: Frame):
         await websocket.send(frame.serialize())
