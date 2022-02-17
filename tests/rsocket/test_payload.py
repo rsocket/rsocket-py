@@ -12,3 +12,14 @@ from rsocket.payload import Payload
 ))
 def test_payload_to_str(payload, expected_str):
     assert str(payload) == expected_str
+
+
+@pytest.mark.parametrize('payload, expected_str', (
+        (Payload(), "Payload(None, None)"),
+        (Payload(b'some data'), "Payload(b'some data', None)"),
+        (Payload(metadata=b'some metadata'), "Payload(None, b'some metadata')"),
+        (Payload(b'some data', b'some metadata'), "Payload(b'some data', b'some metadata')"),
+
+))
+def test_payload_repr(payload, expected_str):
+    assert repr(payload) == expected_str
