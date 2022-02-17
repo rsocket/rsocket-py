@@ -5,7 +5,7 @@ from enum import IntEnum, unique
 from typing import Tuple, Optional
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException, ParseError
+from rsocket.exceptions import RSocketProtocolException, ParseError, RSocketUnknownFrameType
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
     ensure_bytes
 
@@ -608,15 +608,15 @@ def parse_or_ignore(buffer: bytes) -> Optional[Frame]:
 
     try:
         frame = _frame_class_by_id[header.frame_type]()
-    except KeyError:
-        raise ParseError('Unknown frame type: {}'.format(header.frame_type))
+    except KeyError as exception:
+        raise RSocketUnknownFrameType(header.frame_type) from exception
 
     try:
         frame.parse(buffer, 0)
         return frame
     except Exception as exception:
         if not header.flags_ignore:
-            raise RSocketProtocolException(ErrorCode.CONNECTION_ERROR, str(exception))
+            raise RSocketProtocolException(ErrorCode.CONNECTION_ERROR, str(exception)) from exception
 
 
 def is_fragmentable_frame(frame: Frame) -> bool:

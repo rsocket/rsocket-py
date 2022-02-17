@@ -1,6 +1,8 @@
 from enum import Enum, unique
 from typing import Optional
 
+from rsocket.exceptions import RSocketUnknownMimetype
+
 
 class WellKnownMimeType:
     __slots__ = (
@@ -86,7 +88,7 @@ class WellKnownMimeTypes(Enum):
             if value.value.id == metadata_numeric_id:
                 return value.value
 
-        raise Exception('Unknown mime type id')
+        raise RSocketUnknownMimetype(metadata_numeric_id)
 
     @classmethod
     def get_by_name(cls, metadata_name: str) -> Optional[WellKnownMimeType]:

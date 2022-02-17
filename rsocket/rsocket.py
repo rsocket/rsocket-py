@@ -227,7 +227,7 @@ class RSocket(metaclass=abc.ABCMeta):
                                    Payload(frame.data, frame.metadata))
         except Exception as exception:
             logger().error('%s: Setup error', self._log_identifier(), exc_info=True)
-            raise RSocketProtocolException(ErrorCode.REJECTED_SETUP, data=str(exception))
+            raise RSocketProtocolException(ErrorCode.REJECTED_SETUP, data=str(exception)) from exception
 
     def _subscribe_to_lease_publisher(self):
         if self._lease_publisher is not None:

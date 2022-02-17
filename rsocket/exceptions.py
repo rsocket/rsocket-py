@@ -11,6 +11,16 @@ class RSocketError(Exception):
     pass
 
 
+class RSocketUnknownMimetype(RSocketError):
+    def __init__(self, mimetype_id):
+        self.mimetype_id = mimetype_id
+
+
+class RSocketUnknownFrameType(RSocketError):
+    def __init__(self, frame_type_id):
+        self.frame_type_id = frame_type_id
+
+
 class RSocketApplicationError(RSocketError):
     pass
 

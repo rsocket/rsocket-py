@@ -1,5 +1,6 @@
 import asyncstdlib
 import pytest
+from rsocket.exceptions import RSocketProtocolException
 
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
@@ -8,7 +9,8 @@ from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, FrameType,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
                            MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
-                           serialize_with_frame_size_header, RequestStreamFrame, RequestChannelFrame)
+                           serialize_with_frame_size_header, RequestStreamFrame, RequestChannelFrame, ParseError,
+                           parse_or_ignore)
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -571,3 +573,26 @@ async def test_keepalive_frame(connection):
     assert frame.last_received_position == 456
     assert frame.data == b'additional data'
     assert serialize_with_frame_size_header(frame) == data
+
+
+def test_parse_error_on_frame_too_short():
+    with pytest.raises(ParseError):
+        parse_or_ignore(b'1')
+
+
+def test_parse_broken_frame_raises_exception():
+    broken_frame_data = build_frame(
+        bits(1, 0, 'Padding'),
+        bits(31, 0, 'Stream id'),
+        bits(6, 8, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(8, 0, 'Padding flags'),
+        # Request N
+        bits(1, 0, 'Padding'),
+        bits(13, 23, 'Number of frames to request - broken. smaller than 31 bits'),
+    )
+
+    with pytest.raises(RSocketProtocolException):
+        parse_or_ignore(broken_frame_data)
