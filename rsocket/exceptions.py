@@ -16,6 +16,11 @@ class RSocketUnknownMimetype(RSocketError):
         self.mimetype_id = mimetype_id
 
 
+class RSocketMimetypeTooLong(RSocketError):
+    def __init__(self, mimetype):
+        self.mimetype = mimetype
+
+
 class RSocketUnknownFrameType(RSocketError):
     def __init__(self, frame_type_id):
         self.frame_type_id = frame_type_id

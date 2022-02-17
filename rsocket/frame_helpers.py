@@ -2,6 +2,7 @@ import struct
 from io import BytesIO
 from typing import Union, Callable, Optional, TypeVar, Tuple, AsyncGenerator
 
+from rsocket.exceptions import RSocketMimetypeTooLong
 from rsocket.fragment import Fragment
 
 MASK_63_BITS = 0x7FFFFFFFFFFFFFFF
@@ -41,18 +42,15 @@ V = TypeVar('V')
 
 def serialize_well_known_encoding(
         encoding: bytes,
-        encoding_parser: Optional[Callable[[bytes], Optional[T]]] = None) -> bytes:
-    known_type = None
-
-    if encoding_parser is not None:
-        known_type = encoding_parser(encoding)
+        encoding_parser: Callable[[bytes], Optional[T]]) -> bytes:
+    known_type = encoding_parser(encoding)
 
     if known_type is None:
         encoding_length = len(encoding)
         encoded_encoding_length = encoding_length - 1  # mime length cannot be 0
 
         if encoded_encoding_length > 0b1111111:
-            raise Exception('metadata encoding type too long')
+            raise RSocketMimetypeTooLong(encoding)
 
         serialized = ((0 << 7) | encoded_encoding_length & 0b1111111).to_bytes(1, 'big')
         serialized += encoding
