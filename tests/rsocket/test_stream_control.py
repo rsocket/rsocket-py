@@ -1,6 +1,6 @@
 import pytest
 
-from rsocket.exceptions import RSocketStreamAllocationFailure
+from rsocket.exceptions import RSocketStreamAllocationFailure, RSocketStreamIdInUse
 from rsocket.frame import CONNECTION_STREAM_ID
 from rsocket.stream_control import StreamControl, MAX_STREAM_ID
 
@@ -64,3 +64,16 @@ def test_stream_control_reuse_old_stream_ids():
     next_stream = control.allocate_stream()
 
     assert next_stream == 5
+
+
+def test_stream_in_use():
+    control = StreamControl(1)
+
+    control.assert_stream_id_available(1)
+
+    control.register_stream(1, object())
+
+    with pytest.raises(RSocketStreamIdInUse) as exc_info:
+        control.assert_stream_id_available(1)
+
+    assert exc_info.value.stream_id == 1
