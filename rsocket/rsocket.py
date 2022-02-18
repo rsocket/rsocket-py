@@ -2,7 +2,7 @@ import abc
 import asyncio
 from asyncio import Future, QueueEmpty, Task
 from datetime import timedelta
-from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type
+from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type, cast
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
@@ -13,7 +13,7 @@ from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import KeepAliveFrame, \
     MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
     RequestStreamFrame, Frame, exception_to_error_frame, LeaseFrame, ErrorFrame, RequestFrame, \
-    initiate_request_frame_types, InvalidFrame
+    initiate_request_frame_types, InvalidFrame, FragmentableFrame
 from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_frame, CONNECTION_STREAM_ID
 from rsocket.frame import SetupFrame
 from rsocket.frame_builders import to_payload_frame
@@ -185,6 +185,7 @@ class RSocket(metaclass=abc.ABCMeta):
 
     async def handle_request_response(self, frame: RequestResponseFrame):
         stream_id = frame.stream_id
+        self._stream_control.assert_stream_id_available(stream_id)
         handler = self._handler
 
         try:
@@ -197,6 +198,7 @@ class RSocket(metaclass=abc.ABCMeta):
 
     async def handle_request_stream(self, frame: RequestStreamFrame):
         stream_id = frame.stream_id
+        self._stream_control.assert_stream_id_available(stream_id)
         handler = self._handler
 
         try:
@@ -244,6 +246,8 @@ class RSocket(metaclass=abc.ABCMeta):
             self.send_error(CONNECTION_STREAM_ID, exception)
 
     async def handle_fire_and_forget(self, frame: RequestFireAndForgetFrame):
+        self._stream_control.assert_stream_id_available(frame.stream_id)
+
         await self._handler.request_fire_and_forget(Payload(frame.data, frame.metadata))
 
     async def handle_metadata_push(self, frame: MetadataPushFrame):
@@ -251,6 +255,7 @@ class RSocket(metaclass=abc.ABCMeta):
 
     async def handle_request_channel(self, frame: RequestChannelFrame):
         stream_id = frame.stream_id
+        self._stream_control.assert_stream_id_available(stream_id)
         handler = self._handler
 
         try:
@@ -318,7 +323,7 @@ class RSocket(metaclass=abc.ABCMeta):
             return
 
         if is_fragmentable_frame(frame):
-            frame = self._frame_fragment_cache.append(frame)
+            frame = self._frame_fragment_cache.append(cast(FragmentableFrame, frame))
             if frame is None:
                 return
 

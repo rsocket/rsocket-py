@@ -47,5 +47,12 @@ class RSocketProtocolException(RSocketError):
         return 'RSocket error %s(%s): "%s"' % (self.error_code.name, self.error_code.value, self.data or '')
 
 
+class RSocketStreamIdInUse(RSocketProtocolException):
+
+    def __init__(self, stream_id: int):
+        super().__init__(ErrorCode.REJECTED)
+        self.stream_id = stream_id
+
+
 class RSocketFrameFragmentDifferentType(RSocketError):
     pass

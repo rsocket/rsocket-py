@@ -1,7 +1,7 @@
 from typing import Dict
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketStreamAllocationFailure
+from rsocket.exceptions import RSocketStreamAllocationFailure, RSocketStreamIdInUse
 from rsocket.frame import CONNECTION_STREAM_ID, Frame, ErrorFrame
 from rsocket.streams.stream_handler import StreamHandler
 
@@ -59,3 +59,7 @@ class StreamControl:
             frame.data = b'Server not alive'
             stream.frame_received(frame)
             self.finish_stream(stream_id)
+
+    def assert_stream_id_available(self, stream_id: int):
+        if stream_id in self._streams:
+            raise RSocketStreamIdInUse(stream_id)

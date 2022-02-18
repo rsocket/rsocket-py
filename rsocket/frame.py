@@ -68,6 +68,16 @@ def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
     return flags
 
 
+class FragmentableFrame:
+    __slots__ = (
+        'metadata',
+        'data',
+        'flags_follows',
+        'flags_complete',
+        'flags_next',
+        'stream_id'
+    )
+
 class Frame(Header, metaclass=ABCMeta):
     __slots__ = (
         'metadata',
@@ -395,13 +405,11 @@ class RequestChannelFrame(RequestFrame):
         'initial_request_n',
         'flags_complete',
         'flags_follows',
-        'flags_initial'
     )
 
     def __init__(self):
         super().__init__(FrameType.REQUEST_CHANNEL)
         self.flags_complete = False
-        self.flags_initial = False
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):

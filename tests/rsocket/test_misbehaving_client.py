@@ -3,9 +3,11 @@ from asyncio import Future
 
 import pytest
 
+from rsocket.exceptions import RSocketStreamIdInUse
 from rsocket.frame_builders import to_payload_frame
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
+from rsocket.stream_control import StreamControl
 from tests.rsocket.helpers import create_future
 from tests.rsocket.misbehaving_rsocket import MisbehavingRSocket, UnknownFrame
 
@@ -62,3 +64,24 @@ async def test_send_frame_for_unknown_type(pipe_tcp, caplog):
 
     assert len(error_frame_log) > 0
     assert result.data == b'response'
+
+
+@pytest.mark.allow_error_log
+async def test_send_frame_for_stream_id_in_use(pipe_tcp, caplog):
+    (client, server) = pipe_tcp
+
+    class BrokenStreamControl(StreamControl):
+        def assert_stream_id_available(self, stream_id: int):
+            raise RSocketStreamIdInUse(stream_id)
+
+    class Handler(BaseRequestHandler):
+
+        async def request_response(self, payload: Payload) -> Future:
+            await asyncio.sleep(2)
+            return create_future(Payload(b'response'))
+
+    server.set_handler_using_factory(Handler)
+    server._stream_control = BrokenStreamControl(3)
+
+    with pytest.raises(Exception):
+        await client.request_response(Payload(b'request'))

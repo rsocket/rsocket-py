@@ -1,7 +1,7 @@
 from typing import Optional
 
 from rsocket.exceptions import RSocketFrameFragmentDifferentType
-from rsocket.frame import Frame, PayloadFrame
+from rsocket.frame import FragmentableFrame
 
 
 class FrameFragmentCache:
@@ -10,7 +10,7 @@ class FrameFragmentCache:
     def __init__(self):
         self.frame_by_stream_id = {}
 
-    def append(self, frame: PayloadFrame) -> Optional[PayloadFrame]:
+    def append(self, frame: FragmentableFrame) -> Optional[FragmentableFrame]:
         if frame.flags_follows:
             self.frame_by_stream_id[frame.stream_id] = self.frame_fragment_builder(frame)
             return None
@@ -20,7 +20,7 @@ class FrameFragmentCache:
                 self.frame_by_stream_id.pop(frame.stream_id)
             return frame
 
-    def frame_fragment_builder(self, next_frame: PayloadFrame) -> PayloadFrame:
+    def frame_fragment_builder(self, next_frame: FragmentableFrame) -> FragmentableFrame:
         current_frame_from_fragments = self.frame_by_stream_id.get(next_frame.stream_id, next_frame)
 
         if type(current_frame_from_fragments) != type(next_frame):
@@ -39,7 +39,7 @@ class FrameFragmentCache:
 
         return current_frame_from_fragments
 
-    def merge_frame_content_inplace(self, current_frame_from_fragments: Frame, next_frame: Frame):
+    def merge_frame_content_inplace(self, current_frame_from_fragments: FragmentableFrame, next_frame: FragmentableFrame):
         if next_frame.data is not None:
             if current_frame_from_fragments.data is None:
                 current_frame_from_fragments.data = b''
