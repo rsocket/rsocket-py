@@ -1,13 +1,16 @@
 from asyncio import Future
 
 from rsocket.frame import CancelFrame, Frame
+from rsocket.rsocket_interface import RSocketInterface
 from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestResponseResponder(StreamHandler):
-    def __init__(self, stream_id: int, socket, future: Future):
-        super().__init__(stream_id, socket)
+    def __init__(self, socket: RSocketInterface, future: Future):
+        super().__init__(socket)
         self.future = future
+
+    def setup(self):
         self.future.add_done_callback(self.future_done)
 
     def future_done(self, future):

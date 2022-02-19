@@ -4,6 +4,9 @@ from rsocket.handlers.request_cahnnel_common import RequestChannelCommon
 
 class RequestChannelResponder(RequestChannelCommon):
 
+    def setup(self):
+        super().setup()
+
     def frame_received(self, frame: Frame):
         if isinstance(frame, RequestChannelFrame):
             if self.subscriber.subscription is None:

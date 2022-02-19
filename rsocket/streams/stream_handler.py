@@ -1,4 +1,5 @@
 from abc import abstractmethod, ABCMeta
+from typing import Optional
 
 from rsocket.exceptions import RSocketValueErrorException
 from rsocket.frame import Frame, MAX_REQUEST_N
@@ -8,11 +9,15 @@ from rsocket.streams.backpressureapi import BackpressureApi
 
 
 class StreamHandler(BackpressureApi, metaclass=ABCMeta):
-    def __init__(self, stream_id: int, socket):
+    def __init__(self, socket):
         super().__init__()
-        self.stream_id = stream_id
+        self.stream_id: Optional[int] = None
         self.socket = socket
         self._initial_request_n = MAX_REQUEST_N
+
+    @abstractmethod
+    def setup(self):
+        ...
 
     def initial_request_n(self, n: int):
         if n <= 0:

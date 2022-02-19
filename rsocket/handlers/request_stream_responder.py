@@ -4,6 +4,7 @@ from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
 from rsocket.payload import Payload
+from rsocket.rsocket_interface import RSocketInterface
 from rsocket.streams.stream_handler import StreamHandler
 
 
@@ -35,10 +36,12 @@ class RequestStreamResponder(StreamHandler):
             # noinspection PyAttributeOutsideInit
             self.subscription = subscription
 
-    def __init__(self, stream_id: int, socket, publisher: Publisher):
-        super().__init__(stream_id, socket)
+    def __init__(self, socket: RSocketInterface, publisher: Publisher):
+        super().__init__(socket)
         self.publisher = publisher
-        self.subscriber = self.StreamSubscriber(stream_id, socket)
+
+    def setup(self):
+        self.subscriber = self.StreamSubscriber(self.stream_id, self.socket)
         self.publisher.subscribe(self.subscriber)
 
     def frame_received(self, frame: Frame):

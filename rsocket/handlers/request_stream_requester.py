@@ -5,13 +5,17 @@ from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_except
 from rsocket.frame_builders import to_request_stream_frame
 from rsocket.logger import logger
 from rsocket.payload import Payload
+from rsocket.rsocket_interface import RSocketInterface
 from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestStreamRequester(StreamHandler, Publisher, Subscription):
-    def __init__(self, stream_id: int, socket, payload: Payload):
-        super().__init__(stream_id, socket)
+    def __init__(self, socket: RSocketInterface, payload: Payload):
+        super().__init__(socket)
         self.payload = payload
+
+    def setup(self):
+        pass
 
     def subscribe(self, subscriber: Subscriber):
         # noinspection PyAttributeOutsideInit

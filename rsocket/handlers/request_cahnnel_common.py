@@ -1,3 +1,4 @@
+import abc
 from typing import Optional
 
 from reactivestreams.publisher import Publisher
@@ -6,10 +7,11 @@ from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     PayloadFrame, Frame, error_frame_to_exception
 from rsocket.payload import Payload
+from rsocket.rsocket_interface import RSocketInterface
 from rsocket.streams.stream_handler import StreamHandler
 
 
-class RequestChannelCommon(StreamHandler, Publisher, Subscription):
+class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc.ABCMeta):
     class StreamSubscriber(Subscriber):
         def __init__(self, stream_id: int, socket, requester: 'RequestChannelCommon'):
             super().__init__()
@@ -38,13 +40,15 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription):
             # noinspection PyAttributeOutsideInit
             self.subscription = subscription
 
-    def __init__(self, stream_id: int, socket, remote_publisher: Optional[Publisher] = None):
-        super().__init__(stream_id, socket)
+    def __init__(self, socket: RSocketInterface, remote_publisher: Optional[Publisher] = None):
+        super().__init__(socket)
         self.remote_subscriber = None
         self._sent_complete = False
         self._received_complete = False
         self._remote_publisher = remote_publisher
-        self.subscriber = self.StreamSubscriber(stream_id, socket, self)
+
+    def setup(self):
+        self.subscriber = self.StreamSubscriber(self.stream_id, self.socket, self)
 
         if self._remote_publisher is not None:
             self._remote_publisher.subscribe(self.subscriber)

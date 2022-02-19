@@ -10,10 +10,12 @@ from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestResponseRequester(StreamHandler):
-    def __init__(self, stream_id: int, socket: RSocketInterface, payload: Payload):
-        super().__init__(stream_id, socket)
+    def __init__(self, socket: RSocketInterface, payload: Payload):
+        super().__init__(socket)
         self._payload = payload
         self._future = create_future()
+
+    def setup(self):
         self._future.add_done_callback(self._on_future_complete)
 
     def run(self) -> Future:
