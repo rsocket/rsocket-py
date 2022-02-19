@@ -46,6 +46,7 @@ class RequestStreamResponder(StreamHandler):
 
     def frame_received(self, frame: Frame):
         if isinstance(frame, RequestStreamFrame):
+            self.setup()
             self.subscriber.subscription.request(frame.initial_request_n)
         elif isinstance(frame, CancelFrame):
             self.subscriber.subscription.cancel()

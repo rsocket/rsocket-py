@@ -219,7 +219,7 @@ class RSocket(RSocketInterface):
             return
 
         request_responder = RequestStreamResponder(self, publisher)
-        self._register_stream(stream_id, request_responder).setup()
+        self._register_stream(stream_id, request_responder)
         request_responder.frame_received(frame)
 
     async def handle_setup(self, frame: SetupFrame):
@@ -276,7 +276,7 @@ class RSocket(RSocketInterface):
             return
 
         channel_responder = RequestChannelResponder(self, publisher)
-        self._register_stream(stream_id, channel_responder).setup()
+        self._register_stream(stream_id, channel_responder)
         channel_responder.subscribe(subscriber)
         channel_responder.frame_received(frame)
 
@@ -431,7 +431,7 @@ class RSocket(RSocketInterface):
         logger().debug('%s: sending request-stream: %s', self._log_identifier(), payload)
 
         requester = RequestStreamRequester(self, payload)
-        self.register_new_stream(requester).setup()
+        self.register_new_stream(requester)
         return requester
 
     def request_channel(
@@ -442,7 +442,7 @@ class RSocket(RSocketInterface):
         logger().debug('%s: sending request-channel: %s', self._log_identifier(), payload)
 
         requester = RequestChannelRequester(self, payload, local_publisher)
-        self.register_new_stream(requester).setup()
+        self.register_new_stream(requester)
         return requester
 
     def metadata_push(self, metadata: bytes):

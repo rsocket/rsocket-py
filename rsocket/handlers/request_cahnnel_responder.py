@@ -9,6 +9,8 @@ class RequestChannelResponder(RequestChannelCommon):
 
     def frame_received(self, frame: Frame):
         if isinstance(frame, RequestChannelFrame):
+            self.setup()
+
             if self.subscriber.subscription is None:
                 self.socket.send_complete(self.stream_id)
                 self.mark_completed_and_finish(sent=True)

@@ -26,6 +26,7 @@ class RequestChannelRequester(RequestChannelCommon):
         )
 
     def subscribe(self, subscriber: Subscriber):
+        self.setup()
         super().subscribe(subscriber)
         self._send_channel_request(self._payload)
 
