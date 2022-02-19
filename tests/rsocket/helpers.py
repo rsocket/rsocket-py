@@ -1,4 +1,3 @@
-import asyncio
 from math import ceil
 
 from reactivestreams.publisher import Publisher
@@ -31,8 +30,3 @@ class DefaultPublisherSubscription(Publisher, DefaultSubscription):
         subscriber.on_subscribe(self)
         self._subscriber = subscriber
 
-
-def create_future(payload):
-    future = asyncio.get_event_loop().create_future()
-    future.set_result(payload)
-    return future

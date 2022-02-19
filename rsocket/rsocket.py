@@ -29,6 +29,7 @@ from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
+from rsocket.rsocket_interface import RSocketInterface
 from rsocket.stream_control import StreamControl
 from rsocket.streams.backpressureapi import BackpressureApi
 from rsocket.streams.stream_handler import StreamHandler
@@ -39,7 +40,7 @@ async def noop_frame_handler(frame):
     pass
 
 
-class RSocket(metaclass=abc.ABCMeta):
+class RSocket(RSocketInterface):
     class LeaseSubscriber(DefaultSubscriber):
         def __init__(self, socket: 'RSocket'):
             self._socket = socket
@@ -404,7 +405,7 @@ class RSocket(metaclass=abc.ABCMeta):
         stream_id = self._allocate_stream()
         requester = RequestResponseRequester(stream_id, self, payload)
         self._register_stream(stream_id, requester)
-        return requester
+        return requester.run()
 
     def fire_and_forget(self, payload: Payload):
         logger().debug('%s: sending fire-and-forget: %s', self._log_identifier(), payload)

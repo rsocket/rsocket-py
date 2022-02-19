@@ -7,9 +7,9 @@ import pytest
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolException
+from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from tests.rsocket.helpers import create_future
 
 
 async def test_rsocket_client_closed_without_requests(lazy_pipe):
