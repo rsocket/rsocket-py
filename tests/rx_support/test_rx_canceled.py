@@ -64,7 +64,12 @@ async def test_rx_support_request_stream_take_only_n(pipe: Tuple[RSocketServer, 
         assert received_messages[i] == ('Feed Item: %d' % i).encode()
 
 
-@pytest.mark.parametrize('take_only_n', (1, 2, 6))
+@pytest.mark.parametrize('take_only_n', (
+        # 0,
+        1,
+        2,
+        6,
+))
 async def test_rx_support_request_channel_response_take_only_n(pipe: Tuple[RSocketServer, RSocketClient],
                                                                take_only_n):
     server, client = pipe
@@ -91,14 +96,17 @@ async def test_rx_support_request_channel_response_take_only_n(pipe: Tuple[RSock
 
     rx_client = RxRSocket(client)
 
-    received_messages = await rx_client.request_channel(Payload(b'request text'),
-                                                        request_limit=1).pipe(
+    received_messages = await rx_client.request_channel(
+        Payload(b'request text'),
+        request_limit=1
+    ).pipe(
         operators.map(lambda payload: payload.data),
         operators.take(take_only_n),
         operators.to_list()
     )
 
-    await wait_for_server_finish.wait()
+    if take_only_n > 0:
+        await wait_for_server_finish.wait()
 
     maximum_message_received = min(maximum_message_count, take_only_n)
 

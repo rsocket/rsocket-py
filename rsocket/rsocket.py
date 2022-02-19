@@ -16,7 +16,7 @@ from rsocket.frame import KeepAliveFrame, \
     initiate_request_frame_types, InvalidFrame, FragmentableFrame
 from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_frame, CONNECTION_STREAM_ID
 from rsocket.frame import SetupFrame
-from rsocket.frame_builders import to_payload_frame
+from rsocket.frame_builders import to_payload_frame, to_fire_and_forget_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.handlers.request_cahnnel_responder import RequestChannelResponder
@@ -420,11 +420,7 @@ class RSocket(RSocketInterface):
         logger().debug('%s: sending fire-and-forget: %s', self._log_identifier(), payload)
 
         stream_id = self._allocate_stream()
-        frame = RequestFireAndForgetFrame()
-        frame.stream_id = stream_id
-        frame.data = payload.data
-        frame.metadata = payload.metadata
-        self.send_request(frame)
+        self.send_request(to_fire_and_forget_frame(stream_id, payload))
         self.finish_stream(stream_id)
 
     def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:

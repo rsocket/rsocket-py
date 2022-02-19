@@ -2,7 +2,7 @@ from rsocket.fragment import Fragment
 from rsocket.frame import (PayloadFrame, RequestNFrame,
                            CancelFrame, RequestChannelFrame,
                            MAX_REQUEST_N,
-                           RequestStreamFrame, RequestResponseFrame)
+                           RequestStreamFrame, RequestResponseFrame, RequestFireAndForgetFrame)
 from rsocket.payload import Payload
 
 
@@ -64,3 +64,11 @@ def to_request_response_frame(stream_id: int, payload: Payload):
     request.data = payload.data
     request.metadata = payload.metadata
     return request
+
+
+def to_fire_and_forget_frame(stream_id: int, payload: Payload):
+    frame = RequestFireAndForgetFrame()
+    frame.stream_id = stream_id
+    frame.data = payload.data
+    frame.metadata = payload.metadata
+    return frame
