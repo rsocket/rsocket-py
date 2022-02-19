@@ -9,13 +9,13 @@ from rsocket.payload import Payload
 
 class RequestChannelRequester(RequestChannelCommon):
 
-    def __init__(self, stream: int, socket, payload: Payload, remote_publisher: Optional[Publisher] = None):
-        super().__init__(stream, socket, remote_publisher)
+    def __init__(self, stream_id: int, socket, payload: Payload, remote_publisher: Optional[Publisher] = None):
+        super().__init__(stream_id, socket, remote_publisher)
         self._payload = payload
 
     def _send_channel_request(self, payload: Payload):
         self.socket.send_request(
-            to_request_channel_frame(self.stream,
+            to_request_channel_frame(self.stream_id,
                                      payload,
                                      self._initial_request_n,
                                      self._remote_publisher is None)

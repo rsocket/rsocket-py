@@ -11,40 +11,40 @@ from rsocket.streams.stream_handler import StreamHandler
 
 class RequestChannelCommon(StreamHandler, Publisher, Subscription):
     class StreamSubscriber(Subscriber):
-        def __init__(self, stream: int, socket, requester: 'RequestChannelCommon'):
+        def __init__(self, stream_id: int, socket, requester: 'RequestChannelCommon'):
             super().__init__()
-            self._stream = stream
+            self._stream_id = stream_id
             self._socket = socket
             self._requester = requester
             self.subscription = None
 
         def on_next(self, value, is_complete=False):
             self._socket.send_payload(
-                self._stream, value, complete=is_complete)
+                self._stream_id, value, complete=is_complete)
 
             if is_complete:
                 self._requester.mark_completed_and_finish(sent=True)
 
         def on_complete(self):
             self._socket.send_payload(
-                self._stream, Payload(), complete=True, is_next=False)
+                self._stream_id, Payload(), complete=True, is_next=False)
             self._requester.mark_completed_and_finish(sent=True)
 
         def on_error(self, exception):
-            self._socket.send_error(self._stream, exception)
+            self._socket.send_error(self._stream_id, exception)
             self._requester.mark_completed_and_finish(sent=True)
 
         def on_subscribe(self, subscription):
             # noinspection PyAttributeOutsideInit
             self.subscription = subscription
 
-    def __init__(self, stream: int, socket, remote_publisher: Optional[Publisher] = None):
-        super().__init__(stream, socket)
+    def __init__(self, stream_id: int, socket, remote_publisher: Optional[Publisher] = None):
+        super().__init__(stream_id, socket)
         self.remote_subscriber = None
         self._sent_complete = False
         self._received_complete = False
         self._remote_publisher = remote_publisher
-        self.subscriber = self.StreamSubscriber(stream, socket, self)
+        self.subscriber = self.StreamSubscriber(stream_id, socket, self)
 
         if self._remote_publisher is not None:
             self._remote_publisher.subscribe(self.subscriber)

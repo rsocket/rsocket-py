@@ -7,9 +7,9 @@ from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestResponseRequester(StreamHandler, Future):
-    def __init__(self, stream: int, socket, payload: Payload):
-        super().__init__(stream, socket)
-        stream_id = self.stream
+    def __init__(self, stream_id: int, socket, payload: Payload):
+        super().__init__(stream_id, socket)
+        stream_id = self.stream_id
         request = to_request_response_frame(stream_id, payload)
         self.socket.send_request(request)
 

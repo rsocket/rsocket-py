@@ -5,8 +5,8 @@ from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestResponseResponder(StreamHandler):
-    def __init__(self, stream: int, socket, future: Future):
-        super().__init__(stream, socket)
+    def __init__(self, stream_id: int, socket, future: Future):
+        super().__init__(stream_id, socket)
         self.future = future
         self.future.add_done_callback(self.future_done)
 
@@ -15,9 +15,9 @@ class RequestResponseResponder(StreamHandler):
             pass
         elif not future.exception():
             self.socket.send_payload(
-                self.stream, future.result(), complete=True)
+                self.stream_id, future.result(), complete=True)
         else:
-            self.socket.send_error(self.stream, future.exception())
+            self.socket.send_error(self.stream_id, future.exception())
 
         self._finish_stream()
 

@@ -9,8 +9,8 @@ from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestStreamRequester(StreamHandler, Publisher, Subscription):
-    def __init__(self, stream: int, socket, payload: Payload):
-        super().__init__(stream, socket)
+    def __init__(self, stream_id: int, socket, payload: Payload):
+        super().__init__(stream_id, socket)
         self.payload = payload
 
     def subscribe(self, subscriber: Subscriber):
@@ -44,7 +44,7 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
         logger().debug('%s: Sending stream request: %s', self.socket._log_identifier(), payload)
 
         self.socket.send_request(to_request_stream_frame(
-            self.stream,
+            self.stream_id,
             payload,
             self._initial_request_n
         ))

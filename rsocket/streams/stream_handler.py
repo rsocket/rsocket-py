@@ -8,15 +8,15 @@ from rsocket.streams.backpressureapi import BackpressureApi
 
 
 class StreamHandler(BackpressureApi, metaclass=ABCMeta):
-    def __init__(self, stream: int, socket):
+    def __init__(self, stream_id: int, socket):
         super().__init__()
-        self.stream = stream
+        self.stream_id = stream_id
         self.socket = socket
         self._initial_request_n = MAX_REQUEST_N
 
     def initial_request_n(self, n: int):
         if n <= 0:
-            self.socket.finish_stream(self.stream)
+            self.socket.finish_stream(self.stream_id)
             raise RSocketValueErrorException('Initial request N must be > 0')
 
         self._initial_request_n = n
@@ -33,13 +33,13 @@ class StreamHandler(BackpressureApi, metaclass=ABCMeta):
         """Convenience method for use by requester subclasses."""
         logger().debug('%s: Sending cancel', self.socket._log_identifier())
 
-        self.socket.send_frame(to_cancel_frame(self.stream))
+        self.socket.send_frame(to_cancel_frame(self.stream_id))
         self._finish_stream()
 
     def send_request_n(self, n: int):
         logger().debug('%s: Sending request N: %d', self.socket._log_identifier(), n)
 
-        self.socket.send_frame(to_request_n_frame(self.stream, n))
+        self.socket.send_frame(to_request_n_frame(self.stream_id, n))
 
     def _finish_stream(self):
-        self.socket.finish_stream(self.stream)
+        self.socket.finish_stream(self.stream_id)
