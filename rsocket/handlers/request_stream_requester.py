@@ -3,6 +3,7 @@ from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception
 from rsocket.frame_builders import to_request_stream_frame
+from rsocket.helpers import payload_from_frame
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.rsocket_interface import RSocketInterface
@@ -33,7 +34,7 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
     def frame_received(self, frame: Frame):
         if isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                self.subscriber.on_next(Payload(frame.data, frame.metadata),
+                self.subscriber.on_next(payload_from_frame(frame),
                                         is_complete=frame.flags_complete)
             elif frame.flags_complete:
                 self.subscriber.on_complete()

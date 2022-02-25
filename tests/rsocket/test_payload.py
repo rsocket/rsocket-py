@@ -23,3 +23,10 @@ def test_payload_to_str(payload, expected_str):
 ))
 def test_payload_repr(payload, expected_str):
     assert repr(payload) == expected_str
+
+
+def test_payload_support_bytearray():
+    payload = Payload(bytearray([1, 5, 10]), bytearray([4, 6, 7]))
+
+    assert payload.data == b'\x01\x05\x0a'
+    assert payload.metadata == b'\x04\x06\x07'

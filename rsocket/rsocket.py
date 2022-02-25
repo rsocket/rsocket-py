@@ -25,6 +25,7 @@ from rsocket.handlers.request_response_requester import RequestResponseRequester
 from rsocket.handlers.request_response_responder import RequestResponseResponder
 from rsocket.handlers.request_stream_requester import RequestStreamRequester
 from rsocket.handlers.request_stream_responder import RequestStreamResponder
+from rsocket.helpers import payload_from_frame
 from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -182,7 +183,7 @@ class RSocket(RSocketInterface):
         return handler
 
     async def handle_error(self, frame: ErrorFrame):
-        await self._handler.on_error(frame.error_code, Payload(frame.data, frame.metadata))
+        await self._handler.on_error(frame.error_code, payload_from_frame(frame))
 
     async def handle_keep_alive(self, frame: KeepAliveFrame):
         logger().debug('%s: Received keepalive', self._log_identifier())
@@ -200,7 +201,7 @@ class RSocket(RSocketInterface):
         handler = self._handler
 
         try:
-            response_future = await handler.request_response(Payload(frame.data, frame.metadata))
+            response_future = await handler.request_response(payload_from_frame(frame))
         except Exception as exception:
             self.send_error(stream_id, exception)
             return
@@ -213,7 +214,7 @@ class RSocket(RSocketInterface):
         handler = self._handler
 
         try:
-            publisher = await handler.request_stream(Payload(frame.data, frame.metadata))
+            publisher = await handler.request_stream(payload_from_frame(frame))
         except Exception as exception:
             self.send_error(stream_id, exception)
             return
@@ -237,7 +238,7 @@ class RSocket(RSocketInterface):
         try:
             await handler.on_setup(frame.data_encoding,
                                    frame.metadata_encoding,
-                                   Payload(frame.data, frame.metadata))
+                                   payload_from_frame(frame))
         except Exception as exception:
             logger().error('%s: Setup error', self._log_identifier(), exc_info=True)
             raise RSocketProtocolException(ErrorCode.REJECTED_SETUP, data=str(exception)) from exception
@@ -259,7 +260,7 @@ class RSocket(RSocketInterface):
     async def handle_fire_and_forget(self, frame: RequestFireAndForgetFrame):
         self._stream_control.assert_stream_id_available(frame.stream_id)
 
-        await self._handler.request_fire_and_forget(Payload(frame.data, frame.metadata))
+        await self._handler.request_fire_and_forget(payload_from_frame(frame))
 
     async def handle_metadata_push(self, frame: MetadataPushFrame):
         await self._handler.on_metadata_push(Payload(None, frame.metadata))
@@ -270,7 +271,7 @@ class RSocket(RSocketInterface):
         handler = self._handler
 
         try:
-            publisher, subscriber = await handler.request_channel(Payload(frame.data, frame.metadata))
+            publisher, subscriber = await handler.request_channel(payload_from_frame(frame))
         except Exception as exception:
             self.send_error(stream_id, exception)
             return

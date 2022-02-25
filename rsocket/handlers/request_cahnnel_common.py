@@ -6,6 +6,7 @@ from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     PayloadFrame, Frame, error_frame_to_exception
+from rsocket.helpers import payload_from_frame
 from rsocket.payload import Payload
 from rsocket.rsocket_interface import RSocketInterface
 from rsocket.streams.stream_handler import StreamHandler
@@ -62,7 +63,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
 
         elif isinstance(frame, PayloadFrame):
             if frame.flags_next:
-                self.remote_subscriber.on_next(Payload(frame.data, frame.metadata),
+                self.remote_subscriber.on_next(payload_from_frame(frame),
                                                is_complete=frame.flags_complete)
             elif frame.flags_complete:
                 self.remote_subscriber.on_complete()
