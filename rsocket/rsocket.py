@@ -321,7 +321,7 @@ class RSocket(RSocketInterface):
                 break
             async for frame in next_frame_generator:
                 try:
-                    await self._handle_next_frames(frame)
+                    await self._handle_next_frame(frame)
                 except RSocketProtocolException as exception:
                     logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
                     self.send_error(frame.stream_id, exception)
@@ -329,17 +329,25 @@ class RSocket(RSocketInterface):
                     logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
                     self.send_error(frame.stream_id, exception)
 
-    async def _handle_next_frames(self, frame: Frame):
+    async def _handle_next_frame(self, frame: Frame):
 
         if isinstance(frame, InvalidFrame):
+            logger().debug('%s: Received invalid frame', self._log_identifier())
             return
 
         if is_fragmentable_frame(frame):
             frame = self._frame_fragment_cache.append(cast(FragmentableFrame, frame))
             if frame is None:
+                logger().debug('%s: Received frame fragment', self._log_identifier())
                 return
 
         stream_id = frame.stream_id
+
+        logger().debug('%s: Received frame type: %s, stream_id: %d',
+                       self._log_identifier(),
+                       frame.frame_type.name,
+                       frame.stream_id
+                       )
 
         if stream_id == CONNECTION_STREAM_ID or isinstance(frame, initiate_request_frame_types):
             await self._handle_frame_by_type(frame)

@@ -81,6 +81,7 @@ async def test_setup_readable(connection, metadata_flag, metadata, lease, data):
     assert frame.flags_complete is False
     assert frame.flags_ignore is False
     assert frame.flags_follows is False
+    assert frame.frame_type is FrameType.SETUP
 
 
 @pytest.mark.parametrize('lease', (
@@ -180,6 +181,7 @@ async def test_request_stream_frame(connection, follows):
     assert frame.data == b'\x01\x02\x03'
     assert frame.flags_follows == bool(follows)
     assert frame.stream_id == 15
+    assert frame.frame_type is FrameType.REQUEST_STREAM
 
     composite_metadata = CompositeMetadata()
     composite_metadata.parse(frame.metadata)
@@ -232,6 +234,7 @@ async def test_request_channel_frame(connection, follows, complete):
     assert frame.flags_follows == bool(follows)
     assert frame.flags_complete == bool(complete)
     assert frame.stream_id == 15
+    assert frame.frame_type is FrameType.REQUEST_CHANNEL
 
     composite_metadata = CompositeMetadata()
     composite_metadata.parse(frame.metadata)
@@ -293,6 +296,7 @@ async def test_request_with_composite_metadata(connection):
     assert frame.data == b'\x01\x02\x03'
     assert not frame.flags_follows
     assert frame.stream_id == 17
+    assert frame.frame_type is FrameType.REQUEST_RESPONSE
 
     composite_metadata = CompositeMetadata()
     composite_metadata.parse(frame.metadata)
@@ -369,6 +373,7 @@ async def test_cancel(connection):
     frames = await asyncstdlib.builtins.list(connection.receive_data(data))
     frame = frames[0]
     assert isinstance(frame, CancelFrame)
+    assert frame.frame_type is FrameType.CANCEL
     assert serialize_with_frame_size_header(frame) == data
 
 
@@ -394,6 +399,7 @@ async def test_error(connection):
 
     assert frame.error_code == ErrorCode.REJECTED_SETUP
     assert frame.data == b'error data'
+    assert frame.frame_type is FrameType.ERROR
 
 
 async def test_multiple_frames(connection):
@@ -428,6 +434,7 @@ async def test_request_n_frame(connection):
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.request_n == 23
+    assert frame.frame_type is FrameType.REQUEST_N
 
 
 async def test_resume_frame(connection):
@@ -457,6 +464,7 @@ async def test_resume_frame(connection):
     assert isinstance(frame, ResumeFrame)
     assert frame.last_server_position == 123
     assert frame.first_client_position == 456
+    assert frame.frame_type is FrameType.RESUME
     assert serialize_with_frame_size_header(frame) == data
 
 
@@ -477,6 +485,7 @@ async def test_metadata_push_frame(connection):
     frame = frames[0]
     assert isinstance(frame, MetadataPushFrame)
     assert frame.metadata == b'metadata'
+    assert frame.frame_type is FrameType.METADATA_PUSH
     assert serialize_with_frame_size_header(frame) == data
 
 
@@ -500,6 +509,7 @@ async def test_payload_frame(connection):
     assert isinstance(frame, PayloadFrame)
     assert frame.metadata == b'metadata'
     assert frame.data == b'actual_data'
+    assert frame.frame_type is FrameType.PAYLOAD
     assert frame.stream_id == 6
     assert serialize_with_frame_size_header(frame) == data
 
@@ -526,6 +536,7 @@ async def test_lease_frame(connection):
     assert isinstance(frame, LeaseFrame)
     assert frame.number_of_requests == 123
     assert frame.time_to_live == 456
+    assert frame.frame_type is FrameType.LEASE
     assert frame.metadata == b'Metadata on lease frame'
     assert serialize_with_frame_size_header(frame) == data
 
@@ -548,6 +559,7 @@ async def test_resume_ok_frame(connection):
     frame = frames[0]
     assert isinstance(frame, ResumeOKFrame)
     assert frame.last_received_client_position == 456
+    assert frame.frame_type is FrameType.RESUME_OK
     assert serialize_with_frame_size_header(frame) == data
 
 
@@ -571,6 +583,8 @@ async def test_keepalive_frame(connection):
 
     assert isinstance(frame, KeepAliveFrame)
     assert frame.last_received_position == 456
+    assert frame.stream_id == 0
+    assert frame.frame_type is FrameType.KEEPALIVE
     assert frame.data == b'additional data'
     assert serialize_with_frame_size_header(frame) == data
 

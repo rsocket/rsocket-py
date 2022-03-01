@@ -62,7 +62,8 @@ def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
     frame.length = len(buffer)
     frame.stream_id, frame.frame_type, flags = struct.unpack_from('>IBB', buffer, offset)
     flags |= (frame.frame_type & 3) << 8
-    frame.frame_type >>= 2
+    frame_type_id = frame.frame_type >> 2
+    frame.frame_type = FrameType(frame_type_id)
     frame.flags_ignore = is_flag_set(flags, _FLAG_IGNORE_BIT)
     frame.flags_metadata = is_flag_set(flags, _FLAG_METADATA_BIT)
     return flags
@@ -77,6 +78,7 @@ class FragmentableFrame:
         'flags_next',
         'stream_id'
     )
+
 
 class Frame(Header, metaclass=ABCMeta):
     __slots__ = (
