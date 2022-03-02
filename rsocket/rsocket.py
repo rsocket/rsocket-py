@@ -19,6 +19,7 @@ from rsocket.frame import SetupFrame
 from rsocket.frame_builders import to_payload_frame, to_fire_and_forget_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
 from rsocket.frame_helpers import ensure_bytes
+from rsocket.frame_logger import log_frame
 from rsocket.handlers.request_cahnnel_responder import RequestChannelResponder
 from rsocket.handlers.request_channel_requester import RequestChannelRequester
 from rsocket.handlers.request_response_requester import RequestResponseRequester
@@ -165,7 +166,9 @@ class RSocket(RSocketInterface):
         self.send_frame(exception_to_error_frame(stream_id, exception))
 
     def send_payload(self, stream_id: int, payload: Payload, complete=False, is_next=True):
-        logger().debug('%s: Sending payload: %s (complete=%s, next=%s)', self._log_identifier(), payload, complete,
+        logger().debug('%s: Sending payload: %s (complete=%s, next=%s)',
+                       self._log_identifier(),
+                       payload, complete,
                        is_next)
         self.send_frame(to_payload_frame(stream_id, payload, complete, is_next=is_next))
 
@@ -331,23 +334,17 @@ class RSocket(RSocketInterface):
 
     async def _handle_next_frame(self, frame: Frame):
 
+        log_frame(frame, self._log_identifier())
+
         if isinstance(frame, InvalidFrame):
-            logger().debug('%s: Received invalid frame', self._log_identifier())
             return
 
         if is_fragmentable_frame(frame):
             frame = self._frame_fragment_cache.append(cast(FragmentableFrame, frame))
             if frame is None:
-                logger().debug('%s: Received frame fragment', self._log_identifier())
                 return
 
         stream_id = frame.stream_id
-
-        logger().debug('%s: Received frame type: %s, stream_id: %d',
-                       self._log_identifier(),
-                       frame.frame_type.name,
-                       frame.stream_id
-                       )
 
         if stream_id == CONNECTION_STREAM_ID or isinstance(frame, initiate_request_frame_types):
             await self._handle_frame_by_type(frame)

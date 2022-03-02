@@ -4,7 +4,6 @@ from reactivestreams.subscription import Subscription
 from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception
 from rsocket.frame_builders import to_request_stream_frame
 from rsocket.helpers import payload_from_frame
-from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.rsocket_interface import RSocketInterface
 from rsocket.streams.stream_handler import StreamHandler
@@ -46,8 +45,6 @@ class RequestStreamRequester(StreamHandler, Publisher, Subscription):
             self._finish_stream()
 
     def _send_stream_request(self, payload: Payload):
-        logger().debug('%s: Sending stream request: %s', self.socket._log_identifier(), payload)
-
         self.socket.send_request(to_request_stream_frame(
             self.stream_id,
             payload,
