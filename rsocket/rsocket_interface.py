@@ -20,10 +20,6 @@ class RSocketInterface(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def register_stream(self, handler) -> int:
-        ...
-
-    @abc.abstractmethod
     def send_frame(self, frame: Frame):
         ...
 
