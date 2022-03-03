@@ -1,6 +1,7 @@
 from typing import AsyncGenerator, Tuple
 
 from rsocket.payload import Payload
+from rsocket.streams.exceptions import FinishedIterator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
@@ -17,5 +18,5 @@ class StreamFromAsyncGenerator(StreamFromGenerator):
                 yield next_value
             except StopAsyncIteration:
                 if not is_complete_sent:
-                    yield Payload(), True
+                    raise FinishedIterator()
                 return

@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import List, Tuple, AsyncGenerator
+from asyncio import Event
+from typing import List, Tuple, AsyncGenerator, Generator
 
 import pytest
 
@@ -254,7 +255,7 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
     fragments_sent = 0
 
-    def generate() -> AsyncGenerator[Tuple[Payload, bool], None]:
+    def generator() -> Generator[Tuple[Payload, bool], None, None]:
         for i in range(3):
             yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
 
@@ -267,7 +268,7 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     class Handler(BaseRequestHandler, Publisher):
 
         def subscribe(self, subscriber: Subscriber):
-            StreamFragmentedCounter(generate, fragment_size=6).subscribe(subscriber)
+            StreamFragmentedCounter(generator, fragment_size=6).subscribe(subscriber)
 
         async def request_stream(self, payload: Payload) -> Publisher:
             return self
@@ -281,3 +282,60 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     assert received_messages[2].data == b'some long data which should be fragmented 2'
 
     assert fragments_sent == 24
+
+
+async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+    stream_completed = Event()
+
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        item_count = 10
+        for j in range(item_count):
+            await asyncio.sleep(1)
+            is_complete = j == item_count - 1
+            yield Payload(ensure_bytes('Feed Item: %s' % j)), is_complete
+
+    class Handler(BaseRequestHandler, Publisher):
+
+        def subscribe(self, subscriber: Subscriber):
+            StreamFromAsyncGenerator(generator).subscribe(subscriber)
+
+        async def request_stream(self, payload: Payload) -> Publisher:
+            return self
+
+    class StreamSubscriber(DefaultSubscriber):
+        def __init__(self):
+            self.received_messages: List[Payload] = []
+
+        def on_next(self, value, is_complete=False):
+            self.received_messages.append(value)
+
+            logging.info(value)
+            if is_complete:
+                stream_completed.set()
+
+        def on_complete(self):
+            logging.info('Complete')
+            stream_completed.set()
+
+        def on_subscribe(self, subscription):
+            self.subscription = subscription
+            asyncio.create_task(self.request_n_sender())
+
+        async def request_n_sender(self):
+            for k in range(4):
+                await asyncio.sleep(1)
+                self.subscription.request(3)
+
+    server.set_handler_using_factory(Handler)
+
+    stream_subscriber = StreamSubscriber()
+
+    client.request_stream(Payload()).initial_request_n(1).subscribe(stream_subscriber)
+
+    await stream_completed.wait()
+
+    assert len(stream_subscriber.received_messages) == 10
+
+    for i in range(10):
+        assert stream_subscriber.received_messages[i].data == 'Feed Item: {}'.format(i).encode()

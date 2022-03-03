@@ -1,0 +1,2 @@
+class FinishedIterator(Exception):
+    pass
