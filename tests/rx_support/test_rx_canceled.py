@@ -177,5 +177,6 @@ async def test_rx_support_request_channel_server_take_only_n(pipe: Tuple[RSocket
     # assert items_generated == maximum_message_received # todo: Stop async generator on cancel from server requester
 
     assert len(received_messages) == maximum_message_received
+
     for i in range(maximum_message_received):
         assert received_messages[i].data == ('Feed Item: %d' % i).encode()
