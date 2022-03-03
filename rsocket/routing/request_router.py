@@ -1,7 +1,8 @@
-import inspect
+from inspect import signature, Parameter
 from typing import Callable, Any
 
 from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.frame import FrameType
 from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 
@@ -16,23 +17,31 @@ class RequestRouter:
         '_response_routes',
         '_fnf_routes',
         '_metadata_push',
-        '_route_parameters'
+        '_route_map_by_frame_type',
+        '_payload_mapper'
     )
 
-    def __init__(self):
+    def __init__(self, payload_mapper=lambda cls, _: _):
+        self._payload_mapper = payload_mapper
         self._channel_routes = {}
         self._stream_routes = {}
         self._response_routes = {}
         self._fnf_routes = {}
         self._metadata_push = {}
-        self._route_parameters = {}
+
+        self._route_map_by_frame_type = {
+            FrameType.REQUEST_CHANNEL: self._channel_routes,
+            FrameType.REQUEST_FNF: self._fnf_routes,
+            FrameType.REQUEST_STREAM: self._stream_routes,
+            FrameType.REQUEST_RESPONSE: self._response_routes,
+            FrameType.METADATA_PUSH: self._metadata_push,
+        }
 
     def _decorator_factory(self, container, route):
         def decorator(function: decorated_method):
             self._assert_not_route_already_registered(route)
 
             container[route] = function
-            self._route_parameters[route] = inspect.getfullargspec(function)
             return function
 
         return decorator
@@ -61,20 +70,25 @@ class RequestRouter:
             raise KeyError('Duplicate route "%s" already registered', route)
 
     async def route(self,
+                    frame_type: FrameType,
                     route: str,
                     payload: Payload,
                     composite_metadata: CompositeMetadata):
-        if route in self._fnf_routes:
-            await self._fnf_routes[route](payload=payload, composite_metadata=composite_metadata)
 
-        if route in self._response_routes:
-            return await self._response_routes[route](payload=payload, composite_metadata=composite_metadata)
+        if route in self._route_map_by_frame_type[frame_type]:
+            route_processor = self._route_map_by_frame_type[frame_type][route]
+            route_signature = signature(route_processor)
+            route_kwargs = {}
 
-        if route in self._stream_routes:
-            return await self._stream_routes[route](payload=payload, composite_metadata=composite_metadata)
+            if 'payload' in route_signature.parameters:
+                payload_expected_type = route_signature.parameters['payload']
 
-        if route in self._channel_routes:
-            return await self._channel_routes[route](payload=payload, composite_metadata=composite_metadata)
+                if payload_expected_type is not Payload and payload_expected_type is not Parameter:
+                    payload = self._payload_mapper(payload_expected_type, payload)
 
-        if route in self._metadata_push:
-            return await self._metadata_push[route](payload=payload, composite_metadata=composite_metadata)
+                route_kwargs['payload'] = payload
+
+            if 'composite_metadata' in route_signature.parameters:
+                route_kwargs['composite_metadata'] = composite_metadata
+
+            return await route_processor(**route_kwargs)

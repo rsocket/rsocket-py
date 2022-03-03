@@ -1,10 +1,12 @@
 import asyncio
+import json
 
 import pytest
 
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
-from rsocket.extensions.authentication import Authentication
+from rsocket.extensions.authentication import Authentication, AuthenticationSimple
+from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
@@ -48,7 +50,7 @@ async def test_routed_request_response_properly_finished(lazy_pipe):
         return RoutingRequestHandler(socket, router)
 
     @router.response('test.path')
-    async def response(payload, composite_metadata):
+    async def response():
         return create_future(Payload(b'result'))
 
     async with lazy_pipe(
@@ -57,6 +59,81 @@ async def test_routed_request_response_properly_finished(lazy_pipe):
         result = await client.request_response(Payload(metadata=composite(route('test.path'))))
 
         assert result.data == b'result'
+
+
+async def test_routed_request_response_with_payload_mapper(lazy_pipe):
+    router = RequestRouter(lambda cls, _: json.loads(_.data.decode()))
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router)
+
+    @router.response('test.path')
+    async def response(payload: dict):
+        return create_future(Payload(('Response %s' % payload['key']).encode()))
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        result = await client.request_response(Payload(data=json.dumps({'key': 'value'}).encode(),
+                                                       metadata=composite(route('test.path'))))
+
+        assert result.data == b'Response value'
+
+
+async def test_routed_request_response_properly_finished_accept_payload_only(lazy_pipe):
+    router = RequestRouter()
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router)
+
+    @router.response('test.path')
+    async def response(payload: Payload):
+        return create_future(Payload(('Response %s' % payload.data.decode()).encode()))
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        result = await client.request_response(Payload(data=b'request', metadata=composite(route('test.path'))))
+
+        assert result.data == b'Response request'
+
+
+async def test_routed_request_response_properly_finished_accept_metadata_only(lazy_pipe):
+    router = RequestRouter()
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router)
+
+    @router.response('test.path')
+    async def response(composite_metadata: CompositeMetadata):
+        return create_future(Payload(metadata=composite_metadata.items[0].tags[0]))
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        result = await client.request_response(Payload(metadata=composite(route('test.path'))))
+
+        assert result.metadata == b'test.path'
+
+
+async def test_routed_request_response_properly_finished_accept_payload_and_metadata(lazy_pipe):
+    router = RequestRouter()
+
+    def handler_factory(socket):
+        return RoutingRequestHandler(socket, router)
+
+    @router.response('test.path')
+    async def response(payload: Payload, composite_metadata: CompositeMetadata):
+        return create_future(Payload(('Response %s' % payload.data.decode()).encode(),
+                                     composite_metadata.items[0].tags[0]))
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        result = await client.request_response(Payload(data=b'request', metadata=composite(route('test.path'))))
+
+        assert result.data == b'Response request'
+        assert result.metadata == b'test.path'
 
 
 async def test_routed_fire_and_forget(lazy_pipe):
@@ -68,7 +145,7 @@ async def test_routed_fire_and_forget(lazy_pipe):
         return RoutingRequestHandler(socket, router)
 
     @router.fire_and_forget('test.path')
-    async def fire_and_forget(payload, composite_metadata):
+    async def fire_and_forget(payload):
         nonlocal received_data
         received_data = payload.data
         received.set()
@@ -93,7 +170,7 @@ async def test_routed_request_channel_properly_finished(lazy_pipe):
             yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == 2
 
     @router.channel('test.path')
-    async def response_stream(payload, composite_metadata):
+    async def response_stream():
         return StreamFromGenerator(feed), DefaultSubscriber()
 
     async with lazy_pipe(
@@ -117,7 +194,7 @@ async def test_routed_push_metadata(lazy_pipe):
         return RoutingRequestHandler(socket, router)
 
     @router.metadata_push('test.path')
-    async def metadata_push(payload, composite_metadata):
+    async def metadata_push(payload):
         nonlocal received_metadata
         received_metadata = payload.metadata
         received.set()
@@ -139,7 +216,7 @@ async def test_invalid_request_response(lazy_pipe):
         return RoutingRequestHandler(socket, router)
 
     @router.response('test.path')
-    async def request_response(payload, composite_metadata):
+    async def request_response():
         raise Exception('error from server')
 
     async with lazy_pipe(
@@ -157,8 +234,8 @@ async def test_invalid_request_stream(lazy_pipe):
     def handler_factory(socket):
         return RoutingRequestHandler(socket, router)
 
-    @router.response('test.path')
-    async def request_stream(payload, composite_metadata):
+    @router.stream('test.path')
+    async def request_stream():
         raise Exception('error from server')
 
     async with lazy_pipe(
@@ -177,7 +254,7 @@ async def test_invalid_request_channel(lazy_pipe):
         return RoutingRequestHandler(socket, router)
 
     @router.channel('test.path')
-    async def request_channel(payload, composite_metadata):
+    async def request_channel():
         raise Exception('error from server')
 
     async with lazy_pipe(
@@ -208,11 +285,11 @@ async def test_invalid_authentication_in_routing_handler(lazy_pipe):
     router = RequestRouter()
 
     async def authenticate(path: str, authentication: Authentication):
-        if authentication.password != b'pass':
+        if not isinstance(authentication, AuthenticationSimple) or authentication.password != b'pass':
             raise Exception('Invalid credentials')
 
     @router.channel('test.path')
-    async def request_channel(payload, composite_metadata):
+    async def request_channel():
         raise Exception('error from server')
 
     def handler_factory(socket):
@@ -234,11 +311,11 @@ async def test_valid_authentication_in_routing_handler(lazy_pipe):
     router = RequestRouter()
 
     async def authenticate(path: str, authentication: Authentication):
-        if authentication.password != b'pass':
+        if not isinstance(authentication, AuthenticationSimple) or authentication.password != b'pass':
             raise Exception('Invalid credentials')
 
     @router.response('test.path')
-    async def response(payload, composite_metadata):
+    async def response():
         return create_future(Payload(b'result'))
 
     def handler_factory(socket):

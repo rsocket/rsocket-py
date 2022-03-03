@@ -19,6 +19,12 @@ def create_future(payload: Optional[Payload] = _default) -> asyncio.Future:
     return future
 
 
+def create_error_future(exception: Exception) -> asyncio.Future:
+    future = create_future()
+    future.set_exception(exception)
+    return future
+
+
 def payload_from_frame(frame: Frame) -> Payload:
     return Payload(frame.data, frame.metadata)
 

@@ -20,3 +20,11 @@ def authenticate_bearer(token: str) -> CompositeMetadataItem:
 
 def route(path: str) -> CompositeMetadataItem:
     return RoutingMetadata([path])
+
+
+def require_route(composite_metadata: CompositeMetadata) -> str:
+    for item in composite_metadata.items:
+        if isinstance(item, RoutingMetadata):
+            return item.tags[0].decode()
+
+    raise Exception('No route found in request')
