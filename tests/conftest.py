@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import logging
+from asyncio import Event
 from asyncio.base_events import Server
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -84,9 +85,12 @@ async def pipe_tcp_without_auto_connect(unused_tcp_port):
 
 @asynccontextmanager
 async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_arguments=None, auto_connect_client=True):
+    wait_for_server = Event()
+
     def session(*connection):
         nonlocal server
         server = RSocketServer(TransportTCP(*connection), **(server_arguments or {}))
+        wait_for_server.set()
 
     async def start():
         nonlocal service, client
@@ -118,6 +122,7 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
     host = 'localhost'
 
     await start()
+    await wait_for_server.wait()
     try:
         yield server, client
         assert_no_open_streams(client, server)
@@ -160,10 +165,12 @@ def aiohttp_raw_server(event_loop, unused_tcp_port):
 async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, client_arguments=None,
                                          server_arguments=None):
     server = None
+    wait_for_server = Event()
 
     def store_server(new_server):
         nonlocal server
         server = new_server
+        wait_for_server.set()
 
     await aiohttp_raw_server(websocket_handler_factory(on_server_create=store_server, **(server_arguments or {})))
 
@@ -173,6 +180,7 @@ async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, cl
 
     async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
                                 **client_arguments) as client:
+        await wait_for_server.wait()
         yield server, client
         await server.close()
         assert_no_open_streams(client, server)
@@ -182,10 +190,12 @@ async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, cl
 async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, server_arguments=None):
     app = Quart(__name__)
     server = None
+    wait_for_server = Event()
 
     def store_server(new_server):
         nonlocal server
         server = new_server
+        wait_for_server.set()
 
     @app.websocket("/")
     async def ws():
@@ -199,6 +209,7 @@ async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, s
 
     async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
                                 **client_arguments) as client:
+        await wait_for_server.wait()
         yield server, client
         await server.close()
         assert_no_open_streams(client, server)
