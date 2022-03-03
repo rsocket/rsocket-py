@@ -2,6 +2,22 @@
 
 Python implementation of [RSocket](http://rsocket.io)
 
+# Installation
+
+The pypi package (version 0.2) is very old (and barely implements anything).
+
+Currently, the best method is to download the source code and build a package:
+
+```shell
+python3 setup.py bdist_wheel
+```
+
+and use the resulting package from the **./dist** folder, or install locally:
+
+```shell
+python3 setup.py install
+```
+
 # Documentation
 
 [Documentation](https://rsocket.io/guides/rsocket-py) is available on the official rsocket.io site.
