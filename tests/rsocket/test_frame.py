@@ -180,6 +180,7 @@ async def test_request_stream_frame(connection, follows):
 
     assert frame.data == b'\x01\x02\x03'
     assert frame.flags_follows == bool(follows)
+    assert frame.flags_complete is False
     assert frame.stream_id == 15
     assert frame.frame_type is FrameType.REQUEST_STREAM
 

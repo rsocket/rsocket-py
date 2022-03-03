@@ -5,7 +5,7 @@ from quart import websocket
 from rsocket.frame import Frame
 from rsocket.logger import logger
 from rsocket.rsocket_server import RSocketServer
-from rsocket.transports.transport import Transport
+from rsocket.transports.abstract_websocket import AbstractWebsocketTransport
 
 
 async def websocket_handler(*args, on_server_create=None, **kwargs):
@@ -18,10 +18,7 @@ async def websocket_handler(*args, on_server_create=None, **kwargs):
     await transport.handle_incoming_ws_messages()
 
 
-class TransportQuartWebsocket(Transport):
-    def __init__(self):
-        super().__init__()
-        self._incoming_frame_queue = asyncio.Queue()
+class TransportQuartWebsocket(AbstractWebsocketTransport):
 
     async def handle_incoming_ws_messages(self):
         try:
@@ -35,14 +32,6 @@ class TransportQuartWebsocket(Transport):
 
     async def send_frame(self, frame: Frame):
         await websocket.send(frame.serialize())
-
-    async def next_frame_generator(self, is_server_alive):
-        frame = await self._incoming_frame_queue.get()
-
-        async def frame_generator():
-            yield frame
-
-        return frame_generator()
 
     async def close(self):
         pass

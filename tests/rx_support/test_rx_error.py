@@ -4,7 +4,8 @@ from typing import Tuple, AsyncGenerator, Optional
 import pytest
 import rx
 from rx import operators
-from rx.core import Observer
+from rx.core.typing import Observer, Scheduler
+from rx.disposable import Disposable
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
@@ -94,8 +95,9 @@ async def test_rx_support_request_channel_with_error_from_requester(
 
     rx_client = RxRSocket(client)
 
-    def test_observable(observer: Observer, scheduler):
+    def test_observable(observer: Observer, scheduler:Optional[Scheduler]):
         observer.on_error(Exception('Some error'))
+        return Disposable()
 
     await rx_client.request_channel(
         Payload(b'request text'),

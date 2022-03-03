@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from asyncio import Event
 from typing import List, Tuple, AsyncGenerator, Generator
 
 import pytest
@@ -8,6 +7,7 @@ import pytest
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
+from rsocket.awaitable.collector_subscriber import CollectorSubscriber
 from rsocket.exceptions import RSocketValueErrorException
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import DefaultPublisherSubscription
@@ -172,7 +172,6 @@ async def test_request_stream_immediately_completed_by_server_without_payloads(
 
 async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
-    stream_completed = asyncio.Event()
     requests_received = 0
 
     class Handler(BaseRequestHandler, DefaultPublisherSubscription):
@@ -195,21 +194,11 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
         async def request_stream(self, payload: Payload) -> Publisher:
             return self
 
-    class StreamSubscriber(DefaultSubscriber):
-        def __init__(self):
-            super().__init__()
-            self.received_messages: List[Payload] = []
+    class StreamSubscriber(CollectorSubscriber):
 
         def on_next(self, value, is_complete=False):
-            self.received_messages.append(value)
+            super().on_next(value, is_complete)
             self.subscription.request(1)
-            logging.info(value)
-            if is_complete:
-                stream_completed.set()
-
-        def on_complete(self):
-            logging.info('Complete')
-            stream_completed.set()
 
     server.set_handler_using_factory(Handler)
 
@@ -217,12 +206,12 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
 
     client.request_stream(Payload()).initial_request_n(1).subscribe(stream_subscriber)
 
-    await stream_completed.wait()
+    received_messages = await stream_subscriber.run()
 
-    assert len(stream_subscriber.received_messages) == 3
-    assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
-    assert stream_subscriber.received_messages[1].data == b'Feed Item: 1'
-    assert stream_subscriber.received_messages[2].data == b'Feed Item: 2'
+    assert len(received_messages) == 3
+    assert received_messages[0].data == b'Feed Item: 0'
+    assert received_messages[1].data == b'Feed Item: 1'
+    assert received_messages[2].data == b'Feed Item: 2'
 
     assert requests_received == 3
 
@@ -259,7 +248,6 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
 
 async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
-    stream_completed = Event()
 
     async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         item_count = 10
@@ -273,21 +261,7 @@ async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RS
         async def request_stream(self, payload: Payload) -> Publisher:
             return StreamFromAsyncGenerator(generator)
 
-    class StreamSubscriber(DefaultSubscriber):
-        def __init__(self):
-            super().__init__()
-            self.received_messages: List[Payload] = []
-
-        def on_next(self, value, is_complete=False):
-            self.received_messages.append(value)
-
-            logging.info(value)
-            if is_complete:
-                stream_completed.set()
-
-        def on_complete(self):
-            logging.info('Complete')
-            stream_completed.set()
+    class StreamSubscriber(CollectorSubscriber):
 
         def on_subscribe(self, subscription):
             super().on_subscribe(subscription)
@@ -304,9 +278,9 @@ async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RS
 
     client.request_stream(Payload()).initial_request_n(1).subscribe(stream_subscriber)
 
-    await stream_completed.wait()
+    received_messages = await stream_subscriber.run()
 
-    assert len(stream_subscriber.received_messages) == 10
+    assert len(received_messages) == 10
 
     for i in range(10):
-        assert stream_subscriber.received_messages[i].data == 'Feed Item: {}'.format(i).encode()
+        assert received_messages[i].data == 'Feed Item: {}'.format(i).encode()

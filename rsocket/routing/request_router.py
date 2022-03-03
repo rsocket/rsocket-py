@@ -27,55 +27,30 @@ class RequestRouter:
         self._metadata_push = {}
         self._route_parameters = {}
 
-    def response(self, route: str):
+    def _decorator_factory(self, container, route):
         def decorator(function: decorated_method):
             self._assert_not_route_already_registered(route)
 
-            self._response_routes[route] = function
+            container[route] = function
             self._route_parameters[route] = inspect.getfullargspec(function)
             return function
 
         return decorator
+
+    def response(self, route: str):
+        return self._decorator_factory(self._response_routes, route)
 
     def stream(self, route: str):
-        def decorator(function: decorated_method):
-            self._assert_not_route_already_registered(route)
-
-            self._stream_routes[route] = function
-            self._route_parameters[route] = inspect.getfullargspec(function)
-            return function
-
-        return decorator
+        return self._decorator_factory(self._stream_routes, route)
 
     def channel(self, route: str):
-        def decorator(function: channel_decorated_method):
-            self._assert_not_route_already_registered(route)
-
-            self._channel_routes[route] = function
-            self._route_parameters[route] = inspect.getfullargspec(function)
-            return function
-
-        return decorator
+        return self._decorator_factory(self._channel_routes, route)
 
     def fire_and_forget(self, route: str):
-        def decorator(function: decorated_method):
-            self._assert_not_route_already_registered(route)
-
-            self._fnf_routes[route] = function
-            self._route_parameters[route] = inspect.getfullargspec(function)
-            return function
-
-        return decorator
+        return self._decorator_factory(self._fnf_routes, route)
 
     def metadata_push(self, route: str):
-        def decorator(function: decorated_method):
-            self._assert_not_route_already_registered(route)
-
-            self._metadata_push[route] = function
-            self._route_parameters[route] = inspect.getfullargspec(function)
-            return function
-
-        return decorator
+        return self._decorator_factory(self._metadata_push, route)
 
     def _assert_not_route_already_registered(self, route):
         if (route in self._fnf_routes
