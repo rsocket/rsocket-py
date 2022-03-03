@@ -17,9 +17,6 @@ class StreamSubscriber(DefaultSubscriber):
         logging.info('RS: {}'.format(value))
         self.subscription.request(1)
 
-    def on_subscribe(self, subscription):
-        self.subscription = subscription
-
 
 async def main():
     connection = await asyncio.open_connection('localhost', 7000)

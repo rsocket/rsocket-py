@@ -1,4 +1,4 @@
-from rx.core.abc import Observer
+from rx.core.typing import Observer
 
 from reactivestreams.subscriber import Subscriber
 

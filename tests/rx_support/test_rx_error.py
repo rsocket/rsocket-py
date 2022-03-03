@@ -70,13 +70,12 @@ async def test_rx_support_request_channel_with_error_from_requester(
 
         def on_subscribe(self, subscription: Subscription):
             super().on_subscribe(subscription)
-            self._subscription = subscription
-            self._subscription.request(1)
+            self.subscription.request(1)
 
         def on_next(self, value, is_complete=False):
             if len(value.data) > 0:
                 server_received_messages.append(value.data)
-            self._subscription.request(1)
+            self.subscription.request(1)
 
         def on_error(self, exception: Exception):
             nonlocal received_error

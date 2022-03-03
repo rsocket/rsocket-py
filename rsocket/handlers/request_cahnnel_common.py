@@ -2,7 +2,7 @@ import abc
 from typing import Optional
 
 from reactivestreams.publisher import Publisher
-from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     PayloadFrame, Frame, error_frame_to_exception
@@ -12,34 +12,31 @@ from rsocket.rsocket_interface import RSocketInterface
 from rsocket.streams.stream_handler import StreamHandler
 
 
+class StreamSubscriber(DefaultSubscriber):
+    def __init__(self, stream_id: int, socket, requester: 'RequestChannelCommon'):
+        super().__init__()
+        self._stream_id = stream_id
+        self._socket = socket
+        self._requester = requester
+
+    def on_next(self, value, is_complete=False):
+        self._socket.send_payload(
+            self._stream_id, value, complete=is_complete)
+
+        if is_complete:
+            self._requester.mark_completed_and_finish(sent=True)
+
+    def on_complete(self):
+        self._socket.send_payload(
+            self._stream_id, Payload(), complete=True, is_next=False)
+        self._requester.mark_completed_and_finish(sent=True)
+
+    def on_error(self, exception):
+        self._socket.send_error(self._stream_id, exception)
+        self._requester.mark_completed_and_finish(sent=True)
+
+
 class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc.ABCMeta):
-    class StreamSubscriber(Subscriber):
-        def __init__(self, stream_id: int, socket, requester: 'RequestChannelCommon'):
-            super().__init__()
-            self._stream_id = stream_id
-            self._socket = socket
-            self._requester = requester
-            self.subscription = None
-
-        def on_next(self, value, is_complete=False):
-            self._socket.send_payload(
-                self._stream_id, value, complete=is_complete)
-
-            if is_complete:
-                self._requester.mark_completed_and_finish(sent=True)
-
-        def on_complete(self):
-            self._socket.send_payload(
-                self._stream_id, Payload(), complete=True, is_next=False)
-            self._requester.mark_completed_and_finish(sent=True)
-
-        def on_error(self, exception):
-            self._socket.send_error(self._stream_id, exception)
-            self._requester.mark_completed_and_finish(sent=True)
-
-        def on_subscribe(self, subscription):
-            # noinspection PyAttributeOutsideInit
-            self.subscription = subscription
 
     def __init__(self, socket: RSocketInterface, remote_publisher: Optional[Publisher] = None):
         super().__init__(socket)
@@ -49,7 +46,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
         self._remote_publisher = remote_publisher
 
     def setup(self):
-        self.subscriber = self.StreamSubscriber(self.stream_id, self.socket, self)
+        self.subscriber = StreamSubscriber(self.stream_id, self.socket, self)
 
         if self._remote_publisher is not None:
             self._remote_publisher.subscribe(self.subscriber)

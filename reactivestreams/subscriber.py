@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from typing import Optional
 
 from reactivestreams.subscription import Subscription
 
@@ -22,6 +23,9 @@ class Subscriber(metaclass=ABCMeta):
 
 
 class DefaultSubscriber(Subscriber):
+    def __init__(self):
+        self.subscription: Optional[Subscription] = None
+
     def on_next(self, value, is_complete=False):
         pass
 
@@ -29,7 +33,7 @@ class DefaultSubscriber(Subscriber):
         pass
 
     def on_subscribe(self, subscription: Subscription):
-        pass
+        self.subscription = subscription
 
     def on_complete(self):
         pass

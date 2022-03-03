@@ -7,17 +7,16 @@ import pytest
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
-from reactivestreams.subscription import DefaultSubscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.exceptions import RSocketValueErrorException
 from rsocket.frame_helpers import ensure_bytes
+from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
-from tests.rsocket.helpers import DefaultPublisherSubscription
 
 
 @pytest.mark.parametrize('complete_inline',
@@ -61,11 +60,7 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
     server, client = pipe
     stream_finished = asyncio.Event()
 
-    class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
-
-        def subscribe(self, subscriber: Subscriber):
-            subscriber.on_subscribe(self)
-            self._subscriber = subscriber
+    class Handler(BaseRequestHandler, DefaultPublisherSubscription):
 
         def request(self, n: int):
             self._subscriber.on_next(Payload(b'success'))
@@ -76,6 +71,7 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
 
     class StreamSubscriber(DefaultSubscriber):
         def __init__(self):
+            super().__init__()
             self.received_messages: List[Payload] = []
             self.error = None
 
@@ -86,9 +82,6 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
         def on_error(self, exception: Exception):
             self.error = exception
             stream_finished.set()
-
-        def on_subscribe(self, subscription):
-            self.subscription = subscription
 
     server.set_handler_using_factory(Handler)
 
@@ -120,15 +113,13 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
 
     class StreamSubscriber(DefaultSubscriber):
         def __init__(self):
+            super().__init__()
             self.received_messages: List[Payload] = []
 
         def on_next(self, value, is_complete=False):
             self.received_messages.append(value)
             self.subscription.cancel()
             logging.info(value)
-
-        def on_subscribe(self, subscription):
-            self.subscription = subscription
 
     server.set_handler_using_factory(Handler)
 
@@ -157,6 +148,7 @@ async def test_request_stream_immediately_completed_by_server_without_payloads(
 
     class StreamSubscriber(DefaultSubscriber):
         def __init__(self):
+            super().__init__()
             self.received_messages: List[Payload] = []
 
         def on_next(self, value, is_complete=False):
@@ -166,9 +158,6 @@ async def test_request_stream_immediately_completed_by_server_without_payloads(
 
         def on_complete(self):
             stream_done.set()
-
-        def on_subscribe(self, subscription):
-            self.subscription = subscription
 
     server.set_handler_using_factory(Handler)
 
@@ -186,11 +175,10 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
     stream_completed = asyncio.Event()
     requests_received = 0
 
-    class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
+    class Handler(BaseRequestHandler, DefaultPublisherSubscription):
 
         def subscribe(self, subscriber: Subscriber):
-            subscriber.on_subscribe(self)
-            self._subscriber = subscriber
+            super().subscribe(subscriber)
             self._current_item = 0
             self._max_items = 3
 
@@ -209,6 +197,7 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
 
     class StreamSubscriber(DefaultSubscriber):
         def __init__(self):
+            super().__init__()
             self.received_messages: List[Payload] = []
 
         def on_next(self, value, is_complete=False):
@@ -221,9 +210,6 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
         def on_complete(self):
             logging.info('Complete')
             stream_completed.set()
-
-        def on_subscribe(self, subscription):
-            self.subscription = subscription
 
     server.set_handler_using_factory(Handler)
 
@@ -255,13 +241,10 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
             fragments_sent += 1
             return super()._send_to_subscriber(payload, is_complete)
 
-    class Handler(BaseRequestHandler, Publisher):
-
-        def subscribe(self, subscriber: Subscriber):
-            StreamFragmentedCounter(generator, fragment_size=6).subscribe(subscriber)
+    class Handler(BaseRequestHandler):
 
         async def request_stream(self, payload: Payload) -> Publisher:
-            return self
+            return StreamFragmentedCounter(generator, fragment_size=6)
 
     server.set_handler_using_factory(Handler)
     received_messages = await AwaitableRSocket(client).request_stream(Payload())
@@ -292,6 +275,7 @@ async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RS
 
     class StreamSubscriber(DefaultSubscriber):
         def __init__(self):
+            super().__init__()
             self.received_messages: List[Payload] = []
 
         def on_next(self, value, is_complete=False):
@@ -306,7 +290,7 @@ async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RS
             stream_completed.set()
 
         def on_subscribe(self, subscription):
-            self.subscription = subscription
+            super().on_subscribe(subscription)
             asyncio.create_task(self.request_n_sender())
 
         async def request_n_sender(self):

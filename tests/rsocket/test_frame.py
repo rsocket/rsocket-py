@@ -402,17 +402,6 @@ async def test_error(connection):
     assert frame.frame_type is FrameType.ERROR
 
 
-async def test_multiple_frames(connection):
-    data = b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
-    data += b'\x00\x00\x13\x00\x00\x26\x6a\x2c\x00\x00\x00\x02\x04\x77\x65\x69'
-    data += b'\x72\x64\x6e\x65\x73\x73'
-    data += b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
-    data += b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
-    data += b'\x00\x00\x06\x00\x00\x00\x7b\x24\x00'
-    frames = await asyncstdlib.builtins.list(connection.receive_data(data))
-    assert len(frames) == 5
-
-
 async def test_request_n_frame(connection):
     data = build_frame(
         bits(24, 10, 'Frame size'),

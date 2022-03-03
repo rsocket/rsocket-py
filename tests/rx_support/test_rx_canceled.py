@@ -147,8 +147,8 @@ async def test_rx_support_request_channel_server_take_only_n(pipe: Tuple[RSocket
             wait_for_server_finish.set()
 
         def on_subscribe(self, subscription: Subscription):
+            super().on_subscribe(subscription)
             subscription.request(1)
-            self.subscription = subscription
 
         async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
             return None, self

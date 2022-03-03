@@ -19,15 +19,13 @@ async def main():
 
     class Subscriber(DefaultSubscriber):
         def __init__(self):
+            super().__init__()
             self.values = []
-            self._subscription: Optional[Subscription] = None
-
-        def on_subscribe(self, subscription: Subscription):
-            self._subscription = subscription
+            self.subscription: Optional[Subscription] = None
 
         def on_next(self, value, is_complete=False):
             self.values.append(value)
-            self._subscription.request(1)
+            self.subscription.request(1)
 
         def on_complete(self):
             completion_event.set()

@@ -49,25 +49,27 @@ async def test_request_response_failure(pipe):
 
 
 async def test_request_response_cancellation(pipe):
-    class Handler(BaseRequestHandler, asyncio.Future):
+    server_future = create_future()
+
+    class Handler(BaseRequestHandler):
         async def request_response(self, payload: Payload):
             # return a future that will never complete.
-            return self
+            return server_future
 
     server, client = pipe
-    server._handler = handler = Handler(server)
+    server._handler = Handler(server)
 
     future = client.request_response(Payload())
 
     with pytest.raises(asyncio.TimeoutError):
-        await asyncio.wait_for(asyncio.shield(handler), 0.1)
+        await asyncio.wait_for(asyncio.shield(server_future), 0.1)
 
-    assert not handler.cancelled()
+    assert not server_future.cancelled()
 
     future.cancel()
 
     with pytest.raises(asyncio.CancelledError):
-        await asyncio.wait_for(asyncio.shield(handler), 0.1)
+        await asyncio.wait_for(asyncio.shield(server_future), 0.1)
 
     with pytest.raises(asyncio.CancelledError):
         await future

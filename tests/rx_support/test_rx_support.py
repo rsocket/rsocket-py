@@ -7,8 +7,8 @@ from rx import operators
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
-from reactivestreams.subscription import Subscription, DefaultSubscription
-from rsocket.helpers import create_future
+from reactivestreams.subscription import Subscription
+from rsocket.helpers import create_future, DefaultPublisherSubscription
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
@@ -46,14 +46,10 @@ async def test_rx_support_request_stream_properly_finished(pipe: Tuple[RSocketSe
 async def test_rx_support_request_stream_immediate_complete(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
 
-    class SimpleCompleted(Publisher, DefaultSubscription):
+    class SimpleCompleted(DefaultPublisherSubscription):
 
         def request(self, n: int):
             self._subscriber.on_complete()
-
-        def subscribe(self, subscriber: Subscriber):
-            self._subscriber = subscriber
-            subscriber.on_subscribe(self)
 
     class Handler(BaseRequestHandler):
         async def request_stream(self, payload: Payload) -> Publisher:
@@ -106,13 +102,13 @@ async def test_rx_support_request_channel_properly_finished(pipe: Tuple[RSocketS
 
         def on_subscribe(self, subscription: Subscription):
             super().on_subscribe(subscription)
-            self._subscription = subscription
-            self._subscription.request(1)
+            self.subscription.request(1)
 
         def on_next(self, value, is_complete=False):
             if len(value.data) > 0:
                 server_received_messages.append(value.data)
-            self._subscription.request(1)
+
+            self.subscription.request(1)
 
         def on_complete(self):
             responder_received_all.set()

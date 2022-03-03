@@ -1,6 +1,9 @@
 import asyncio
 from typing import Optional
 
+from reactivestreams.publisher import DefaultPublisher
+from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscription import DefaultSubscription
 from rsocket.frame import Frame
 from rsocket.payload import Payload
 
@@ -18,3 +21,9 @@ def create_future(payload: Optional[Payload] = _default) -> asyncio.Future:
 
 def payload_from_frame(frame: Frame) -> Payload:
     return Payload(frame.data, frame.metadata)
+
+
+class DefaultPublisherSubscription(DefaultPublisher, DefaultSubscription):
+    def subscribe(self, subscriber: Subscriber):
+        super().subscribe(subscriber)
+        subscriber.on_subscribe(self)

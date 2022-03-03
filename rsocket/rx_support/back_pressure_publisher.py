@@ -8,9 +8,8 @@ from rx.core.notification import OnNext, OnError, OnCompleted
 from rx.operators import materialize
 from rx.subject import Subject
 
-from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import Subscription
+from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.logger import logger
 from rsocket.rx_support.subscriber_adapter import SubscriberAdapter
 
@@ -49,22 +48,24 @@ def from_aiter(iterator, feedback: Optional[Observable] = None):
                 logger().error(str(exception), exc_info=True)
                 observer.on_error(exception)
 
+        def create_next_task():
+            asyncio.create_task(_aio_next())
+
         return feedback.subscribe(
-            on_next=lambda i: asyncio.ensure_future(_aio_next())
+            on_next=lambda i: create_next_task()
         )
 
     return rx.create(on_subscribe)
 
 
-class BackPressurePublisher(Publisher, Subscription):
+class BackPressurePublisher(DefaultPublisherSubscription):
     def __init__(self, wrapped_observable: Observable):
         self._wrapped_observable = wrapped_observable
 
     def subscribe(self, subscriber: Subscriber):
-        subscriber.on_subscribe(self)
+        super().subscribe(subscriber)
         self._feedback = Subject()
         async_iterator = observable_to_async_event_generator(self._wrapped_observable).__aiter__()
-        self._subscriber = subscriber
         from_aiter(async_iterator, self._feedback).subscribe(SubscriberAdapter(subscriber))
 
     def request(self, n: int):

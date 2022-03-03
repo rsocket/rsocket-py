@@ -3,9 +3,8 @@ from asyncio import Future
 import pytest
 
 from reactivestreams.publisher import Publisher
-from rsocket.helpers import create_future
+from rsocket.helpers import create_future, DefaultPublisherSubscription
 from rsocket.routing.request_router import RequestRouter
-from tests.rsocket.helpers import DefaultPublisherSubscription
 
 
 async def test_request_router_exception_on_duplicate_route_with_same_type():

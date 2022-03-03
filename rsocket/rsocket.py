@@ -48,6 +48,7 @@ T = TypeVar('T')
 class RSocket(RSocketInterface):
     class LeaseSubscriber(DefaultSubscriber):
         def __init__(self, socket: 'RSocket'):
+            super().__init__()
             self._socket = socket
 
         def on_next(self, value, is_complete=False):

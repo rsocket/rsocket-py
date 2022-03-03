@@ -4,10 +4,9 @@ from datetime import timedelta
 from io import BytesIO
 from typing import AsyncGenerator, Tuple, Optional
 
-from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import Subscription
 from rsocket.frame_helpers import payload_to_n_size_fragments
+from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.logger import logger
 from rsocket.payload import Payload
 
@@ -18,7 +17,7 @@ from rsocket.streams.exceptions import FinishedIterator
 _finished_iterator = object()
 
 
-class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
+class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
 
     def __init__(self,
                  generator,
@@ -42,8 +41,7 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
         self._iteration = iter(self._generator())
 
     def subscribe(self, subscriber: Subscriber):
-        subscriber.on_subscribe(self)
-        self._subscriber = subscriber
+        super().subscribe(subscriber)
         self._payload_feeder = asyncio.create_task(self.feed_subscriber())
 
     def request(self, n: int):

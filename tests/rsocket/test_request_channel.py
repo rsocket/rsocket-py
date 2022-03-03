@@ -5,12 +5,12 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
+from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_generator import StreamFromGenerator
-from tests.rsocket.helpers import DefaultPublisherSubscription
 
 
 async def test_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
@@ -52,6 +52,7 @@ async def test_request_channel_immediately_finished_without_payloads(pipe: Tuple
             response_stream_finished.set()
 
         def on_subscribe(self, subscription: Subscription):
+            super().on_subscribe(subscription)
             subscription.request(1)
 
         def request(self, n: int):
