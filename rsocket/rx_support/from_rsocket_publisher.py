@@ -2,7 +2,6 @@ import asyncio
 import functools
 
 import rx
-from rsocket.logger import logger
 from rx import Observable
 from rx.core import Observer
 from rx.disposable import Disposable
@@ -10,6 +9,7 @@ from rx.disposable import Disposable
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
+from rsocket.logger import logger
 
 
 def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:

@@ -2,6 +2,7 @@ import asyncio
 import logging
 from datetime import timedelta
 
+from rsocket.helpers import create_future
 from rsocket.lease import SingleLeasePublisher
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
@@ -15,9 +16,7 @@ router = RequestRouter()
 @router.response('single_request')
 async def single_request_response(payload, composite_metadata):
     logging.info('Got single request')
-    future = asyncio.Future()
-    future.set_result(Payload(b'single_response'))
-    return future
+    return create_future(Payload(b'single_response'))
 
 
 def handler_factory(socket):

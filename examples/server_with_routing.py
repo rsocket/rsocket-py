@@ -2,9 +2,11 @@ import asyncio
 import logging
 from datetime import timedelta
 
-from examples.response_channel import response_stream_1, LoggingSubscriber
 from response_stream import response_stream_2
+
+from examples.response_channel import response_stream_1, LoggingSubscriber
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
+from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
@@ -17,9 +19,7 @@ router = RequestRouter()
 @router.response('single_request')
 async def single_request_response(payload, composite_metadata):
     logging.info('Got single request')
-    future = asyncio.Future()
-    future.set_result(Payload(b'single_response'))
-    return future
+    return create_future(Payload(b'single_response'))
 
 
 @router.stream('stream')

@@ -25,28 +25,18 @@ from tests.rsocket.helpers import DefaultPublisherSubscription
 async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient], complete_inline):
     server, client = pipe
 
-    class Handler(BaseRequestHandler, Publisher, DefaultSubscription):
-        def cancel(self):
-            self.feeder.cancel()
-
-        def subscribe(self, subscriber):
-            subscriber.on_subscribe(self)
-            self.feeder = asyncio.ensure_future(self.feed(subscriber))
+    class Handler(BaseRequestHandler):
 
         async def request_stream(self, payload: Payload) -> Publisher:
-            return self
+            return StreamFromAsyncGenerator(self.feed)
 
-        @staticmethod
-        async def feed(subscriber):
-            try:
-                for x in range(3):
-                    value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                    subscriber.on_next(value, complete_inline and x == 2)
+        async def feed(self):
+            for x in range(3):
+                value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
+                yield value, complete_inline and x == 2
 
-                if not complete_inline:
-                    subscriber.on_complete()
-            except asyncio.CancelledError:
-                pass
+            if not complete_inline:
+                yield None, True
 
     server.set_handler_using_factory(Handler)
 
@@ -295,13 +285,10 @@ async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RS
             is_complete = j == item_count - 1
             yield Payload(ensure_bytes('Feed Item: %s' % j)), is_complete
 
-    class Handler(BaseRequestHandler, Publisher):
-
-        def subscribe(self, subscriber: Subscriber):
-            StreamFromAsyncGenerator(generator).subscribe(subscriber)
+    class Handler(BaseRequestHandler):
 
         async def request_stream(self, payload: Payload) -> Publisher:
-            return self
+            return StreamFromAsyncGenerator(generator)
 
     class StreamSubscriber(DefaultSubscriber):
         def __init__(self):

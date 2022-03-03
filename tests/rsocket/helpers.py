@@ -3,6 +3,8 @@ from math import ceil
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
+from rsocket.helpers import create_future
+from rsocket.payload import Payload
 
 
 def data_bits(data: bytes, name: str = None):
@@ -30,3 +32,7 @@ class DefaultPublisherSubscription(Publisher, DefaultSubscription):
         subscriber.on_subscribe(self)
         self._subscriber = subscriber
 
+
+def future_from_request(request):
+    return create_future(Payload(b'data: ' + request.data,
+                                 b'meta: ' + request.metadata))

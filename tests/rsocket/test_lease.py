@@ -8,6 +8,7 @@ from rsocket.exceptions import RSocketProtocolException
 from rsocket.lease import SingleLeasePublisher, DefinedLease
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
+from tests.rsocket.helpers import future_from_request
 
 
 class PeriodicalLeasePublisher(SingleLeasePublisher):
@@ -43,10 +44,7 @@ class PeriodicalLeasePublisher(SingleLeasePublisher):
 async def test_request_response_with_server_side_lease_works(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            future = asyncio.Future()
-            future.set_result(Payload(b'data: ' + request.data,
-                                      b'meta: ' + request.metadata))
-            return future
+            return future_from_request(request)
 
     async with lazy_pipe(client_arguments={'honor_lease': True},
                          server_arguments={'handler_factory': Handler,
@@ -61,10 +59,7 @@ async def test_request_response_with_server_side_lease_works(lazy_pipe):
 async def test_request_response_with_client_and_server_side_lease_works(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            future = asyncio.Future()
-            future.set_result(Payload(b'data: ' + request.data,
-                                      b'meta: ' + request.metadata))
-            return future
+            return future_from_request(request)
 
     async with PeriodicalLeasePublisher(
             maximum_request_count=2,
@@ -93,10 +88,7 @@ async def test_request_response_with_client_and_server_side_lease_works(lazy_pip
 async def test_request_response_with_lease_too_many_requests(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            future = asyncio.Future()
-            future.set_result(Payload(b'data: ' + request.data,
-                                      b'meta: ' + request.metadata))
-            return future
+            return future_from_request(request)
 
     async with lazy_pipe(client_arguments={'honor_lease': True},
                          server_arguments={'handler_factory': Handler,
@@ -114,10 +106,7 @@ async def test_request_response_with_lease_too_many_requests(lazy_pipe):
 async def test_request_response_with_lease_client_side_exception_requests_late(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            future = asyncio.Future()
-            future.set_result(Payload(b'data: ' + request.data,
-                                      b'meta: ' + request.metadata))
-            return future
+            return future_from_request(request)
 
     async with lazy_pipe(client_arguments={'honor_lease': True},
                          server_arguments={'handler_factory': Handler,
@@ -145,10 +134,7 @@ async def test_server_rejects_all_requests_if_lease_not_supported(lazy_pipe):
 async def test_request_response_with_lease_server_side_exception(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            future = asyncio.Future()
-            future.set_result(Payload(b'data: ' + request.data,
-                                      b'meta: ' + request.metadata))
-            return future
+            return future_from_request(request)
 
     async with lazy_pipe(client_arguments={'honor_lease': True},
                          server_arguments={'handler_factory': Handler,

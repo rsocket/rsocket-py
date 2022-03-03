@@ -1,9 +1,9 @@
-import asyncio
 import logging
 from asyncio import Future
 
 from aiohttp import web
 
+from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.transports.aiohttp_websocket import websocket_handler_factory
@@ -12,9 +12,7 @@ from rsocket.transports.aiohttp_websocket import websocket_handler_factory
 class Handler(BaseRequestHandler):
 
     async def request_response(self, payload: Payload) -> Future:
-        future = asyncio.Future()
-        future.set_result(Payload(b'pong'))
-        return future
+        return create_future(Payload(b'pong'))
 
 
 if __name__ == '__main__':

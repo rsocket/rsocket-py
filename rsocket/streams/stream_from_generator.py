@@ -128,5 +128,8 @@ class StreamFromGenerator(Publisher, Subscription, metaclass=abc.ABCMeta):
         finally:
             self._cancel_n_feeder()
 
-    def _send_to_subscriber(self, payload: Payload, is_complete=False):
-        self._subscriber.on_next(payload, is_complete)
+    def _send_to_subscriber(self, payload: Optional[Payload], is_complete=False):
+        if payload is None and is_complete:
+            self._subscriber.on_complete()
+        else:
+            self._subscriber.on_next(payload, is_complete)

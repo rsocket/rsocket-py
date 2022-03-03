@@ -19,6 +19,7 @@ async def test_rsocket_client_closed_without_requests(lazy_pipe):
 
 async def test_rsocket_max_server_keepalive_reached_and_request_not_canceled_by_default(lazy_pipe_tcp):
     """todo: find why test only works using tcp transport"""
+
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
             await asyncio.sleep(4)

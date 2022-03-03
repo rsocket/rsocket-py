@@ -3,10 +3,9 @@ from datetime import timedelta, datetime
 from typing import Optional, Type
 from typing import Union
 
-from rsocket.logger import logger
-
 from reactivestreams.publisher import Publisher
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.request_handler import RequestHandler

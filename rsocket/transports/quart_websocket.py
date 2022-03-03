@@ -1,9 +1,9 @@
 import asyncio
 
 from quart import websocket
-from rsocket.logger import logger
 
 from rsocket.frame import Frame
+from rsocket.logger import logger
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.transport import Transport
 

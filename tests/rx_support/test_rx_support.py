@@ -8,6 +8,7 @@ from rx import operators
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription, DefaultSubscription
+from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
@@ -78,9 +79,7 @@ async def test_rx_support_request_response_properly_finished(pipe: Tuple[RSocket
 
     class Handler(BaseRequestHandler):
         async def request_response(self, payload: Payload) -> Future:
-            future = asyncio.Future()
-            future.set_result(Payload(b'Response'))
-            return future
+            return create_future(Payload(b'Response'))
 
     server.set_handler_using_factory(Handler)
 
@@ -175,9 +174,7 @@ async def test_rx_support_request_channel_response_only_properly_finished(pipe: 
 async def test_rx_rsocket_context_manager(pipe_tcp_without_auto_connect):
     class Handler(BaseRequestHandler):
         async def request_response(self, payload: Payload) -> Future:
-            future = asyncio.Future()
-            future.set_result(Payload(b'Response'))
-            return future
+            return create_future(Payload(b'Response'))
 
     server, client = pipe_tcp_without_auto_connect
     server.set_handler_using_factory(Handler)

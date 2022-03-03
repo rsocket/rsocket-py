@@ -6,6 +6,7 @@ from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.authentication import Authentication
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.routing.helpers import route, composite, authenticate_simple
 from rsocket.routing.request_router import RequestRouter
@@ -48,9 +49,7 @@ async def test_routed_request_response_properly_finished(lazy_pipe):
 
     @router.response('test.path')
     async def response(payload, composite_metadata):
-        future = asyncio.Future()
-        future.set_result(Payload(b'result'))
-        return future
+        return create_future(Payload(b'result'))
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -240,9 +239,7 @@ async def test_valid_authentication_in_routing_handler(lazy_pipe):
 
     @router.response('test.path')
     async def response(payload, composite_metadata):
-        future = asyncio.Future()
-        future.set_result(Payload(b'result'))
-        return future
+        return create_future(Payload(b'result'))
 
     def handler_factory(socket):
         return RoutingRequestHandler(socket, router, authentication_verifier=authenticate)

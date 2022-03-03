@@ -39,7 +39,8 @@ class FrameFragmentCache:
 
         return current_frame_from_fragments
 
-    def merge_frame_content_inplace(self, current_frame_from_fragments: FragmentableFrame, next_frame: FragmentableFrame):
+    def merge_frame_content_inplace(self, current_frame_from_fragments: FragmentableFrame,
+                                    next_frame: FragmentableFrame):
         if next_frame.data is not None:
             if current_frame_from_fragments.data is None:
                 current_frame_from_fragments.data = b''

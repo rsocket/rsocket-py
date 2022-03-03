@@ -1,8 +1,8 @@
 import asyncstdlib
 import pytest
-from rsocket.exceptions import RSocketProtocolException
 
 from rsocket.error_codes import ErrorCode
+from rsocket.exceptions import RSocketProtocolException
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
