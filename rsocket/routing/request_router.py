@@ -37,9 +37,10 @@ class RequestRouter:
             FrameType.METADATA_PUSH: self._metadata_push,
         }
 
-    def _decorator_factory(self, container, route):
+    def _decorator_factory(self, container: dict, route: str):
         def decorator(function: decorated_method):
-            self._assert_not_route_already_registered(route)
+            if route in container:
+                raise KeyError('Duplicate route "%s" already registered', route)
 
             container[route] = function
             return function
@@ -61,14 +62,6 @@ class RequestRouter:
     def metadata_push(self, route: str):
         return self._decorator_factory(self._metadata_push, route)
 
-    def _assert_not_route_already_registered(self, route):
-        if (route in self._fnf_routes
-                or route in self._response_routes
-                or route in self._stream_routes
-                or route in self._channel_routes
-                or route in self._metadata_push):
-            raise KeyError('Duplicate route "%s" already registered', route)
-
     async def route(self,
                     frame_type: FrameType,
                     route: str,
@@ -77,18 +70,25 @@ class RequestRouter:
 
         if route in self._route_map_by_frame_type[frame_type]:
             route_processor = self._route_map_by_frame_type[frame_type][route]
-            route_signature = signature(route_processor)
-            route_kwargs = {}
-
-            if 'payload' in route_signature.parameters:
-                payload_expected_type = route_signature.parameters['payload']
-
-                if payload_expected_type is not Payload and payload_expected_type is not Parameter:
-                    payload = self._payload_mapper(payload_expected_type, payload)
-
-                route_kwargs['payload'] = payload
-
-            if 'composite_metadata' in route_signature.parameters:
-                route_kwargs['composite_metadata'] = composite_metadata
+            route_kwargs = await self._collect_route_arguments(route_processor,
+                                                               payload,
+                                                               composite_metadata)
 
             return await route_processor(**route_kwargs)
+
+    async def _collect_route_arguments(self, route_processor, payload, composite_metadata):
+        route_signature = signature(route_processor)
+        route_kwargs = {}
+
+        if 'payload' in route_signature.parameters:
+            payload_expected_type = route_signature.parameters['payload']
+
+            if payload_expected_type is not Payload and payload_expected_type is not Parameter:
+                payload = self._payload_mapper(payload_expected_type, payload)
+
+            route_kwargs['payload'] = payload
+
+        if 'composite_metadata' in route_signature.parameters:
+            route_kwargs['composite_metadata'] = composite_metadata
+
+        return route_kwargs
