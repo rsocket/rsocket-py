@@ -55,7 +55,7 @@ are in java to show compatibility with a different implementation.
     - [X] Fragmentation
 - [X] Extensions
     - [X] Composite metadata
-    - [ ] Per Stream Mimetype
+    - [X] Per Stream Mimetype
     - [X] Routing
     - [X] Authentication
 - [ ] Transports
