@@ -1,7 +1,11 @@
+from typing import Union, List
+
 from rsocket.extensions.authentication import AuthenticationBearer, AuthenticationSimple
 from rsocket.extensions.authentication_content import AuthenticationContent
 from rsocket.extensions.composite_metadata import CompositeMetadata, CompositeMetadataItem
+from rsocket.extensions.mimetypes import WellKnownMimeType
 from rsocket.extensions.routing import RoutingMetadata
+from rsocket.extensions.stream_data_mimetype import StreamDataMimetype, StreamDataMimetypes
 
 
 def composite(*items) -> bytes:
@@ -18,8 +22,16 @@ def authenticate_bearer(token: str) -> CompositeMetadataItem:
     return AuthenticationContent(AuthenticationBearer(token))
 
 
-def route(path: str) -> CompositeMetadataItem:
-    return RoutingMetadata([path])
+def route(*paths: str) -> CompositeMetadataItem:
+    return RoutingMetadata(list(paths))
+
+
+def data_mime_type(metadata_mime_type: Union[bytes, WellKnownMimeType]) -> CompositeMetadataItem:
+    return StreamDataMimetype(metadata_mime_type)
+
+
+def data_mime_types(*metadata_mime_types: Union[bytes, WellKnownMimeType]) -> CompositeMetadataItem:
+    return StreamDataMimetypes(list(metadata_mime_types))
 
 
 def require_route(composite_metadata: CompositeMetadata) -> str:

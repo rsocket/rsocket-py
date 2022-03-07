@@ -41,9 +41,12 @@ V = TypeVar('V')
 
 
 def serialize_well_known_encoding(
-        encoding: bytes,
+        encoding: Union[bytes, T],
         encoding_parser: Callable[[bytes], Optional[T]]) -> bytes:
-    known_type = encoding_parser(encoding)
+    if isinstance(encoding, (bytes, bytearray, str)):
+        known_type = encoding_parser(encoding)
+    else:
+        known_type = encoding
 
     if known_type is None:
         encoding_length = len(encoding)

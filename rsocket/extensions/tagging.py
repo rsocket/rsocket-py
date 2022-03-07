@@ -2,7 +2,7 @@ import struct
 from typing import Union, List, Optional
 
 from rsocket.exceptions import RSocketError
-from rsocket.extensions.composite_metadata import CompositeMetadataItem
+from rsocket.extensions.composite_metadata_item import CompositeMetadataItem
 from rsocket.frame_helpers import ensure_bytes
 
 

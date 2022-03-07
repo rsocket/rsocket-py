@@ -1,6 +1,11 @@
-from typing import Union, List, Optional, Type
+from typing import List, Type
 
+from rsocket.extensions.authentication_content import AuthenticationContent
+from rsocket.extensions.composite_metadata_item import CompositeMetadataItem
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.extensions.routing import RoutingMetadata
+from rsocket.extensions.stream_data_mimetype import StreamDataMimetype
+from rsocket.extensions.stream_data_mimetype import StreamDataMimetypes
 from rsocket.frame_helpers import (pack_24bit_length, unpack_24bit,
                                    parse_well_known_encoding, serialize_well_known_encoding)
 
@@ -8,38 +13,16 @@ _default = object()
 
 
 def default_or_value(value, default=None):
-    if value == _default:
+    if value is _default:
         return default
     return value
 
 
-class CompositeMetadataItem:
-    __slots__ = (
-        'encoding',
-        'content'
-    )
-
-    def __init__(self,
-                 encoding: Union[bytes, WellKnownMimeTypes] = _default,
-                 body: Optional[bytes] = _default):
-        self.encoding = default_or_value(encoding)
-        self.content = default_or_value(body)
-
-    def parse(self, buffer: bytes):
-        self.content = buffer
-
-    def serialize(self) -> bytes:
-        return self.content
-
-
 def metadata_item_factory(metadata_encoding: bytes) -> Type[CompositeMetadataItem]:
-    from rsocket.extensions.routing import RoutingMetadata
-    from rsocket.extensions.stream_data_mimetype import StreamDataMimetype
-    from rsocket.extensions.authentication_content import AuthenticationContent
-
     metadata_item_factory_by_type = {
         WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value.name: RoutingMetadata,
         WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value.name: StreamDataMimetype,
+        WellKnownMimeTypes.MESSAGE_RSOCKET_ACCEPT_MIMETYPES.value.name: StreamDataMimetypes,
         WellKnownMimeTypes.MESSAGE_RSOCKET_AUTHENTICATION.value.name: AuthenticationContent
     }
 
