@@ -17,4 +17,3 @@ async def test_request_router_exception_on_duplicate_route_with_same_type():
         @router.response('path1')
         async def request_response2(payload, composite_metadata) -> Future:
             return create_future()
-

@@ -95,7 +95,7 @@ async def test_rx_support_request_channel_with_error_from_requester(
 
     rx_client = RxRSocket(client)
 
-    def test_observable(observer: Observer, scheduler:Optional[Scheduler]):
+    def test_observable(observer: Observer, scheduler: Optional[Scheduler]):
         observer.on_error(Exception('Some error'))
         return Disposable()
 

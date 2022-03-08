@@ -8,7 +8,7 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.helpers import create_future, create_error_future
+from rsocket.helpers import create_error_future
 from rsocket.logger import logger
 from rsocket.payload import Payload
 
