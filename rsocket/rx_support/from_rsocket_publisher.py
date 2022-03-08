@@ -12,51 +12,54 @@ from reactivestreams.subscription import Subscription
 from rsocket.logger import logger
 
 
+class RxSubscriber(Subscriber):
+    def __init__(self, observer, limit_rate: int):
+        self.limit_rate = limit_rate
+        self.observer = observer
+        self.is_done = False
+        self._received_messages = 0
+        self.done = asyncio.Event()
+        self.get_next_n = asyncio.Event()
+
+    def on_subscribe(self, subscription: Subscription):
+        self.subscription = subscription
+
+    def on_next(self, value, is_complete=False):
+        self._received_messages += 1
+        self.observer.on_next(value)
+        if is_complete:
+            self.observer.on_completed()
+            self._finish()
+
+        else:
+            if self._received_messages == self.limit_rate:
+                self._received_messages = 0
+                self.get_next_n.set()
+
+    def _finish(self):
+        self.done.set()
+        self.is_done = True
+
+    def on_error(self, exception: Exception):
+        self.observer.on_error(exception)
+        self._finish()
+
+    def on_complete(self):
+        self.observer.on_completed()
+        self._finish()
+
+
 def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
     loop = asyncio.get_event_loop()
 
     def on_subscribe(observer: Observer, scheduler):
-        done = asyncio.Event()
-        get_next_n = asyncio.Event()
 
-        class RxSubscriber(Subscriber):
-            def __init__(self):
-                self.is_done = False
-                self._received_messages = 0
-
-            def on_subscribe(self, subscription: Subscription):
-                self.subscription = subscription
-
-            def on_next(self, value, is_complete=False):
-                self._received_messages += 1
-                observer.on_next(value)
-                if is_complete:
-                    observer.on_completed()
-                    self._finish()
-
-                else:
-                    if self._received_messages == limit_rate:
-                        self._received_messages = 0
-                        get_next_n.set()
-
-            def _finish(self):
-                done.set()
-                self.is_done = True
-
-            def on_error(self, exception: Exception):
-                observer.on_error(exception)
-                self._finish()
-
-            def on_complete(self):
-                observer.on_completed()
-                self._finish()
-
-        subscriber = RxSubscriber()
+        subscriber = RxSubscriber(observer, limit_rate)
 
         async def _aio_sub():
             try:
                 publisher.subscribe(subscriber)
-                await done.wait()
+                await subscriber.done.wait()
 
             except asyncio.CancelledError:
                 if not subscriber.is_done:
@@ -67,9 +70,9 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
         async def _trigger_next_request_n():
             try:
                 while True:
-                    await get_next_n.wait()
+                    await subscriber.get_next_n.wait()
                     subscriber.subscription.request(limit_rate)
-                    get_next_n.clear()
+                    subscriber.get_next_n.clear()
             except asyncio.CancelledError:
                 logger().debug('Asyncio task canceled: trigger_next_request_n')
 
