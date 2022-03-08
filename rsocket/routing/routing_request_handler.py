@@ -11,7 +11,7 @@ from rsocket.frame import FrameType
 from rsocket.helpers import create_error_future
 from rsocket.logger import logger
 from rsocket.payload import Payload
-from rsocket.routing.helpers import require_route
+from rsocket.extensions.helpers import require_route
 from rsocket.routing.request_router import RequestRouter
 from rsocket.rsocket import BaseRequestHandler
 from rsocket.streams.error_stream import ErrorStream

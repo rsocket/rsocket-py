@@ -13,7 +13,7 @@ from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from rsocket.routing.helpers import composite, authenticate_simple, authenticate_bearer
+from rsocket.extensions.helpers import composite, authenticate_simple, authenticate_bearer
 from tests.rsocket.helpers import bits, data_bits, build_frame
 
 

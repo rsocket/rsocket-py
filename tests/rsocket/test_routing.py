@@ -10,7 +10,7 @@ from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
-from rsocket.routing.helpers import route, composite, authenticate_simple
+from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rx_support.rx_rsocket import RxRSocket
