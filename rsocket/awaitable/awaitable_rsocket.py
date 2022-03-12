@@ -11,6 +11,12 @@ class AwaitableRSocket:
     def __init__(self, rsocket: RSocket):
         self._rsocket = rsocket
 
+    def fire_and_forget(self, payload: Payload):
+        self._rsocket.fire_and_forget(payload)
+
+    def metadata_push(self, metadata: bytes):
+        self._rsocket.metadata_push(metadata)
+
     async def request_response(self, payload: Payload) -> Payload:
         return await self._rsocket.request_response(payload)
 

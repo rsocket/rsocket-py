@@ -36,13 +36,13 @@ class StreamHandler(BackpressureApi, metaclass=ABCMeta):
 
     def send_cancel(self):
         """Convenience method for use by requester subclasses."""
-        logger().debug('%s: Sending cancel', self.socket._log_identifier())
+        logger().debug('Sending cancel')
 
         self.socket.send_frame(to_cancel_frame(self.stream_id))
         self._finish_stream()
 
     def send_request_n(self, n: int):
-        logger().debug('%s: Sending request N: %d', self.socket._log_identifier(), n)
+        logger().debug('Sending request N: %d', n)
 
         self.socket.send_frame(to_request_n_frame(self.stream_id, n))
 

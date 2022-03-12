@@ -1,9 +1,11 @@
 import abc
+from asyncio import Future
 from typing import Union, Optional, Any
 
 from reactivestreams.publisher import Publisher
 from rsocket.frame import Frame, RequestFrame
 from rsocket.payload import Payload
+from rsocket.streams.backpressureapi import BackpressureApi
 
 
 class RSocketInterface(metaclass=abc.ABCMeta):
@@ -20,6 +22,22 @@ class RSocketInterface(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
+    def request_response(self, payload: Payload) -> Future:
+        ...
+
+    @abc.abstractmethod
+    def fire_and_forget(self, payload: Payload):
+        ...
+
+    @abc.abstractmethod
+    def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:
+        ...
+
+    @abc.abstractmethod
+    def metadata_push(self, metadata: bytes):
+        ...
+
+    @abc.abstractmethod
     def send_frame(self, frame: Frame):
         ...
 
@@ -29,10 +47,6 @@ class RSocketInterface(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def finish_stream(self, stream_id: int):
-        ...
-
-    @abc.abstractmethod
-    def _log_identifier(self) -> str:
         ...
 
     @abc.abstractmethod
