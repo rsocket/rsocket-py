@@ -13,7 +13,6 @@ class LoadBalancerRandom(LoadBalancerStrategy):
         self._auto_close = auto_close
         self._auto_connect = auto_connect
         self._pool = pool
-        self._current_index = 0
 
     def select(self) -> RSocket:
         random_client_id = random.randint(0, len(self._pool))
