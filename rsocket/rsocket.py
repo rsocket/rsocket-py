@@ -41,7 +41,7 @@ class RSocket(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'RSocket':
         ...
 
     @abc.abstractmethod
