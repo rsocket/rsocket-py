@@ -95,17 +95,21 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
     async def start():
         nonlocal service, client
         service = await asyncio.start_server(session, host, port)
-        connection = await asyncio.open_connection(host, port)
 
         nonlocal client_arguments
         # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
         client_arguments = client_arguments or {}
+
         # client_arguments.update(test_overrides)
 
-        client = RSocketClient(TransportTCP(*connection), **(client_arguments or {}))
+        async def transport_provider():
+            connection = await asyncio.open_connection(host, port)
+            return TransportTCP(*connection)
+
+        client = RSocketClient(transport_provider, **(client_arguments or {}))
 
         if auto_connect_client:
-            client.connect()
+            await client.connect()
 
     async def finish():
         if auto_connect_client:
@@ -122,9 +126,18 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
     host = 'localhost'
 
     await start()
-    await wait_for_server.wait()
+
+    async def server_provider():
+        await wait_for_server.wait()
+        return server
+
     try:
-        yield server, client
+        if auto_connect_client:
+            await wait_for_server.wait()
+            yield server, client
+        else:
+            yield server_provider, client
+
         assert_no_open_streams(client, server)
     finally:
         await finish()

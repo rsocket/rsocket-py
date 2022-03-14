@@ -10,6 +10,10 @@ class Transport(metaclass=abc.ABCMeta):
         self._frame_parser = FrameParser()
 
     @abc.abstractmethod
+    async def connect(self):
+        ...
+
+    @abc.abstractmethod
     async def send_frame(self, frame: Frame):
         ...
 

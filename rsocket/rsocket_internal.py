@@ -28,3 +28,7 @@ class RSocketInternal(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def send_error(self, stream_id: int, exception: Exception):
         ...
+
+    @abc.abstractmethod
+    def close_all_streams(self):
+        ...

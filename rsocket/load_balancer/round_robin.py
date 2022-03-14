@@ -20,9 +20,9 @@ class LoadBalancerRoundRobin(LoadBalancerStrategy):
         self._current_index = (self._current_index + 1) % len(self._pool)
         return client
 
-    def connect(self):
+    async def connect(self):
         if self._auto_connect:
-            [client.connect() for client in self._pool]
+            [await client.connect() for client in self._pool]
 
     async def close(self):
         if self._auto_close:

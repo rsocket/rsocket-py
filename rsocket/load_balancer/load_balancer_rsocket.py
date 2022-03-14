@@ -30,14 +30,14 @@ class LoadBalancerRSocket(RSocket):
     def metadata_push(self, metadata: bytes):
         self._select_client().metadata_push(metadata)
 
-    def connect(self):
-        self._strategy.connect()
+    async def connect(self):
+        await self._strategy.connect()
 
     async def close(self):
         await self._strategy.close()
 
     async def __aenter__(self) -> RSocket:
-        self._strategy.connect()
+        await self._strategy.connect()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

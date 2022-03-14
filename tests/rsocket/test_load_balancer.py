@@ -9,6 +9,14 @@ from tests.conftest import pipe_factory_tcp
 from tests.rsocket.helpers import future_from_request
 
 
+class HandlerFactory():
+    def __init__(self, server_id: int):
+        self._server_id = server_id
+
+    def factory(self, socket):
+        return Handler(socket, self._server_id)
+
+
 class Handler(BaseRequestHandler):
     def __init__(self, socket, server_id: int):
         super().__init__(socket)
@@ -19,7 +27,6 @@ class Handler(BaseRequestHandler):
 
 
 async def test_load_balancer_round_robin(unused_tcp_port_factory):
-    servers = []
     clients = []
     server_count = 3
     request_count = 7
@@ -27,11 +34,10 @@ async def test_load_balancer_round_robin(unused_tcp_port_factory):
     async with AsyncExitStack() as stack:
         for i in range(server_count):
             tcp_port = unused_tcp_port_factory()
-            server, client = await stack.enter_async_context(
+            _, client = await stack.enter_async_context(
                 pipe_factory_tcp(tcp_port,
-                                 server_arguments={'handler_factory': lambda socket: Handler(socket, i)},
+                                 server_arguments={'handler_factory': HandlerFactory(i).factory},
                                  auto_connect_client=False))
-            servers.append(server)
             clients.append(client)
 
         round_robin = LoadBalancerRoundRobin(clients)

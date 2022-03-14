@@ -58,7 +58,11 @@ class RequestHandler(metaclass=ABCMeta):
     @abstractmethod
     async def on_keepalive_timeout(self,
                                    time_since_last_keepalive: timedelta,
-                                   cancel_all_streams: Callable):
+                                   rsocket):
+        ...
+
+    @abstractmethod
+    async def on_connection_lost(self, rsocket):
         ...
 
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:
@@ -92,6 +96,9 @@ class BaseRequestHandler(RequestHandler):
 
     async def on_error(self, error_code: ErrorCode, payload: Payload):
         logger().error('Error: %s, %s', error_code, payload)
+
+    async def on_connection_lost(self, rsocket):
+        pass
 
     async def on_keepalive_timeout(self,
                                    time_since_last_keepalive: timedelta,

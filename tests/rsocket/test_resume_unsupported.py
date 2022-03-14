@@ -15,7 +15,7 @@ from tests.rsocket.misbehaving_rsocket import MisbehavingRSocket
 
 @pytest.mark.allow_error_log
 async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe_tcp_without_auto_connect
+    _, client = pipe_tcp_without_auto_connect
     received_error_code = None
     error_received = asyncio.Event()
 
@@ -25,7 +25,8 @@ async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSo
             received_error_code = error_code
             error_received.set()
 
-    client.set_handler_using_factory(Handler)
+    client.set_handler_factory(Handler)
+    await client.connect()
     bad_client = MisbehavingRSocket(client._transport)
 
     setup = SetupFrame()

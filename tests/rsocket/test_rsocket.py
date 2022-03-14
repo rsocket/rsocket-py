@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from datetime import timedelta
-from typing import Callable
 
 import pytest
 
@@ -10,6 +9,7 @@ from rsocket.exceptions import RSocketProtocolException
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
+from rsocket.rsocket_internal import RSocketInternal
 
 
 async def test_rsocket_client_closed_without_requests(lazy_pipe):
@@ -46,8 +46,8 @@ async def test_rsocket_max_server_keepalive_reached_and_request_canceled_explici
 
         async def on_keepalive_timeout(self,
                                        time_since_last_keepalive: timedelta,
-                                       cancel_all_streams: Callable):
-            cancel_all_streams()
+                                       socket: RSocketInternal):
+            socket.close_all_streams()
 
     async with lazy_pipe(
             client_arguments={

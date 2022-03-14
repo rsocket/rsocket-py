@@ -33,7 +33,7 @@ class RSocket(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def connect(self):
+    async def connect(self):
         ...
 
     @abc.abstractmethod

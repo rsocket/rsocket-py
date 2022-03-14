@@ -1,6 +1,6 @@
 import asyncio
 from datetime import timedelta, datetime
-from typing import Optional, Type
+from typing import Optional, Type, Callable, Coroutine
 from typing import Union
 
 from reactivestreams.publisher import Publisher
@@ -16,7 +16,7 @@ from rsocket.transports.transport import Transport
 class RSocketClient(RSocketBase):
 
     def __init__(self,
-                 transport: Transport,
+                 transport_provider: Callable[[], Coroutine[None, None, Transport]],
                  handler_factory: Type[RequestHandler] = BaseRequestHandler,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
@@ -25,13 +25,14 @@ class RSocketClient(RSocketBase):
                  metadata_encoding: Union[bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
-                 setup_payload: Optional[Payload] = None
+                 setup_payload: Optional[Payload] = None,
                  ):
+        self._transport_provider = transport_provider
         self._is_server_alive = True
         self._update_last_keepalive()
+        self._transport: Optional[Transport] = None
 
-        super().__init__(transport,
-                         handler_factory=handler_factory,
+        super().__init__(handler_factory=handler_factory,
                          honor_lease=honor_lease,
                          lease_publisher=lease_publisher,
                          request_queue_size=request_queue_size,
@@ -41,11 +42,23 @@ class RSocketClient(RSocketBase):
                          max_lifetime_period=max_lifetime_period,
                          setup_payload=setup_payload)
 
+    def _current_transport(self) -> Transport:
+        return self._transport
+
     def _log_identifier(self) -> str:
         return 'client'
 
+    async def connect(self):
+        await self.close()
+        self._is_closing = False
+        self._transport = await self._transport_provider()
+        await self._transport.connect()
+        self._reset_internals()
+        self._start_tasks()
+        return await super().connect()
+
     async def __aenter__(self) -> 'RSocketClient':
-        self.connect()
+        await self.connect()
         return self
 
     def _get_first_stream_id(self) -> int:
@@ -82,7 +95,7 @@ class RSocketClient(RSocketBase):
                     self._is_server_alive = False
                     await self._handler.on_keepalive_timeout(
                         time_since_last_keepalive,
-                        self._stream_control.cancel_all_handlers
+                        self
                     )
         except asyncio.CancelledError:
             logger().debug('%s: Asyncio task canceled: keepalive_timeout', self._log_identifier())

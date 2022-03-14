@@ -20,6 +20,9 @@ async def websocket_handler(*args, on_server_create=None, **kwargs):
 
 class TransportQuartWebsocket(AbstractWebsocketTransport):
 
+    async def connect(self):
+        pass
+
     async def handle_incoming_ws_messages(self):
         try:
             while True:

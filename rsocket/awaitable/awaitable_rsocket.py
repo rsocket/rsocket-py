@@ -47,8 +47,8 @@ class AwaitableRSocket:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self._rsocket.__aexit__(exc_type, exc_val, exc_tb)
 
-    def connect(self):
-        return self._rsocket.connect()
+    async def connect(self):
+        return await self._rsocket.connect()
 
     def close(self):
         self._rsocket.close()
