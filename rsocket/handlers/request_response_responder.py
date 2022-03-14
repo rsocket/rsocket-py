@@ -1,12 +1,12 @@
 from asyncio import Future
 
 from rsocket.frame import CancelFrame, Frame
-from rsocket.rsocket_interface import RSocketInterface
+from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestResponseResponder(StreamHandler):
-    def __init__(self, socket: RSocketInterface, future: Future):
+    def __init__(self, socket: RSocket, future: Future):
         super().__init__(socket)
         self.future = future
 

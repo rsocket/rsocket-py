@@ -1,0 +1,30 @@
+import abc
+
+from rsocket.frame import Frame, RequestFrame
+from rsocket.payload import Payload
+
+
+class RSocketInternal(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def send_frame(self, frame: Frame):
+        ...
+
+    @abc.abstractmethod
+    def send_complete(self, stream_id: int):
+        ...
+
+    @abc.abstractmethod
+    def finish_stream(self, stream_id: int):
+        ...
+
+    @abc.abstractmethod
+    def send_request(self, frame: RequestFrame):
+        ...
+
+    @abc.abstractmethod
+    def send_payload(self, stream_id: int, payload: Payload, complete=False, is_next=True):
+        ...
+
+    @abc.abstractmethod
+    def send_error(self, stream_id: int, exception: Exception):
+        ...

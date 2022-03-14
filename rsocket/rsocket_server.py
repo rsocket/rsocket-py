@@ -1,7 +1,7 @@
-from rsocket.rsocket import RSocket
+from rsocket.rsocket_base import RSocketBase
 
 
-class RSocketServer(RSocket):
+class RSocketServer(RSocketBase):
 
     def _log_identifier(self) -> str:
         return 'server'

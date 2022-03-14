@@ -44,8 +44,8 @@ class RxRSocket:
     def connect(self):
         return self._rsocket.connect()
 
-    def close(self):
-        self._rsocket.close()
+    async def close(self):
+        await self._rsocket.close()
 
     async def __aenter__(self):
         await self._rsocket.__aenter__()

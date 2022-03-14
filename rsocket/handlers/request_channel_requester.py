@@ -5,12 +5,12 @@ from reactivestreams.subscriber import Subscriber
 from rsocket.frame_builders import to_request_channel_frame
 from rsocket.handlers.request_cahnnel_common import RequestChannelCommon
 from rsocket.payload import Payload
-from rsocket.rsocket_interface import RSocketInterface
+from rsocket.rsocket import RSocket
 
 
 class RequestChannelRequester(RequestChannelCommon):
 
-    def __init__(self, socket: RSocketInterface, payload: Payload, remote_publisher: Optional[Publisher] = None):
+    def __init__(self, socket: RSocket, payload: Payload, remote_publisher: Optional[Publisher] = None):
         super().__init__(socket, remote_publisher)
         self._payload = payload
 

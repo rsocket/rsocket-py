@@ -8,6 +8,7 @@ from rsocket.rsocket import RSocket
 
 
 class AwaitableRSocket:
+
     def __init__(self, rsocket: RSocket):
         self._rsocket = rsocket
 
@@ -38,3 +39,16 @@ class AwaitableRSocket:
         self._rsocket.request_channel(payload, publisher).initial_request_n(initial_request_n).subscribe(subscriber)
 
         return await subscriber.run()
+
+    async def __aenter__(self):
+        await self._rsocket.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self._rsocket.__aexit__(exc_type, exc_val, exc_tb)
+
+    def connect(self):
+        return self._rsocket.connect()
+
+    def close(self):
+        self._rsocket.close()

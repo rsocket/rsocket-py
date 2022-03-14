@@ -3,7 +3,7 @@ from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
 from rsocket.payload import Payload
-from rsocket.rsocket_interface import RSocketInterface
+from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
 
 
@@ -33,7 +33,7 @@ class StreamSubscriber(DefaultSubscriber):
 
 class RequestStreamResponder(StreamHandler):
 
-    def __init__(self, socket: RSocketInterface, publisher: Publisher):
+    def __init__(self, socket: RSocket, publisher: Publisher):
         super().__init__(socket)
         self.publisher = publisher
 

@@ -9,11 +9,11 @@ from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.request_handler import RequestHandler
-from rsocket.rsocket import RSocket
+from rsocket.rsocket_base import RSocketBase
 from rsocket.transports.transport import Transport
 
 
-class RSocketClient(RSocket):
+class RSocketClient(RSocketBase):
 
     def __init__(self,
                  transport: Transport,

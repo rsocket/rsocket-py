@@ -13,7 +13,7 @@ from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.extensions.helpers import require_route
 from rsocket.routing.request_router import RequestRouter
-from rsocket.rsocket import BaseRequestHandler
+from rsocket.request_handler import BaseRequestHandler
 from rsocket.streams.error_stream import ErrorStream
 from rsocket.streams.null_subscrier import NullSubscriber
 

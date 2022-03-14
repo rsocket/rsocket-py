@@ -8,7 +8,7 @@ from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     PayloadFrame, Frame, error_frame_to_exception
 from rsocket.helpers import payload_from_frame
 from rsocket.payload import Payload
-from rsocket.rsocket_interface import RSocketInterface
+from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
 
 
@@ -38,7 +38,7 @@ class StreamSubscriber(DefaultSubscriber):
 
 class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc.ABCMeta):
 
-    def __init__(self, socket: RSocketInterface, remote_publisher: Optional[Publisher] = None):
+    def __init__(self, socket: RSocket, remote_publisher: Optional[Publisher] = None):
         super().__init__(socket)
         self.remote_subscriber = None
         self._sent_complete = False

@@ -12,7 +12,7 @@ from quart import Quart
 
 from rsocket.frame_parser import FrameParser
 from rsocket.logger import logger
-from rsocket.rsocket import RSocket
+from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
@@ -130,7 +130,7 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
         await finish()
 
 
-def assert_no_open_streams(client: RSocket, server: RSocket):
+def assert_no_open_streams(client: RSocketBase, server: RSocketBase):
     logger().info('Checking for open client streams')
 
     assert len(client._stream_control._streams) == 0, 'Client has open streams'
@@ -146,7 +146,7 @@ def connection():
 
 
 @pytest.fixture
-def aiohttp_raw_server(event_loop, unused_tcp_port):
+def aiohttp_raw_server(event_loop: asyncio.BaseEventLoop, unused_tcp_port):
     servers = []
 
     async def go(handler, *args, **kwargs):  # type: ignore[no-untyped-def]
@@ -167,7 +167,7 @@ def aiohttp_raw_server(event_loop, unused_tcp_port):
 @asynccontextmanager
 async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, client_arguments=None,
                                          server_arguments=None):
-    server = None
+    server: Optional[RSocketBase] = None
     wait_for_server = Event()
 
     def store_server(new_server):
@@ -192,7 +192,7 @@ async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, cl
 @asynccontextmanager
 async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, server_arguments=None):
     app = Quart(__name__)
-    server = None
+    server: Optional[RSocketBase] = None
     wait_for_server = Event()
 
     def store_server(new_server):

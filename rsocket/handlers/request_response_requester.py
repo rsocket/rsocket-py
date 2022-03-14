@@ -5,12 +5,12 @@ from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_except
 from rsocket.frame_builders import to_request_response_frame
 from rsocket.helpers import create_future, payload_from_frame
 from rsocket.payload import Payload
-from rsocket.rsocket_interface import RSocketInterface
+from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
 
 
 class RequestResponseRequester(StreamHandler):
-    def __init__(self, socket: RSocketInterface, payload: Payload):
+    def __init__(self, socket: RSocket, payload: Payload):
         super().__init__(socket)
         self._payload = payload
         self._future = create_future()
