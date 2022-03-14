@@ -1,6 +1,8 @@
 import random
 from typing import List
 
+import asyncio
+
 from rsocket.load_balancer.load_balancer_strategy import LoadBalancerStrategy
 from rsocket.rsocket import RSocket
 
