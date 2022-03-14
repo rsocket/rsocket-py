@@ -24,6 +24,6 @@ def bits(bit_count, value, comment) -> str:
     return f'{value:b}'.zfill(bit_count)
 
 
-def future_from_request(request):
+def future_from_request(request: Payload):
     return create_future(Payload(b'data: ' + request.data,
                                  b'meta: ' + request.metadata))
