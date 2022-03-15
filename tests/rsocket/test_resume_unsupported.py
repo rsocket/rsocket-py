@@ -26,27 +26,26 @@ async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSo
             error_received.set()
 
     client.set_handler_factory(Handler)
-    await client.connect()
-    transport = await client._current_transport()
-    bad_client = MisbehavingRSocket(transport)
 
-    setup = SetupFrame()
-    setup.flags_lease = False
-    setup.flags_resume = True
-    setup.token_length = 1
-    setup.resume_identification_token = b'a'
-    setup.keep_alive_milliseconds = 123
-    setup.max_lifetime_milliseconds = 456
-    setup.data_encoding = WellKnownMimeTypes.APPLICATION_JSON.name.encode()
-    setup.metadata_encoding = WellKnownMimeTypes.APPLICATION_JSON.name.encode()
+    async with client as connected_client:
+        transport = await connected_client._current_transport()
+        bad_client = MisbehavingRSocket(transport)
 
-    await bad_client.send_frame(setup)
+        setup = SetupFrame()
+        setup.flags_lease = False
+        setup.flags_resume = True
+        setup.token_length = 1
+        setup.resume_identification_token = b'a'
+        setup.keep_alive_milliseconds = 123
+        setup.max_lifetime_milliseconds = 456
+        setup.data_encoding = WellKnownMimeTypes.APPLICATION_JSON.name.encode()
+        setup.metadata_encoding = WellKnownMimeTypes.APPLICATION_JSON.name.encode()
 
-    await error_received.wait()
+        await bad_client.send_frame(setup)
 
-    await client.close()
+        await error_received.wait()
 
-    assert received_error_code == ErrorCode.UNSUPPORTED_SETUP
+        assert received_error_code == ErrorCode.UNSUPPORTED_SETUP
 
 
 @pytest.mark.allow_error_log
