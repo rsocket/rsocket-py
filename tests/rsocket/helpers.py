@@ -1,7 +1,11 @@
 from math import ceil
+from typing import Type
 
 from rsocket.helpers import create_future
+from rsocket.logger import logger
 from rsocket.payload import Payload
+from rsocket.request_handler import BaseRequestHandler
+from rsocket.rsocket_base import RSocketBase
 
 
 def data_bits(data: bytes, name: str = None):
@@ -24,6 +28,31 @@ def bits(bit_count, value, comment) -> str:
     return f'{value:b}'.zfill(bit_count)
 
 
-def future_from_request(request: Payload):
+def future_from_payload(request: Payload):
     return create_future(Payload(b'data: ' + request.data,
                                  b'meta: ' + request.metadata))
+
+
+def assert_no_open_streams(client: RSocketBase, server: RSocketBase):
+    logger().info('Checking for open client streams')
+
+    assert len(client._stream_control._streams) == 0, 'Client has open streams'
+
+    logger().info('Checking for open server streams')
+
+    assert len(server._stream_control._streams) == 0, 'Server has open streams'
+
+
+class IdentifiedHandler(BaseRequestHandler):
+    def __init__(self, socket, server_id: int):
+        super().__init__(socket)
+        self._server_id = server_id
+
+
+class IdentifiedHandlerFactory:
+    def __init__(self, server_id: int, handler_factory: Type[IdentifiedHandler]):
+        self._server_id = server_id
+        self._handler_factory = handler_factory
+
+    def factory(self, socket) -> BaseRequestHandler:
+        return self._handler_factory(socket, self._server_id)

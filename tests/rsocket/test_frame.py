@@ -2,7 +2,7 @@ import asyncstdlib
 import pytest
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException
+from rsocket.exceptions import RSocketProtocolError
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
@@ -598,5 +598,5 @@ def test_parse_broken_frame_raises_exception():
         bits(13, 23, 'Number of frames to request - broken. smaller than 31 bits'),
     )
 
-    with pytest.raises(RSocketProtocolException):
+    with pytest.raises(RSocketProtocolError):
         parse_or_ignore(broken_frame_data)

@@ -7,13 +7,13 @@ from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from tests.rsocket.helpers import future_from_request
+from tests.rsocket.helpers import future_from_payload
 
 
 async def test_request_response_awaitable_wrapper(pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            return future_from_request(request)
+            return future_from_payload(request)
 
     server, client = pipe
     server._handler = Handler(server)
@@ -25,7 +25,7 @@ async def test_request_response_awaitable_wrapper(pipe):
 async def test_request_response_repeated(pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            return future_from_request(request)
+            return future_from_payload(request)
 
     server, client = pipe
     server._handler = Handler(server)

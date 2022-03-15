@@ -1,8 +1,11 @@
+import asyncio
+from asyncio import Future
 from datetime import timedelta
-from typing import Type, Optional, Union
+from typing import Optional, Union, Callable
 
 from reactivestreams.publisher import Publisher
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import RequestHandler, BaseRequestHandler
 from rsocket.rsocket_base import RSocketBase
@@ -13,7 +16,7 @@ class RSocketServer(RSocketBase):
 
     def __init__(self,
                  transport: Transport,
-                 handler_factory: Type[RequestHandler] = BaseRequestHandler,
+                 handler_factory: Callable[[RSocketBase], RequestHandler] = BaseRequestHandler,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
@@ -32,9 +35,10 @@ class RSocketServer(RSocketBase):
                          max_lifetime_period,
                          setup_payload)
         self._transport = transport
+        self._transport_ready.set()
 
-    def _current_transport(self) -> Transport:
-        return self._transport
+    def _current_transport(self) -> Future:
+        return create_future(self._transport)
 
     def _setup_internals(self):
         self._reset_internals()
@@ -48,3 +52,6 @@ class RSocketServer(RSocketBase):
 
     def is_server_alive(self) -> bool:
         return True
+
+    async def _sender(self):
+        return await super()._sender()

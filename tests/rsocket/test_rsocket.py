@@ -5,7 +5,7 @@ from datetime import timedelta
 import pytest
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException
+from rsocket.exceptions import RSocketProtocolError
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -55,7 +55,7 @@ async def test_rsocket_max_server_keepalive_reached_and_request_canceled_explici
                 'max_lifetime_period': timedelta(seconds=1),
                 'handler_factory': ClientHandler},
             server_arguments={'handler_factory': Handler}) as (server, client):
-        with pytest.raises(RSocketProtocolException) as exc_info:
+        with pytest.raises(RSocketProtocolError) as exc_info:
             await client.request_response(Payload(b'dog', b'cat'))
 
         assert exc_info.value.data == 'Server not alive'

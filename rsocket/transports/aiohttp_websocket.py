@@ -5,7 +5,7 @@ import aiohttp
 from aiohttp import web
 
 from rsocket.frame import Frame
-from rsocket.logger import logger
+from rsocket.helpers import wrap_transport_exception
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.abstract_websocket import AbstractWebsocketTransport
@@ -49,16 +49,15 @@ class TransportAioHttpClient(AbstractWebsocketTransport):
         self._message_handler = asyncio.create_task(self.handle_incoming_ws_messages())
 
     async def handle_incoming_ws_messages(self):
-        try:
+        with wrap_transport_exception():
             async for msg in self._ws:
                 if msg.type == aiohttp.WSMsgType.BINARY:
                     async for frame in self._frame_parser.receive_data(msg.data, 0):
                         self._incoming_frame_queue.put_nowait(frame)
-        except asyncio.CancelledError:
-            logger().debug('Asyncio task canceled: aiohttp_handle_incoming_ws_messages')
 
     async def send_frame(self, frame: Frame):
-        await self._ws.send_bytes(frame.serialize())
+        with wrap_transport_exception():
+            await self._ws.send_bytes(frame.serialize())
 
     async def close(self):
         await self._ws_context.__aexit__(None, None, None)
@@ -75,17 +74,20 @@ class TransportAioHttpWebsocket(AbstractWebsocketTransport):
     async def connect(self):
         pass
 
-    async def handle_incoming_ws_messages(self):
-        try:
+    async def _message_generator(self):
+        with wrap_transport_exception():
             async for msg in self._ws:
                 if msg.type == aiohttp.WSMsgType.BINARY:
-                    async for frame in self._frame_parser.receive_data(msg.data, 0):
-                        self._incoming_frame_queue.put_nowait(frame)
-        except asyncio.CancelledError:
-            logger().debug('Asyncio task canceled: aiohttp_handle_incoming_ws_messages')
+                    yield msg.data
+
+    async def handle_incoming_ws_messages(self):
+        async for message in self._message_generator():
+            async for frame in self._frame_parser.receive_data(message, 0):
+                self._incoming_frame_queue.put_nowait(frame)
 
     async def send_frame(self, frame: Frame):
-        await self._ws.send_bytes(frame.serialize())
+        with wrap_transport_exception():
+            await self._ws.send_bytes(frame.serialize())
 
     async def close(self):
         await self._ws.close()

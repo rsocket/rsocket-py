@@ -11,13 +11,13 @@ from aiohttp.test_utils import RawTestServer
 from quart import Quart
 
 from rsocket.frame_parser import FrameParser
-from rsocket.logger import logger
 from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
 from rsocket.transports.quart_websocket import websocket_handler
 from rsocket.transports.tcp import TransportTCP
+from tests.rsocket.helpers import assert_no_open_streams
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -141,16 +141,6 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
         assert_no_open_streams(client, server)
     finally:
         await finish()
-
-
-def assert_no_open_streams(client: RSocketBase, server: RSocketBase):
-    logger().info('Checking for open client streams')
-
-    assert len(client._stream_control._streams) == 0, 'Client has open streams'
-
-    logger().info('Checking for open server streams')
-
-    assert len(server._stream_control._streams) == 0, 'Server has open streams'
 
 
 @pytest.fixture

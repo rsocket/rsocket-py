@@ -1,10 +1,12 @@
 import asyncio
+from asyncio import Future
 from datetime import timedelta, datetime
-from typing import Optional, Type, Callable, Coroutine
+from typing import Optional, Callable, Coroutine
 from typing import Union
 
 from reactivestreams.publisher import Publisher
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.helpers import create_future
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -17,7 +19,7 @@ class RSocketClient(RSocketBase):
 
     def __init__(self,
                  transport_provider: Callable[[], Coroutine[None, None, Transport]],
-                 handler_factory: Type[RequestHandler] = BaseRequestHandler,
+                 handler_factory: Callable[[RSocketBase], RequestHandler] = BaseRequestHandler,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
@@ -31,6 +33,7 @@ class RSocketClient(RSocketBase):
         self._is_server_alive = True
         self._update_last_keepalive()
         self._transport: Optional[Transport] = None
+        self._next_transport = asyncio.Future()
 
         super().__init__(handler_factory=handler_factory,
                          honor_lease=honor_lease,
@@ -42,20 +45,32 @@ class RSocketClient(RSocketBase):
                          max_lifetime_period=max_lifetime_period,
                          setup_payload=setup_payload)
 
-    def _current_transport(self) -> Transport:
-        return self._transport
+    def _current_transport(self) -> Future:
+        return self._next_transport
 
     def _log_identifier(self) -> str:
         return 'client'
 
     async def connect(self):
-        await self.close()
+        logger().debug('%s: connecting', self._log_identifier())
+        self._transport_ready.clear()
+
+        if self._current_transport().done():
+            await self.close()
+
         self._is_closing = False
-        self._transport = await self._transport_provider()
-        await self._transport.connect()
         self._reset_internals()
         self._start_tasks()
+
+        self._next_transport.set_result(await self._transport_provider())
+        transport = await self._current_transport()
+        await transport.connect()
+
         return await super().connect()
+
+    async def close(self):
+        await super().close()
+        self._next_transport = create_future()
 
     async def __aenter__(self) -> 'RSocketClient':
         await self.connect()
@@ -107,3 +122,7 @@ class RSocketClient(RSocketBase):
             await super()._receiver_listen()
         finally:
             await self._cancel_if_task_exists(keepalive_timeout_task)
+
+    async def _sender(self):
+        return await super()._sender()
+

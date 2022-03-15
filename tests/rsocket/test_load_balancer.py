@@ -4,26 +4,14 @@ from contextlib import AsyncExitStack
 from rsocket.load_balancer.load_balancer_rsocket import LoadBalancerRSocket
 from rsocket.load_balancer.round_robin import LoadBalancerRoundRobin
 from rsocket.payload import Payload
-from rsocket.request_handler import BaseRequestHandler
 from tests.conftest import pipe_factory_tcp
-from tests.rsocket.helpers import future_from_request
+from tests.rsocket.helpers import future_from_payload, IdentifiedHandlerFactory, IdentifiedHandler
 
 
-class HandlerFactory():
-    def __init__(self, server_id: int):
-        self._server_id = server_id
-
-    def factory(self, socket):
-        return Handler(socket, self._server_id)
-
-
-class Handler(BaseRequestHandler):
-    def __init__(self, socket, server_id: int):
-        super().__init__(socket)
-        self.server_id = server_id
+class Handler(IdentifiedHandler):
 
     async def request_response(self, request: Payload):
-        return future_from_request(Payload(request.data + (' server %d' % self.server_id).encode(), request.metadata))
+        return future_from_payload(Payload(request.data + (' server %d' % self._server_id).encode(), request.metadata))
 
 
 async def test_load_balancer_round_robin(unused_tcp_port_factory):
@@ -36,7 +24,7 @@ async def test_load_balancer_round_robin(unused_tcp_port_factory):
             tcp_port = unused_tcp_port_factory()
             _, client = await stack.enter_async_context(
                 pipe_factory_tcp(tcp_port,
-                                 server_arguments={'handler_factory': HandlerFactory(i).factory},
+                                 server_arguments={'handler_factory': IdentifiedHandlerFactory(i, Handler).factory},
                                  auto_connect_client=False))
             clients.append(client)
 
