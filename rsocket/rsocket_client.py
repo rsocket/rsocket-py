@@ -142,6 +142,3 @@ class RSocketClient(RSocketBase):
             await super()._receiver_listen()
         finally:
             await self._cancel_if_task_exists(keepalive_timeout_task)
-
-    async def _sender(self):
-        return await super()._sender()

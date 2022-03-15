@@ -50,6 +50,3 @@ class RSocketServer(RSocketBase):
 
     def is_server_alive(self) -> bool:
         return True
-
-    async def _sender(self):
-        return await super()._sender()

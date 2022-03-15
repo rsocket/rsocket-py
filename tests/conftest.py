@@ -11,6 +11,7 @@ from aiohttp.test_utils import RawTestServer
 from quart import Quart
 
 from rsocket.frame_parser import FrameParser
+from rsocket.helpers import single_transport_provider
 from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
@@ -95,18 +96,14 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
     async def start():
         nonlocal service, client
         service = await asyncio.start_server(session, host, port)
-
+        connection = await asyncio.open_connection(host, port)
         nonlocal client_arguments
         # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
         client_arguments = client_arguments or {}
 
         # client_arguments.update(test_overrides)
 
-        async def transport_provider():
-            connection = await asyncio.open_connection(host, port)
-            yield TransportTCP(*connection)
-
-        client = RSocketClient(transport_provider(), **(client_arguments or {}))
+        client = RSocketClient(single_transport_provider(TransportTCP(*connection)), **(client_arguments or {}))
 
         if auto_connect_client:
             await client.connect()
@@ -144,7 +141,7 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
 
 
 @pytest.fixture
-def connection():
+def frame_parser():
     return FrameParser()
 
 
