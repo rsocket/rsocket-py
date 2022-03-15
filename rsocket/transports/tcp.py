@@ -11,9 +11,6 @@ class TransportTCP(Transport):
         self._writer = writer
         self._reader = reader
 
-    async def connect(self):
-        pass
-
     async def send_frame(self, frame: Frame):
         with wrap_transport_exception():
             self._writer.write(serialize_with_frame_size_header(frame))

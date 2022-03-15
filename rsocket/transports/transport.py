@@ -9,9 +9,8 @@ class Transport(metaclass=abc.ABCMeta):
     def __init__(self):
         self._frame_parser = FrameParser()
 
-    @abc.abstractmethod
     async def connect(self):
-        ...
+        """"Optional if required"""
 
     @abc.abstractmethod
     async def send_frame(self, frame: Frame):

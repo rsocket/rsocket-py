@@ -5,7 +5,7 @@ import aiohttp
 from aiohttp import web
 
 from rsocket.frame import Frame
-from rsocket.helpers import wrap_transport_exception
+from rsocket.helpers import wrap_transport_exception, single_transport_provider
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.abstract_websocket import AbstractWebsocketTransport
@@ -13,10 +13,8 @@ from rsocket.transports.abstract_websocket import AbstractWebsocketTransport
 
 @asynccontextmanager
 async def websocket_client(url, *args, **kwargs) -> RSocketClient:
-    async def transport_provider():
-        yield TransportAioHttpClient(url)
-
-    async with RSocketClient(transport_provider(), *args, **kwargs) as client:
+    async with RSocketClient(single_transport_provider(TransportAioHttpClient(url)),
+                             *args, **kwargs) as client:
         yield client
 
 
@@ -70,9 +68,6 @@ class TransportAioHttpWebsocket(AbstractWebsocketTransport):
     def __init__(self, websocket):
         super().__init__()
         self._ws = websocket
-
-    async def connect(self):
-        pass
 
     async def _message_generator(self):
         with wrap_transport_exception():
