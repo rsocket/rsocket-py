@@ -27,7 +27,8 @@ async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSo
 
     client.set_handler_factory(Handler)
     await client.connect()
-    bad_client = MisbehavingRSocket(client._transport)
+    transport = await client._current_transport()
+    bad_client = MisbehavingRSocket(transport)
 
     setup = SetupFrame()
     setup.flags_lease = False
@@ -63,7 +64,8 @@ async def test_resume_request_unsupported(pipe_tcp: Tuple[RSocketServer, RSocket
 
     client.set_handler_using_factory(Handler)
 
-    bad_client = MisbehavingRSocket(client._transport)
+    transport = await client._current_transport()
+    bad_client = MisbehavingRSocket(transport)
 
     resume = ResumeFrame()
     resume.token_length = 1

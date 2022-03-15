@@ -3,11 +3,11 @@ from rsocket.transports.transport import Transport
 
 
 class MisbehavingRSocket:
-    def __init__(self, socket: Transport):
-        self._socket = socket
+    def __init__(self, transport: Transport):
+        self._transport = transport
 
     async def send_frame(self, frame: Frame):
-        await self._socket.send_frame(frame)
+        await self._transport.send_frame(frame)
 
 
 class BrokenFrame:
