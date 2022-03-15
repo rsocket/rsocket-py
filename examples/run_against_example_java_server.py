@@ -9,6 +9,7 @@ from reactivestreams.subscription import Subscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
+from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
@@ -33,11 +34,9 @@ async def main():
         def on_error(self, exception: Exception):
             completion_event.set()
 
-    async def transport_provider():
-        connection = await asyncio.open_connection('localhost', 6565)
-        yield TransportTCP(*connection)
+    connection = await asyncio.open_connection('localhost', 6565)
 
-    async with RSocketClient(transport_provider(),
+    async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name,
                              data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value.name) as client:
         metadata = CompositeMetadata()

@@ -60,3 +60,7 @@ def wrap_transport_exception():
         yield
     except Exception as exception:
         raise RSocketTransportError from exception
+
+
+def single_transport_provider(transport):
+    yield transport
