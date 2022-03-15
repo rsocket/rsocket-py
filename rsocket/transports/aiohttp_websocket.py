@@ -14,9 +14,9 @@ from rsocket.transports.abstract_websocket import AbstractWebsocketTransport
 @asynccontextmanager
 async def websocket_client(url, *args, **kwargs) -> RSocketClient:
     async def transport_provider():
-        return TransportAioHttpClient(url)
+        yield TransportAioHttpClient(url)
 
-    async with RSocketClient(transport_provider, *args, **kwargs) as client:
+    async with RSocketClient(transport_provider(), *args, **kwargs) as client:
         yield client
 
 

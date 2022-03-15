@@ -33,8 +33,11 @@ async def main():
         def on_error(self, exception: Exception):
             completion_event.set()
 
-    connection = await asyncio.open_connection('localhost', 6565)
-    async with RSocketClient(TransportTCP(*connection),
+    async def transport_provider():
+        connection = await asyncio.open_connection('localhost', 6565)
+        yield TransportTCP(*connection)
+
+    async with RSocketClient(transport_provider(),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name,
                              data_encoding=WellKnownMimeTypes.APPLICATION_JSON.value.name) as client:
         metadata = CompositeMetadata()

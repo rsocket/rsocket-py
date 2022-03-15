@@ -446,7 +446,8 @@ class RSocketBase(RSocket, RSocketInternal):
                 await self._finally_sender()
         except asyncio.CancelledError:
             logger().debug('%s: Asyncio task canceled: sender', self._log_identifier())
-
+        except RSocketTransportError as exception:
+            await self._on_connection_lost(exception)
         except Exception as exception:
             logger().error('%s: RSocket error', self._log_identifier(), exc_info=True)
             await self._on_connection_lost(exception)
@@ -484,21 +485,21 @@ class RSocketBase(RSocket, RSocketInternal):
         await self.close()
 
     def request_response(self, payload: Payload) -> Future:
-        logger().debug('%s: sending request-response: %s', self._log_identifier(), payload)
+        logger().debug('%s: request-response: %s', self._log_identifier(), payload)
 
         requester = RequestResponseRequester(self, payload)
         self.register_new_stream(requester).setup()
         return requester.run()
 
     def fire_and_forget(self, payload: Payload):
-        logger().debug('%s: sending fire-and-forget: %s', self._log_identifier(), payload)
+        logger().debug('%s: fire-and-forget: %s', self._log_identifier(), payload)
 
         stream_id = self._allocate_stream()
         self.send_request(to_fire_and_forget_frame(stream_id, payload))
         self.finish_stream(stream_id)
 
     def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:
-        logger().debug('%s: sending request-stream: %s', self._log_identifier(), payload)
+        logger().debug('%s: request-stream: %s', self._log_identifier(), payload)
 
         requester = RequestStreamRequester(self, payload)
         self.register_new_stream(requester)
@@ -508,13 +509,15 @@ class RSocketBase(RSocket, RSocketInternal):
             self,
             payload: Payload,
             local_publisher: Optional[Publisher] = None) -> Union[BackpressureApi, Publisher]:
-        logger().debug('%s: sending request-channel: %s', self._log_identifier(), payload)
+        logger().debug('%s: request-channel: %s', self._log_identifier(), payload)
 
         requester = RequestChannelRequester(self, payload, local_publisher)
         self.register_new_stream(requester)
         return requester
 
     def metadata_push(self, metadata: bytes):
+        logger().debug('%s: metadata-push: %s', self._log_identifier(), metadata)
+
         frame = MetadataPushFrame()
         frame.metadata = metadata
         self.send_frame(frame)

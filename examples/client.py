@@ -15,9 +15,11 @@ class StreamSubscriber(DefaultSubscriber):
 
 
 async def main():
-    connection = await asyncio.open_connection('localhost', 6565)
+    async def transport_provider():
+        connection = await asyncio.open_connection('localhost', 7000)
+        yield TransportTCP(*connection)
 
-    async with RSocketClient(TransportTCP(*connection)) as client:
+    async with RSocketClient(transport_provider()) as client:
         payload = Payload(b'%Y-%m-%d %H:%M:%S')
 
         async def run_request_response():

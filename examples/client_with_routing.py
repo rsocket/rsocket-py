@@ -5,10 +5,10 @@ from typing import AsyncGenerator, Tuple
 
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
+from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.fragment import Fragment
 from rsocket.payload import Payload
-from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.rsocket_client import RSocketClient
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.transports.tcp import TransportTCP
@@ -143,9 +143,12 @@ async def request_fragmented_stream(socket: RSocketClient):
 
 
 async def main():
-    connection = await asyncio.open_connection('localhost', 6565)
 
-    async with RSocketClient(TransportTCP(*connection),
+    async def transport_provider():
+        connection = await asyncio.open_connection('localhost', 6565)
+        yield TransportTCP(*connection)
+
+    async with RSocketClient(transport_provider(),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
         await request_response(client)
         await request_stream(client)

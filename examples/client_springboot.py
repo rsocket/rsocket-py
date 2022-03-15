@@ -4,9 +4,9 @@ import logging
 from uuid import uuid4
 
 from reactivestreams.subscriber import DefaultSubscriber
+from rsocket.extensions.helpers import composite, route, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.payload import Payload
-from rsocket.extensions.helpers import composite, route, authenticate_simple
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
@@ -19,12 +19,15 @@ class StreamSubscriber(DefaultSubscriber):
 
 
 async def main():
-    connection = await asyncio.open_connection('localhost', 7000)
+    async def transport_provider():
+        connection = await asyncio.open_connection('localhost', 7000)
+        yield TransportTCP(*connection)
 
     setup_payload = Payload(
         data=str(uuid4()).encode(),
         metadata=composite(route('shell-client'), authenticate_simple('user', 'pass')))
-    async with RSocketClient(TransportTCP(*connection),
+
+    async with RSocketClient(transport_provider(),
                              setup_payload=setup_payload,
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA):
         await asyncio.sleep(5)

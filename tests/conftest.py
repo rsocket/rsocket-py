@@ -104,9 +104,9 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
 
         async def transport_provider():
             connection = await asyncio.open_connection(host, port)
-            return TransportTCP(*connection)
+            yield TransportTCP(*connection)
 
-        client = RSocketClient(transport_provider, **(client_arguments or {}))
+        client = RSocketClient(transport_provider(), **(client_arguments or {}))
 
         if auto_connect_client:
             await client.connect()

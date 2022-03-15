@@ -56,3 +56,7 @@ class IdentifiedHandlerFactory:
 
     def factory(self, socket) -> BaseRequestHandler:
         return self._handler_factory(socket, self._server_id)
+
+
+def force_closing_connection(current_connection):
+    current_connection[1].close()

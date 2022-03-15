@@ -1,10 +1,11 @@
 import asyncio
 from asyncio import Future
 from datetime import timedelta, datetime
-from typing import Optional, Callable, Coroutine
+from typing import Optional, Callable, AsyncGenerator, Any
 from typing import Union
 
 from reactivestreams.publisher import Publisher
+from rsocket.exceptions import RSocketNoAvailableTransport, RSocketTransportError
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import create_future
 from rsocket.logger import logger
@@ -18,7 +19,7 @@ from rsocket.transports.transport import Transport
 class RSocketClient(RSocketBase):
 
     def __init__(self,
-                 transport_provider: Callable[[], Coroutine[None, None, Transport]],
+                 transport_provider: AsyncGenerator[Transport, Any],
                  handler_factory: Callable[[RSocketBase], RequestHandler] = BaseRequestHandler,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
@@ -29,7 +30,7 @@ class RSocketClient(RSocketBase):
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  setup_payload: Optional[Payload] = None,
                  ):
-        self._transport_provider = transport_provider
+        self._transport_provider = transport_provider.__aiter__()
         self._is_server_alive = True
         self._update_last_keepalive()
         self._transport: Optional[Transport] = None
@@ -62,11 +63,31 @@ class RSocketClient(RSocketBase):
         self._reset_internals()
         self._start_tasks()
 
-        self._next_transport.set_result(await self._transport_provider())
+        try:
+            new_transport = await self._get_new_transport()
+        except Exception as exception:
+            logger().error('%s: Connection error', self._log_identifier(), exc_info=True)
+            self._handler.on_connection_lost(self, exception)
+            return
+
+        if new_transport is None:
+            raise RSocketNoAvailableTransport()
+
+        self._next_transport.set_result(new_transport)
         transport = await self._current_transport()
-        await transport.connect()
+
+        try:
+            await transport.connect()
+        except Exception as exception:
+            raise RSocketTransportError from exception
 
         return await super().connect()
+
+    async def _get_new_transport(self):
+        try:
+            return await self._transport_provider.__anext__()
+        except StopAsyncIteration:
+            return
 
     async def close(self):
         await super().close()
@@ -125,4 +146,3 @@ class RSocketClient(RSocketBase):
 
     async def _sender(self):
         return await super()._sender()
-

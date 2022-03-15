@@ -60,3 +60,7 @@ class RSocketFrameFragmentDifferentType(RSocketError):
 
 class RSocketTransportError(RSocketError):
     pass
+
+
+class RSocketNoAvailableTransport(RSocketError):
+    pass
