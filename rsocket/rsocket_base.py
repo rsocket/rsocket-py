@@ -1,6 +1,6 @@
 import abc
 import asyncio
-from asyncio import Future, QueueEmpty, Task, Event
+from asyncio import Future, QueueEmpty, Task
 from datetime import timedelta
 from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type, cast, TypeVar
 
@@ -81,7 +81,6 @@ class RSocketBase(RSocket, RSocketInternal):
         self._lease_publisher = lease_publisher
         self._sender_task = None
         self._receiver_task = None
-        self._transport_ready = Event()
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -142,7 +141,6 @@ class RSocketBase(RSocket, RSocketInternal):
         if self._honor_lease:
             self._subscribe_to_lease_publisher()
 
-        self._transport_ready.set()
         return self
 
     def _ensure_encoding_name(self, encoding) -> bytes:
@@ -342,7 +340,6 @@ class RSocketBase(RSocket, RSocketInternal):
 
     async def _receiver(self):
         try:
-            await self._transport_ready.wait()
             await self._receiver_listen()
         except asyncio.CancelledError:
             logger().debug('%s: Asyncio task canceled: receiver', self._log_identifier())
@@ -354,7 +351,6 @@ class RSocketBase(RSocket, RSocketInternal):
 
     async def _on_connection_lost(self, exception: Exception):
         logger().debug(str(exception))
-        self._transport_ready.clear()
         await self._handler.on_connection_lost(self, exception)
 
     @abc.abstractmethod
@@ -423,7 +419,6 @@ class RSocketBase(RSocket, RSocketInternal):
 
     async def _sender(self):
         try:
-            await self._transport_ready.wait()
             try:
                 transport = await self._current_transport()
 
@@ -454,7 +449,6 @@ class RSocketBase(RSocket, RSocketInternal):
 
     async def close(self):
         logger().debug('%s: Closing', self._log_identifier())
-        self._transport_ready.clear()
         self._is_closing = True
         await self._cancel_if_task_exists(self._sender_task)
         await self._cancel_if_task_exists(self._receiver_task)

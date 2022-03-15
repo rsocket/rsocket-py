@@ -1,4 +1,3 @@
-import asyncio
 from asyncio import Future
 from datetime import timedelta
 from typing import Optional, Union, Callable
@@ -35,7 +34,6 @@ class RSocketServer(RSocketBase):
                          max_lifetime_period,
                          setup_payload)
         self._transport = transport
-        self._transport_ready.set()
 
     def _current_transport(self) -> Future:
         return create_future(self._transport)

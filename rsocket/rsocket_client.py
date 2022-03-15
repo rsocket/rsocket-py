@@ -54,7 +54,6 @@ class RSocketClient(RSocketBase):
 
     async def connect(self):
         logger().debug('%s: connecting', self._log_identifier())
-        self._transport_ready.clear()
 
         if self._current_transport().done():
             await self.close()

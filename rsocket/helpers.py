@@ -62,5 +62,5 @@ def wrap_transport_exception():
         raise RSocketTransportError from exception
 
 
-def single_transport_provider(transport):
+async def single_transport_provider(transport):
     yield transport

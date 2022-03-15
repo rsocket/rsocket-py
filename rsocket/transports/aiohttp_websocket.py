@@ -6,6 +6,7 @@ from aiohttp import web
 
 from rsocket.frame import Frame
 from rsocket.helpers import wrap_transport_exception, single_transport_provider
+from rsocket.logger import logger
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.abstract_websocket import AbstractWebsocketTransport
@@ -76,9 +77,12 @@ class TransportAioHttpWebsocket(AbstractWebsocketTransport):
                     yield msg.data
 
     async def handle_incoming_ws_messages(self):
-        async for message in self._message_generator():
-            async for frame in self._frame_parser.receive_data(message, 0):
-                self._incoming_frame_queue.put_nowait(frame)
+        try:
+            async for message in self._message_generator():
+                async for frame in self._frame_parser.receive_data(message, 0):
+                    self._incoming_frame_queue.put_nowait(frame)
+        except asyncio.CancelledError:
+            logger().debug('Asyncio task canceled: aiohttp_handle_incoming_ws_messages')
 
     async def send_frame(self, frame: Frame):
         with wrap_transport_exception():
