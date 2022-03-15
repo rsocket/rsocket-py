@@ -1,5 +1,9 @@
+from typing import cast
+
 import asyncstdlib
 
+from rsocket.extensions.authentication import AuthenticationSimple
+from rsocket.extensions.authentication_content import AuthenticationContent
 from rsocket.extensions.composite_metadata import CompositeMetadata
 
 
@@ -12,7 +16,8 @@ async def test_decode_spring_demo_auth():
 
     assert len(composite_metadata.items) == 2
 
-    authentication = composite_metadata.items[1].authentication
+    composite_item = cast(AuthenticationContent, composite_metadata.items[1])
+    authentication = cast(AuthenticationSimple, composite_item.authentication)
     assert authentication.username == b'user'
     assert authentication.password == b'pass'
 
