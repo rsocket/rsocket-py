@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from reactivestreams.subscriber import DefaultSubscriber
+from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
@@ -17,7 +18,7 @@ class StreamSubscriber(DefaultSubscriber):
 async def main():
     connection = await asyncio.open_connection('localhost', 6565)
 
-    async with RSocketClient(TransportTCP(*connection)) as client:
+    async with RSocketClient(single_transport_provider(TransportTCP(*connection))) as client:
         payload = Payload(b'%Y-%m-%d %H:%M:%S')
 
         async def run_request_response():

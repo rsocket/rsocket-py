@@ -15,7 +15,7 @@ from tests.rsocket.misbehaving_rsocket import MisbehavingRSocket
 
 @pytest.mark.allow_error_log
 async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe_tcp_without_auto_connect
+    _, client = pipe_tcp_without_auto_connect
     received_error_code = None
     error_received = asyncio.Event()
 
@@ -25,26 +25,27 @@ async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSo
             received_error_code = error_code
             error_received.set()
 
-    client.set_handler_using_factory(Handler)
-    bad_client = MisbehavingRSocket(client._transport)
+    client.set_handler_factory(Handler)
 
-    setup = SetupFrame()
-    setup.flags_lease = False
-    setup.flags_resume = True
-    setup.token_length = 1
-    setup.resume_identification_token = b'a'
-    setup.keep_alive_milliseconds = 123
-    setup.max_lifetime_milliseconds = 456
-    setup.data_encoding = WellKnownMimeTypes.APPLICATION_JSON.name.encode()
-    setup.metadata_encoding = WellKnownMimeTypes.APPLICATION_JSON.name.encode()
+    async with client as connected_client:
+        transport = await connected_client._current_transport()
+        bad_client = MisbehavingRSocket(transport)
 
-    await bad_client.send_frame(setup)
+        setup = SetupFrame()
+        setup.flags_lease = False
+        setup.flags_resume = True
+        setup.token_length = 1
+        setup.resume_identification_token = b'a'
+        setup.keep_alive_milliseconds = 123
+        setup.max_lifetime_milliseconds = 456
+        setup.data_encoding = WellKnownMimeTypes.APPLICATION_JSON.name.encode()
+        setup.metadata_encoding = WellKnownMimeTypes.APPLICATION_JSON.name.encode()
 
-    await error_received.wait()
+        await bad_client.send_frame(setup)
 
-    await client.close()
+        await error_received.wait()
 
-    assert received_error_code == ErrorCode.UNSUPPORTED_SETUP
+        assert received_error_code == ErrorCode.UNSUPPORTED_SETUP
 
 
 @pytest.mark.allow_error_log
@@ -62,7 +63,8 @@ async def test_resume_request_unsupported(pipe_tcp: Tuple[RSocketServer, RSocket
 
     client.set_handler_using_factory(Handler)
 
-    bad_client = MisbehavingRSocket(client._transport)
+    transport = await client._current_transport()
+    bad_client = MisbehavingRSocket(transport)
 
     resume = ResumeFrame()
     resume.token_length = 1

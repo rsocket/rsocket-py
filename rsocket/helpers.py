@@ -1,20 +1,22 @@
 import asyncio
-from typing import Optional
+from contextlib import contextmanager
+from typing import Optional, Any
 
 from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
+from rsocket.exceptions import RSocketTransportError
 from rsocket.frame import Frame
 from rsocket.payload import Payload
 
 _default = object()
 
 
-def create_future(payload: Optional[Payload] = _default) -> asyncio.Future:
+def create_future(value: Optional[Any] = _default) -> asyncio.Future:
     future = asyncio.get_event_loop().create_future()
 
-    if payload is not _default:
-        future.set_result(payload)
+    if value is not _default:
+        future.set_result(value)
 
     return future
 
@@ -50,3 +52,15 @@ class WellKnownType:
 
     def __hash__(self):
         return hash((self.id, self.name))
+
+
+@contextmanager
+def wrap_transport_exception():
+    try:
+        yield
+    except Exception as exception:
+        raise RSocketTransportError from exception
+
+
+async def single_transport_provider(transport):
+    yield transport

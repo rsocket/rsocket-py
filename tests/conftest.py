@@ -11,13 +11,14 @@ from aiohttp.test_utils import RawTestServer
 from quart import Quart
 
 from rsocket.frame_parser import FrameParser
-from rsocket.logger import logger
+from rsocket.helpers import single_transport_provider
 from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
 from rsocket.transports.quart_websocket import websocket_handler
 from rsocket.transports.tcp import TransportTCP
+from tests.rsocket.helpers import assert_no_open_streams
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -96,16 +97,16 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
         nonlocal service, client
         service = await asyncio.start_server(session, host, port)
         connection = await asyncio.open_connection(host, port)
-
         nonlocal client_arguments
         # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
         client_arguments = client_arguments or {}
+
         # client_arguments.update(test_overrides)
 
-        client = RSocketClient(TransportTCP(*connection), **(client_arguments or {}))
+        client = RSocketClient(single_transport_provider(TransportTCP(*connection)), **(client_arguments or {}))
 
         if auto_connect_client:
-            client.connect()
+            await client.connect()
 
     async def finish():
         if auto_connect_client:
@@ -122,26 +123,25 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
     host = 'localhost'
 
     await start()
-    await wait_for_server.wait()
+
+    async def server_provider():
+        await wait_for_server.wait()
+        return server
+
     try:
-        yield server, client
+        if auto_connect_client:
+            await wait_for_server.wait()
+            yield server, client
+        else:
+            yield server_provider, client
+
         assert_no_open_streams(client, server)
     finally:
         await finish()
 
 
-def assert_no_open_streams(client: RSocketBase, server: RSocketBase):
-    logger().info('Checking for open client streams')
-
-    assert len(client._stream_control._streams) == 0, 'Client has open streams'
-
-    logger().info('Checking for open server streams')
-
-    assert len(server._stream_control._streams) == 0, 'Server has open streams'
-
-
 @pytest.fixture
-def connection():
+def frame_parser():
     return FrameParser()
 
 

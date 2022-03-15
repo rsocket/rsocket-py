@@ -34,11 +34,11 @@ class RSocketStreamAllocationFailure(RSocketError):
     pass
 
 
-class RSocketValueErrorException(RSocketError):
+class RSocketValueError(RSocketError):
     pass
 
 
-class RSocketProtocolException(RSocketError):
+class RSocketProtocolError(RSocketError):
     def __init__(self, error_code: ErrorCode, data: Optional[str] = None):
         self.error_code = error_code
         self.data = data
@@ -47,7 +47,7 @@ class RSocketProtocolException(RSocketError):
         return 'RSocket error %s(%s): "%s"' % (self.error_code.name, self.error_code.value, self.data or '')
 
 
-class RSocketStreamIdInUse(RSocketProtocolException):
+class RSocketStreamIdInUse(RSocketProtocolError):
 
     def __init__(self, stream_id: int):
         super().__init__(ErrorCode.REJECTED)
@@ -55,4 +55,12 @@ class RSocketStreamIdInUse(RSocketProtocolException):
 
 
 class RSocketFrameFragmentDifferentType(RSocketError):
+    pass
+
+
+class RSocketTransportError(RSocketError):
+    pass
+
+
+class RSocketNoAvailableTransport(RSocketError):
     pass

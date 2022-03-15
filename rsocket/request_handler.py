@@ -2,7 +2,7 @@ import asyncio
 from abc import ABCMeta, abstractmethod
 from asyncio import Future
 from datetime import timedelta
-from typing import Tuple, Optional, Callable
+from typing import Tuple, Optional
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
@@ -58,7 +58,11 @@ class RequestHandler(metaclass=ABCMeta):
     @abstractmethod
     async def on_keepalive_timeout(self,
                                    time_since_last_keepalive: timedelta,
-                                   cancel_all_streams: Callable):
+                                   rsocket):
+        ...
+
+    @abstractmethod
+    async def on_connection_lost(self, rsocket, exception):
         ...
 
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:
@@ -93,7 +97,10 @@ class BaseRequestHandler(RequestHandler):
     async def on_error(self, error_code: ErrorCode, payload: Payload):
         logger().error('Error: %s, %s', error_code, payload)
 
+    async def on_connection_lost(self, rsocket, exception: Exception):
+        await rsocket.close()
+
     async def on_keepalive_timeout(self,
                                    time_since_last_keepalive: timedelta,
-                                   cancel_all_streams: Callable):
+                                   rsocket):
         pass

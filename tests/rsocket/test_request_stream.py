@@ -8,7 +8,7 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.awaitable.collector_subscriber import CollectorSubscriber
-from rsocket.exceptions import RSocketValueErrorException
+from rsocket.exceptions import RSocketValueError
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.payload import Payload
@@ -52,7 +52,7 @@ async def test_request_stream_prevent_negative_initial_request_n(pipe: Tuple[RSo
                                                                  initial_request_n):
     server, client = pipe
 
-    with pytest.raises(RSocketValueErrorException):
+    with pytest.raises(RSocketValueError):
         client.request_stream(Payload()).initial_request_n(initial_request_n)
 
 

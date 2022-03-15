@@ -5,7 +5,7 @@ from enum import IntEnum, unique
 from typing import Tuple, Optional
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException, ParseError, RSocketUnknownFrameType
+from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
     ensure_bytes
 
@@ -626,7 +626,7 @@ def parse_or_ignore(buffer: bytes) -> Optional[Frame]:
         return frame
     except Exception as exception:
         if not header.flags_ignore:
-            raise RSocketProtocolException(ErrorCode.CONNECTION_ERROR, str(exception)) from exception
+            raise RSocketProtocolError(ErrorCode.CONNECTION_ERROR, str(exception)) from exception
 
 
 def is_fragmentable_frame(frame: Frame) -> bool:
@@ -643,7 +643,7 @@ def exception_to_error_frame(stream_id: int, exception: Exception) -> ErrorFrame
     frame = ErrorFrame()
     frame.stream_id = stream_id
 
-    if isinstance(exception, RSocketProtocolException):
+    if isinstance(exception, RSocketProtocolError):
         frame.error_code = exception.error_code
         frame.data = ensure_bytes(exception.data)
     else:
@@ -655,7 +655,7 @@ def exception_to_error_frame(stream_id: int, exception: Exception) -> ErrorFrame
 
 def error_frame_to_exception(frame: ErrorFrame) -> Exception:
     if frame.error_code != ErrorCode.APPLICATION_ERROR:
-        return RSocketProtocolException(frame.error_code, data=frame.data.decode())
+        return RSocketProtocolError(frame.error_code, data=frame.data.decode())
 
     return RuntimeError(frame.data.decode('utf-8'))
 

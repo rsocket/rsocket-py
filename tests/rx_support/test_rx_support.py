@@ -172,10 +172,12 @@ async def test_rx_rsocket_context_manager(pipe_tcp_without_auto_connect):
         async def request_response(self, payload: Payload) -> Future:
             return create_future(Payload(b'Response'))
 
-    server, client = pipe_tcp_without_auto_connect
-    server.set_handler_using_factory(Handler)
+    server_provider, client = pipe_tcp_without_auto_connect
 
     async with RxRSocket(client) as rx_client:
+        server = await server_provider()
+        server.set_handler_using_factory(Handler)
+
         received_message = await rx_client.request_response(Payload(b'request text')).pipe(
             operators.map(lambda payload: payload.data),
             operators.single()

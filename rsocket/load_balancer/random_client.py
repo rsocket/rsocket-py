@@ -20,9 +20,9 @@ class LoadBalancerRandom(LoadBalancerStrategy):
         random_client_id = random.randint(0, len(self._pool))
         return self._pool[random_client_id]
 
-    def connect(self):
+    async def connect(self):
         if self._auto_connect:
-            [client.connect() for client in self._pool]
+            [await client.connect() for client in self._pool]
 
     async def close(self):
         if self._auto_close:

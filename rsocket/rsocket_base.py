@@ -8,13 +8,17 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.datetime_helpers import to_milliseconds
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolException
+from rsocket.exceptions import RSocketProtocolError, RSocketTransportError
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame import KeepAliveFrame, \
-    MetadataPushFrame, RequestFireAndForgetFrame, RequestResponseFrame, \
-    RequestStreamFrame, Frame, exception_to_error_frame, LeaseFrame, ErrorFrame, RequestFrame, \
-    initiate_request_frame_types, InvalidFrame, FragmentableFrame
-from rsocket.frame import RequestChannelFrame, ResumeFrame, is_fragmentable_frame, CONNECTION_STREAM_ID
+from rsocket.frame import (KeepAliveFrame,
+                           MetadataPushFrame, RequestFireAndForgetFrame,
+                           RequestResponseFrame, RequestStreamFrame, Frame,
+                           exception_to_error_frame,
+                           LeaseFrame, ErrorFrame, RequestFrame,
+                           initiate_request_frame_types, InvalidFrame,
+                           FragmentableFrame)
+from rsocket.frame import (RequestChannelFrame, ResumeFrame,
+                           is_fragmentable_frame, CONNECTION_STREAM_ID)
 from rsocket.frame import SetupFrame
 from rsocket.frame_builders import to_payload_frame, to_fire_and_forget_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
@@ -36,7 +40,6 @@ from rsocket.rsocket_internal import RSocketInternal
 from rsocket.stream_control import StreamControl
 from rsocket.streams.backpressureapi import BackpressureApi
 from rsocket.streams.stream_handler import StreamHandler
-from rsocket.transports.transport import Transport
 
 
 async def noop_frame_handler(frame):
@@ -56,8 +59,7 @@ class RSocketBase(RSocket, RSocketInternal):
             self._socket.send_lease(value)
 
     def __init__(self,
-                 transport: Transport,
-                 handler_factory: Type[RequestHandler] = BaseRequestHandler,
+                 handler_factory: Callable[['RSocketBase'], RequestHandler] = BaseRequestHandler,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
@@ -68,33 +70,17 @@ class RSocketBase(RSocket, RSocketInternal):
                  setup_payload: Optional[Payload] = None
                  ):
 
-        self._transport = transport
-        self._handler = handler_factory(self)
-        self._stream_control = StreamControl(self._get_first_stream_id())
+        self._handler_factory = handler_factory
+        self._request_queue_size = request_queue_size
         self._honor_lease = honor_lease
         self._max_lifetime_period = max_lifetime_period
         self._keep_alive_period = keep_alive_period
         self._setup_payload = setup_payload
-
         self._data_encoding = self._ensure_encoding_name(data_encoding)
         self._metadata_encoding = self._ensure_encoding_name(metadata_encoding)
-        self._is_closing = False
-
-        if self._honor_lease:
-            self._requester_lease = DefinedLease(maximum_request_count=0)
-        else:
-            self._requester_lease = NullLease()
-
-        self._responder_lease = NullLease()
         self._lease_publisher = lease_publisher
-
-        self._frame_fragment_cache = FrameFragmentCache()
-
-        self._send_queue = asyncio.Queue()
-        self._request_queue = asyncio.Queue(request_queue_size)
-
-        self._receiver_task = self._start_task_if_not_closing(self._receiver)
-        self._sender_task = self._start_task_if_not_closing(self._sender)
+        self._sender_task = None
+        self._receiver_task = None
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -109,12 +95,48 @@ class RSocketBase(RSocket, RSocketInternal):
             ErrorFrame: self.handle_error
         }
 
-    def connect(self):
+        self._setup_internals()
+
+    def _setup_internals(self):
+        pass
+
+    @abc.abstractmethod
+    def _current_transport(self) -> Future:
+        ...
+
+    def _reset_internals(self):
+        self._frame_fragment_cache = FrameFragmentCache()
+        self._send_queue = asyncio.Queue()
+        self._request_queue = asyncio.Queue(self._request_queue_size)
+
+        if self._honor_lease:
+            self._requester_lease = DefinedLease(maximum_request_count=0)
+        else:
+            self._requester_lease = NullLease()
+
+        self._responder_lease = NullLease()
+        self._stream_control = StreamControl(self._get_first_stream_id())
+        self._handler = self._handler_factory(self)
+        self._is_closing = False
+
+    def close_all_streams(self):
+        self._stream_control.cancel_all_handlers()
+
+    def _start_tasks(self):
+        self._receiver_task = self._start_task_if_not_closing(self._receiver)
+        self._sender_task = self._start_task_if_not_closing(self._sender)
+
+    def _peek_at_queue_next_item(self, queue) -> Optional[Frame]:
+        if len(queue._queue) > 0:
+            return queue._queue[0]
+        return None
+
+    async def connect(self):
         logger().debug('%s: sending setup frame', self._log_identifier())
 
-        self.send_frame(self._create_setup_frame(self._data_encoding,
-                                                 self._metadata_encoding,
-                                                 self._setup_payload))
+        self.send_priority_frame(self._create_setup_frame(self._data_encoding,
+                                                          self._metadata_encoding,
+                                                          self._setup_payload))
 
         if self._honor_lease:
             self._subscribe_to_lease_publisher()
@@ -130,6 +152,9 @@ class RSocketBase(RSocket, RSocketInternal):
     def _start_task_if_not_closing(self, task_factory: Callable[[], Coroutine]) -> Optional[Task]:
         if not self._is_closing:
             return asyncio.create_task(task_factory())
+
+    def set_handler_factory(self, handler_factory):
+        self._handler_factory = handler_factory
 
     def set_handler_using_factory(self, handler_factory) -> RequestHandler:
         self._handler = handler_factory(self)
@@ -155,6 +180,15 @@ class RSocketBase(RSocket, RSocketInternal):
         logger().debug('%s: lease not allowing to send request. queueing', self._log_identifier())
 
         self._request_queue.put_nowait(frame)
+
+    def send_priority_frame(self, frame: Frame):
+        items = []
+        while not self._send_queue.empty():
+            items.append(self._send_queue.get_nowait())
+
+        self._send_queue.put_nowait(frame)
+        for item in items:
+            self._send_queue.put_nowait(item)
 
     def send_frame(self, frame: Frame):
         self._send_queue.put_nowait(frame)
@@ -230,11 +264,11 @@ class RSocketBase(RSocket, RSocketInternal):
 
     async def handle_setup(self, frame: SetupFrame):
         if frame.flags_resume:
-            raise RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP, data='Resume not supported')
+            raise RSocketProtocolError(ErrorCode.UNSUPPORTED_SETUP, data='Resume not supported')
 
         if frame.flags_lease:
             if self._lease_publisher is None:
-                raise RSocketProtocolException(ErrorCode.UNSUPPORTED_SETUP, data='Lease not available')
+                raise RSocketProtocolError(ErrorCode.UNSUPPORTED_SETUP, data='Lease not available')
             else:
                 self._subscribe_to_lease_publisher()
 
@@ -246,7 +280,7 @@ class RSocketBase(RSocket, RSocketInternal):
                                    payload_from_frame(frame))
         except Exception as exception:
             logger().error('%s: Setup error', self._log_identifier(), exc_info=True)
-            raise RSocketProtocolException(ErrorCode.REJECTED_SETUP, data=str(exception)) from exception
+            raise RSocketProtocolError(ErrorCode.REJECTED_SETUP, data=str(exception)) from exception
 
     def _subscribe_to_lease_publisher(self):
         if self._lease_publisher is not None:
@@ -287,7 +321,7 @@ class RSocketBase(RSocket, RSocketInternal):
         channel_responder.frame_received(frame)
 
     async def handle_resume(self, frame: ResumeFrame):
-        raise RSocketProtocolException(ErrorCode.REJECTED_RESUME, data='Resume not supported')
+        raise RSocketProtocolError(ErrorCode.REJECTED_RESUME, data='Resume not supported')
 
     async def handle_lease(self, frame: LeaseFrame):
         logger().debug('%s: received lease frame', self._log_identifier())
@@ -309,9 +343,15 @@ class RSocketBase(RSocket, RSocketInternal):
             await self._receiver_listen()
         except asyncio.CancelledError:
             logger().debug('%s: Asyncio task canceled: receiver', self._log_identifier())
-        except Exception:
+        except RSocketTransportError as exception:
+            await self._on_connection_lost(exception)
+        except Exception as exception:
             logger().error('%s: Unknown error', self._log_identifier(), exc_info=True)
-            raise
+            await self._on_connection_lost(exception)
+
+    async def _on_connection_lost(self, exception: Exception):
+        logger().debug(str(exception))
+        await self._handler.on_connection_lost(self, exception)
 
     @abc.abstractmethod
     def is_server_alive(self) -> bool:
@@ -319,17 +359,19 @@ class RSocketBase(RSocket, RSocketInternal):
 
     async def _receiver_listen(self):
 
+        transport = await self._current_transport()
         while self.is_server_alive():
-
-            next_frame_generator = await self._transport.next_frame_generator(self.is_server_alive())
+            next_frame_generator = await transport.next_frame_generator(self.is_server_alive())
             if next_frame_generator is None:
                 break
             async for frame in next_frame_generator:
                 try:
                     await self._handle_next_frame(frame)
-                except RSocketProtocolException as exception:
-                    logger().error('%s: RSocket Error %s', self._log_identifier(), str(exception))
+                except RSocketProtocolError as exception:
+                    logger().error('%s: Protocol Error %s', self._log_identifier(), str(exception))
                     self.send_error(frame.stream_id, exception)
+                except RSocketTransportError:
+                    raise
                 except Exception as exception:
                     logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
                     self.send_error(frame.stream_id, exception)
@@ -376,32 +418,51 @@ class RSocketBase(RSocket, RSocketInternal):
         pass
 
     async def _sender(self):
-        self._before_sender()
-
         try:
-            while self.is_server_alive():
-                frame = await self._send_queue.get()
+            try:
+                transport = await self._current_transport()
 
-                await self._transport.send_frame(frame)
-                self._send_queue.task_done()
+                self._before_sender()
+                while self.is_server_alive():
+                    frame = await self._send_queue.get()
 
-                if self._send_queue.empty():
-                    await self._transport.on_send_queue_empty()
-        except ConnectionResetError as exception:
-            logger().debug(str(exception))
+                    await transport.send_frame(frame)
+                    self._send_queue.task_done()
+
+                    if self._send_queue.empty():
+                        await transport.on_send_queue_empty()
+            except RSocketTransportError as exception:
+                await self._on_connection_lost(exception)
+
+            except Exception as exception:
+                logger().error('%s: RSocket error', self._log_identifier(), exc_info=True)
+                await self._on_connection_lost(exception)
+            finally:
+                await self._finally_sender()
         except asyncio.CancelledError:
             logger().debug('%s: Asyncio task canceled: sender', self._log_identifier())
-        except Exception:
+        except RSocketTransportError as exception:
+            await self._on_connection_lost(exception)
+        except Exception as exception:
             logger().error('%s: RSocket error', self._log_identifier(), exc_info=True)
-            raise
-        finally:
-            await self._finally_sender()
+            await self._on_connection_lost(exception)
 
     async def close(self):
+        logger().debug('%s: Closing', self._log_identifier())
         self._is_closing = True
         await self._cancel_if_task_exists(self._sender_task)
         await self._cancel_if_task_exists(self._receiver_task)
-        await self._transport.close()
+
+        if self._current_transport().done():
+            logger().debug('%s: Closing transport', self._log_identifier())
+            transport = self._current_transport().result()
+
+            if transport is not None:
+                try:
+                    await transport.close()
+                except Exception as exception:
+                    logger().debug('Transport already closed or failed to close: %s', str(exception))
+                    pass
 
     async def _cancel_if_task_exists(self, task):
         if task is not None:
@@ -409,7 +470,7 @@ class RSocketBase(RSocket, RSocketInternal):
             try:
                 await task
             except asyncio.CancelledError:
-                logger().debug('%s: Asyncio task canceled', self._log_identifier())
+                logger().debug('%s: Asyncio task canceled: %s', self._log_identifier(), str(task))
 
     async def __aenter__(self) -> 'RSocketBase':
         return self
@@ -418,21 +479,21 @@ class RSocketBase(RSocket, RSocketInternal):
         await self.close()
 
     def request_response(self, payload: Payload) -> Future:
-        logger().debug('%s: sending request-response: %s', self._log_identifier(), payload)
+        logger().debug('%s: request-response: %s', self._log_identifier(), payload)
 
         requester = RequestResponseRequester(self, payload)
         self.register_new_stream(requester).setup()
         return requester.run()
 
     def fire_and_forget(self, payload: Payload):
-        logger().debug('%s: sending fire-and-forget: %s', self._log_identifier(), payload)
+        logger().debug('%s: fire-and-forget: %s', self._log_identifier(), payload)
 
         stream_id = self._allocate_stream()
         self.send_request(to_fire_and_forget_frame(stream_id, payload))
         self.finish_stream(stream_id)
 
     def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:
-        logger().debug('%s: sending request-stream: %s', self._log_identifier(), payload)
+        logger().debug('%s: request-stream: %s', self._log_identifier(), payload)
 
         requester = RequestStreamRequester(self, payload)
         self.register_new_stream(requester)
@@ -442,14 +503,15 @@ class RSocketBase(RSocket, RSocketInternal):
             self,
             payload: Payload,
             local_publisher: Optional[Publisher] = None) -> Union[BackpressureApi, Publisher]:
-
-        logger().debug('%s: sending request-channel: %s', self._log_identifier(), payload)
+        logger().debug('%s: request-channel: %s', self._log_identifier(), payload)
 
         requester = RequestChannelRequester(self, payload, local_publisher)
         self.register_new_stream(requester)
         return requester
 
     def metadata_push(self, metadata: bytes):
+        logger().debug('%s: metadata-push: %s', self._log_identifier(), metadata)
+
         frame = MetadataPushFrame()
         frame.metadata = metadata
         self.send_frame(frame)
