@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.mycompany.app</groupId>
-    <artifactId>my-app</artifactId>
+    <artifactId>rsocket-examples</artifactId>
     <version>1</version>
     <build>
         <plugins>
@@ -13,6 +13,27 @@
                     <source>11</source>
                     <target>11</target>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.2</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                </filter>
+                            </filters>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

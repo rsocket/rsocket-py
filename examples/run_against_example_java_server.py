@@ -42,7 +42,7 @@ async def main():
         metadata = CompositeMetadata()
         metadata.append(RoutingMetadata(['investigation.getInvestigationByContext']))
 
-        body = bytes(bytearray(map(ord, json.dumps({'active': True}))))
+        body = json.dumps({'active': True}).encode()
 
         request = Payload(body, metadata.serialize())
 

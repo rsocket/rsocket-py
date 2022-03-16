@@ -57,3 +57,16 @@ def test_client_server_over_websocket_quart(unused_tcp_port):
         assert client.returncode == 0
     finally:
         os.kill(pid, signal.SIGTERM)
+
+
+def test_client_java_server(unused_tcp_port):
+    pid = os.spawnlp(os.P_NOWAIT, 'java', 'java', '-cp java/target/rsocket-examples-1.jar io.rsocket.pythontest.Server')
+
+    try:
+        sleep(4)
+        client = subprocess.Popen(['python3', './run_against_example_java_server.py'])
+        client.wait(timeout=5)
+
+        assert client.returncode == 0
+    finally:
+        os.kill(pid, signal.SIGTERM)
