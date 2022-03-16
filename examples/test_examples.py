@@ -87,3 +87,19 @@ def test_java_client_server(unused_tcp_port):
         assert client.returncode == 0
     finally:
         os.kill(pid, signal.SIGTERM)
+
+
+
+def test_client_java_server_lease(unused_tcp_port):
+    pid = os.spawnlp(os.P_NOWAIT, 'python3', 'python3', './server_with_routing.py', str(unused_tcp_port))
+
+    try:
+        sleep(2)
+        client = subprocess.Popen(['java',
+                                   '-cp', 'java/target/rsocket-examples-1.jar', 'io.rsocket.pythontest.Client',
+                                   '%d' % unused_tcp_port])
+        client.wait(timeout=6)
+
+        assert client.returncode == 0
+    finally:
+        os.kill(pid, signal.SIGTERM)

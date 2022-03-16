@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from datetime import timedelta
 
 from rsocket.helpers import create_future
@@ -30,14 +31,14 @@ def handle_client(reader, writer):
     ))
 
 
-async def run_server():
-    logging.basicConfig(level=logging.DEBUG)
-
-    server = await asyncio.start_server(handle_client, 'localhost', 6565)
+async def run_server(server_port):
+    server = await asyncio.start_server(handle_client, 'localhost', server_port)
 
     async with server:
         await server.serve_forever()
 
 
 if __name__ == '__main__':
-    asyncio.run(run_server())
+    port = sys.argv[1] if len(sys.argv) > 1 else 6565
+    logging.basicConfig(level=logging.DEBUG)
+    asyncio.run(run_server(port))
