@@ -31,8 +31,12 @@ def bits(bit_count, value, comment) -> str:
 
 
 def future_from_payload(request: Payload):
-    return create_future(Payload(b'data: ' + request.data,
-                                 b'meta: ' + request.metadata))
+    return create_future(to_test_response_payload(request))
+
+
+def to_test_response_payload(request):
+    return Payload(b'data: ' + request.data,
+                   b'meta: ' + request.metadata)
 
 
 def assert_no_open_streams(client: RSocketBase, server: RSocketBase):
