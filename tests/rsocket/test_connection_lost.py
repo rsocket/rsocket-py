@@ -45,8 +45,8 @@ async def test_connection_lost(unused_tcp_port):
     index_iterator = iter(range(1, 3))
 
     wait_for_server = Event()
-    server_connection: Tuple = None
-    client_connection: Tuple = None
+    server_connection: Optional[Tuple] = None
+    client_connection: Optional[Tuple] = None
 
     class ClientHandler(BaseRequestHandler):
         async def on_connection_lost(self, rsocket, exception: Exception):
@@ -122,8 +122,8 @@ async def test_connection_failure(unused_tcp_port):
     index_iterator = iter(range(1, 3))
 
     wait_for_server = Event()
-    server_connection: Tuple = None
-    client_connection: Tuple = None
+    server_connection: Optional[Tuple] = None
+    client_connection: Optional[Tuple] = None
 
     class ClientHandler(BaseRequestHandler):
         async def on_connection_lost(self, rsocket, exception: Exception):
@@ -192,8 +192,8 @@ async def test_connection_failure_during_stream(unused_tcp_port):
     index_iterator = iter(range(1, 3))
 
     wait_for_server = Event()
-    server_connection: Tuple = None
-    client_connection: Tuple = None
+    server_connection: Optional[Tuple] = None
+    client_connection: Optional[Tuple] = None
 
     class ClientHandler(BaseRequestHandler):
         async def on_connection_lost(self, rsocket, exception: Exception):
