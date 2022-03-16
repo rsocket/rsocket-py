@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import sys
 from asyncio import Event
 from typing import Optional
 
@@ -15,7 +16,7 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
 
-async def main():
+async def main(server_port):
     completion_event = Event()
 
     class Subscriber(DefaultSubscriber):
@@ -34,7 +35,7 @@ async def main():
         def on_error(self, exception: Exception):
             completion_event.set()
 
-    connection = await asyncio.open_connection('localhost', 6565)
+    connection = await asyncio.open_connection('localhost', server_port)
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA.value.name,
@@ -56,5 +57,6 @@ async def main():
 
 
 if __name__ == '__main__':
+    port = sys.argv[1] if len(sys.argv) > 1 else 6565
     logging.basicConfig(level=logging.DEBUG)
-    asyncio.run(main())
+    asyncio.run(main(port))

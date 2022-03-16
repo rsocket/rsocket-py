@@ -9,13 +9,23 @@ import java.util.Objects;
 public class Server {
 
     public static void main(String[] args) {
+        int port = getPort(args);
+        System.out.println("Port: " + String.valueOf(port));
         RSocketServer rSocketServer = RSocketServer.create();
         rSocketServer.acceptor(new SimpleRSocketAcceptor());
         rSocketServer.payloadDecoder(PayloadDecoder.ZERO_COPY);
-        Objects.requireNonNull(rSocketServer.bind(TcpServerTransport.create(6565))
+        Objects.requireNonNull(rSocketServer.bind(TcpServerTransport.create(port))
                         .block())
                 .onClose()
                 .block();
+    }
+
+    private static int getPort(String[] args) {
+        if (args.length > 0) {
+            return Integer.parseInt(args[0]);
+        } else {
+            return 6565;
+        }
     }
 
 }
