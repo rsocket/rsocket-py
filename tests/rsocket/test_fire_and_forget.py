@@ -51,4 +51,3 @@ async def test_request_fire_and_forget_awaitable_client(lazy_pipe):
 
         assert handler.received_payload.data == b'dog'
         assert handler.received_payload.metadata == b'cat'
-

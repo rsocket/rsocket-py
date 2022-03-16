@@ -12,7 +12,7 @@ from rsocket.load_balancer.round_robin import LoadBalancerRoundRobin
 from rsocket.payload import Payload
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 from tests.conftest import pipe_factory_tcp
-from tests.rsocket.helpers import future_from_payload, IdentifiedHandlerFactory, IdentifiedHandler, \
+from tests.rsocket.helpers import IdentifiedHandlerFactory, IdentifiedHandler, \
     to_test_response_payload
 
 

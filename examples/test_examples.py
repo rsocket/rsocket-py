@@ -89,7 +89,6 @@ def test_java_client_server(unused_tcp_port):
         os.kill(pid, signal.SIGTERM)
 
 
-
 def test_client_java_server_lease(unused_tcp_port):
     pid = os.spawnlp(os.P_NOWAIT, 'python3', 'python3', './server_with_routing.py', str(unused_tcp_port))
 
