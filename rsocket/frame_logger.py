@@ -1,4 +1,4 @@
-from rsocket.frame import Frame, InvalidFrame, RequestNFrame, KeepAliveFrame
+from rsocket.frame import Frame, InvalidFrame, RequestNFrame, KeepAliveFrame, RequestStreamFrame
 from rsocket.logger import logger
 
 
@@ -19,6 +19,14 @@ def log_frame(frame: Frame, log_identifier: str):
             log_identifier,
             frame.frame_type.name,
             frame.stream_id,
+        )
+    elif isinstance(frame, RequestStreamFrame):
+        logger().debug(
+            '%s: Received frame (type=%s, stream_id=%d, n=%d)',
+            log_identifier,
+            frame.frame_type.name,
+            frame.stream_id,
+            frame.initial_request_n
         )
     else:
         logger().debug(

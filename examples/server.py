@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from datetime import datetime
 
 from rsocket.helpers import create_future
@@ -17,16 +18,19 @@ class Handler(BaseRequestHandler):
         return create_future(Payload(formatted_date_time.encode('utf-8')))
 
 
-async def run_server():
+async def run_server(server_port):
+    logging.info('Starting server at localhost:%s', server_port)
+
     def session(*connection):
         RSocketServer(TransportTCP(*connection), handler_factory=Handler)
 
-    server = await asyncio.start_server(session, 'localhost', 6565)
+    server = await asyncio.start_server(session, 'localhost', server_port)
 
     async with server:
         await server.serve_forever()
 
 
 if __name__ == '__main__':
+    port = sys.argv[1] if len(sys.argv) > 1 else 6565
     logging.basicConfig(level=logging.DEBUG)
-    asyncio.run(run_server())
+    asyncio.run(run_server(port))

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from asyncio import Event
 from typing import AsyncGenerator, Tuple
 
@@ -45,6 +46,8 @@ class ChannelSubscriber(Subscriber):
 
     def on_next(self, value: Payload, is_complete=False):
         logging.info('From server on channel: ' + value.data.decode('utf-8'))
+        if is_complete:
+            self._wait_for_responder_complete.set()
 
     def on_error(self, exception: Exception):
         logging.error('Error from server on channel' + str(exception))
@@ -57,12 +60,19 @@ class ChannelSubscriber(Subscriber):
 
 class StreamSubscriber(Subscriber):
 
-    def __init__(self, wait_for_complete: Event):
+    def __init__(self,
+                 wait_for_complete: Event,
+                 request_n_size=0):
+        self._request_n_size = request_n_size
         self._wait_for_complete = wait_for_complete
 
     def on_next(self, value, is_complete=False):
         logging.info('RS: {}'.format(value))
-        self.subscription.request(1)
+        if is_complete:
+            self._wait_for_complete.set()
+        else:
+            if self._request_n_size > 0:
+                self.subscription.request(self._request_n_size)
 
     def on_complete(self):
         logging.info('RS: Complete')
@@ -77,16 +87,16 @@ class StreamSubscriber(Subscriber):
         self.subscription = subscription
 
 
-async def request_response(socket: RSocketClient):
+async def request_response(client: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(
         route('single_request'),
         authenticate_simple('user', '12345')
     ))
 
-    await socket.request_response(payload)
+    await client.request_response(payload)
 
 
-async def request_channel(socket: RSocketClient):
+async def request_channel(client: RSocketClient):
     channel_completion_event = Event()
     requester_completion_event = Event()
     payload = Payload(b'The quick brown fox', composite(
@@ -95,7 +105,7 @@ async def request_channel(socket: RSocketClient):
     ))
     publisher = sample_publisher(requester_completion_event)
 
-    requested = socket.request_channel(payload, publisher)
+    requested = client.request_channel(payload, publisher)
 
     requested.initial_request_n(5).subscribe(ChannelSubscriber(channel_completion_event))
 
@@ -103,49 +113,50 @@ async def request_channel(socket: RSocketClient):
     await requester_completion_event.wait()
 
 
-async def request_stream_invalid_login(socket: RSocketClient):
+async def request_stream_invalid_login(client: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(
         route('stream'),
         authenticate_simple('user', 'wrong_password')
     ))
     completion_event = Event()
-    socket.request_stream(payload).initial_request_n(1).subscribe(StreamSubscriber(completion_event))
+    client.request_stream(payload).initial_request_n(1).subscribe(StreamSubscriber(completion_event))
     await completion_event.wait()
 
 
-async def request_stream(socket: RSocketClient):
+async def request_stream(client: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(
         route('stream'),
         authenticate_simple('user', '12345')
     ))
     completion_event = Event()
-    socket.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
     await completion_event.wait()
 
 
-async def request_slow_stream(socket: RSocketClient):
+async def request_slow_stream(client: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(
         route('slow_stream'),
         authenticate_simple('user', '12345')
     ))
     completion_event = Event()
-    socket.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
     await completion_event.wait()
 
 
-async def request_fragmented_stream(socket: RSocketClient):
+async def request_fragmented_stream(client: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(
         route('fragmented_stream'),
         authenticate_simple('user', '12345')
     ))
     completion_event = Event()
-    socket.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
     await completion_event.wait()
 
 
-async def main():
+async def main(server_port):
+    logging.info('Connecting to server at localhost:%s', server_port)
 
-    connection = await asyncio.open_connection('localhost', 6565)
+    connection = await asyncio.open_connection('localhost', server_port)
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
@@ -158,5 +169,6 @@ async def main():
 
 
 if __name__ == '__main__':
+    port = sys.argv[1] if len(sys.argv) > 1 else 6565
     logging.basicConfig(level=logging.DEBUG)
-    asyncio.run(main())
+    asyncio.run(main(port))

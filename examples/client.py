@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.helpers import single_transport_provider
@@ -15,8 +16,10 @@ class StreamSubscriber(DefaultSubscriber):
         self.subscription.request(1)
 
 
-async def main():
-    connection = await asyncio.open_connection('localhost', 6565)
+async def main(server_port):
+    logging.info('Connecting to server at localhost:%s', server_port)
+
+    connection = await asyncio.open_connection('localhost', server_port)
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection))) as client:
         payload = Payload(b'%Y-%m-%d %H:%M:%S')
@@ -38,5 +41,6 @@ async def main():
 
 
 if __name__ == '__main__':
+    port = sys.argv[1] if len(sys.argv) > 1 else 6565
     logging.basicConfig(level=logging.DEBUG)
-    asyncio.run(main())
+    asyncio.run(main(port))
