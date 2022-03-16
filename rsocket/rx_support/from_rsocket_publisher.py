@@ -49,35 +49,40 @@ class RxSubscriber(Subscriber):
         self._finish()
 
 
+async def _aio_sub(publisher, subscriber, observer, loop):
+    try:
+        publisher.subscribe(subscriber)
+        await subscriber.done.wait()
+
+    except asyncio.CancelledError:
+        if not subscriber.is_done:
+            subscriber.subscription.cancel()
+    except Exception as exception:
+        loop.call_soon(functools.partial(observer.on_error, exception))
+
+
+async def _trigger_next_request_n(subscriber, limit_rate):
+    try:
+        while True:
+            await subscriber.get_next_n.wait()
+            subscriber.subscription.request(limit_rate)
+            subscriber.get_next_n.clear()
+    except asyncio.CancelledError:
+        logger().debug('Asyncio task canceled: trigger_next_request_n')
+
+
 def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
     loop = asyncio.get_event_loop()
 
     def on_subscribe(observer: Observer, scheduler):
-
         subscriber = RxSubscriber(observer, limit_rate)
 
-        async def _aio_sub():
-            try:
-                publisher.subscribe(subscriber)
-                await subscriber.done.wait()
-
-            except asyncio.CancelledError:
-                if not subscriber.is_done:
-                    subscriber.subscription.cancel()
-            except Exception as exception:
-                loop.call_soon(functools.partial(observer.on_error, exception))
-
-        async def _trigger_next_request_n():
-            try:
-                while True:
-                    await subscriber.get_next_n.wait()
-                    subscriber.subscription.request(limit_rate)
-                    subscriber.get_next_n.clear()
-            except asyncio.CancelledError:
-                logger().debug('Asyncio task canceled: trigger_next_request_n')
-
-        get_next_task = asyncio.create_task(_trigger_next_request_n())
-        task = asyncio.create_task(_aio_sub())
+        get_next_task = asyncio.create_task(
+            _trigger_next_request_n(subscriber, limit_rate)
+        )
+        task = asyncio.create_task(
+            _aio_sub(publisher, subscriber, observer, loop)
+        )
 
         def dispose():
             get_next_task.cancel()
