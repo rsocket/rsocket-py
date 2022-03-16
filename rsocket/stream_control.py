@@ -51,12 +51,12 @@ class StreamControl:
 
         return False
 
-    def cancel_all_handlers(self):
+    def stop_all_streams(self, error_code=ErrorCode.CANCELED, data=b''):
         for stream_id, stream in list(self._streams.items()):
             frame = ErrorFrame()
             frame.stream_id = stream_id
-            frame.error_code = ErrorCode.CANCELED
-            frame.data = b'Server not alive'
+            frame.error_code = error_code
+            frame.data = data
             stream.frame_received(frame)
             self.finish_stream(stream_id)
 

@@ -1,3 +1,5 @@
+import asyncio
+from datetime import timedelta
 from math import ceil
 from typing import Type
 
@@ -44,19 +46,25 @@ def assert_no_open_streams(client: RSocketBase, server: RSocketBase):
 
 
 class IdentifiedHandler(BaseRequestHandler):
-    def __init__(self, socket, server_id: int):
+    def __init__(self, socket, server_id: int, delay=timedelta(0)):
         super().__init__(socket)
+        self._delay = delay
         self._server_id = server_id
 
 
 class IdentifiedHandlerFactory:
-    def __init__(self, server_id: int, handler_factory: Type[IdentifiedHandler]):
+    def __init__(self,
+                 server_id: int,
+                 handler_factory: Type[IdentifiedHandler],
+                 delay=timedelta(0)):
+        self._delay = delay
         self._server_id = server_id
         self._handler_factory = handler_factory
 
     def factory(self, socket) -> BaseRequestHandler:
-        return self._handler_factory(socket, self._server_id)
+        return self._handler_factory(socket, self._server_id, self._delay)
 
 
-def force_closing_connection(current_connection):
+async def force_closing_connection(current_connection, delay=timedelta(0)):
+    await asyncio.sleep(delay.total_seconds())
     current_connection[1].close()

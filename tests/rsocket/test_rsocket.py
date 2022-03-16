@@ -47,7 +47,7 @@ async def test_rsocket_max_server_keepalive_reached_and_request_canceled_explici
         async def on_keepalive_timeout(self,
                                        time_since_last_keepalive: timedelta,
                                        socket: RSocketInternal):
-            socket.close_all_streams()
+            socket.stop_all_streams(data=b'Server not alive')
 
     async with lazy_pipe(
             client_arguments={

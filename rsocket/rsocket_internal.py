@@ -1,5 +1,6 @@
 import abc
 
+from rsocket.error_codes import ErrorCode
 from rsocket.frame import Frame, RequestFrame
 from rsocket.payload import Payload
 
@@ -30,5 +31,5 @@ class RSocketInternal(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def close_all_streams(self):
+    def stop_all_streams(self, error_code=ErrorCode.CANCELED, data=b''):
         ...
