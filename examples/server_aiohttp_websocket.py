@@ -1,4 +1,5 @@
 import logging
+import sys
 from asyncio import Future
 
 from aiohttp import web
@@ -16,7 +17,8 @@ class Handler(BaseRequestHandler):
 
 
 if __name__ == '__main__':
+    port = sys.argv[1] if len(sys.argv) > 1 else 6565
     logging.basicConfig(level=logging.DEBUG)
     app = web.Application()
     app.add_routes([web.get('/', websocket_handler_factory(handler_factory=Handler))])
-    web.run_app(app, port=6565)
+    web.run_app(app, port=port)
