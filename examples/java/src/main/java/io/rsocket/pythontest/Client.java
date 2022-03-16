@@ -22,7 +22,7 @@ public class Client {
         final var rSocket = RSocketConnector.create()
                 .dataMimeType(WellKnownMimeType.TEXT_PLAIN.getString())
                 .metadataMimeType(WellKnownMimeType.MESSAGE_RSOCKET_COMPOSITE_METADATA.getString())
-                .connect(TcpClientTransport.create("localhost", 6565))
+                .connect(TcpClientTransport.create("localhost", getPort(args)))
                 .block();
 
         assert rSocket != null;
@@ -32,6 +32,14 @@ public class Client {
         testStreamWithLimit(rSocket);
         testFireAndForget(rSocket);
         testChannel(rSocket);
+    }
+
+    private static int getPort(String[] args) {
+        if (args.length > 0) {
+            return Integer.parseInt(args[0]);
+        } else {
+            return 6565;
+        }
     }
 
     private static void testStreamWithLimit(RSocket rSocket) {

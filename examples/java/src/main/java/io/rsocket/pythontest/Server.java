@@ -10,7 +10,7 @@ public class Server {
 
     public static void main(String[] args) {
         int port = getPort(args);
-        System.out.println("Port: " + String.valueOf(port));
+        System.out.println("Port: " + port);
         RSocketServer rSocketServer = RSocketServer.create();
         rSocketServer.acceptor(new SimpleRSocketAcceptor());
         rSocketServer.payloadDecoder(PayloadDecoder.ZERO_COPY);
