@@ -17,7 +17,7 @@ class LoadBalancerRandom(LoadBalancerStrategy):
         self._pool = pool
 
     def select(self) -> RSocket:
-        random_client_id = random.randint(0, len(self._pool))
+        random_client_id = random.randint(0, len(self._pool)-1)
         return self._pool[random_client_id]
 
     async def connect(self):

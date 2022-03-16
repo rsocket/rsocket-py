@@ -7,6 +7,7 @@ from reactivestreams.subscriber import Subscriber
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.helpers import create_future
 from rsocket.load_balancer.load_balancer_rsocket import LoadBalancerRSocket
+from rsocket.load_balancer.random_client import LoadBalancerRandom
 from rsocket.load_balancer.round_robin import LoadBalancerRoundRobin
 from rsocket.payload import Payload
 from rsocket.streams.stream_from_generator import StreamFromGenerator
@@ -95,3 +96,30 @@ async def test_load_balancer_round_robin_request_stream(unused_tcp_port_factory)
             assert results[4][0].data == b'data: request 4 server 1'
             assert results[5][0].data == b'data: request 5 server 2'
             assert results[6][0].data == b'data: request 6 server 0'
+
+
+async def test_load_balancer_random_request_response(unused_tcp_port_factory):
+    clients = []
+    server_count = 3
+    request_count = 70
+
+    async with AsyncExitStack() as stack:
+        for i in range(server_count):
+            tcp_port = unused_tcp_port_factory()
+            _, client = await stack.enter_async_context(
+                pipe_factory_tcp(tcp_port,
+                                 server_arguments={'handler_factory': IdentifiedHandlerFactory(i, Handler).factory},
+                                 auto_connect_client=False))
+            clients.append(client)
+
+        strategy = LoadBalancerRandom(clients)
+        async with LoadBalancerRSocket(strategy) as load_balancer_client:
+            results = await asyncio.gather(
+                *[load_balancer_client.request_response(Payload(('request %d' % j).encode()))
+                  for j in range(request_count)]
+            )
+
+            server_ids = [payload.data.decode()[-1] for payload in results]
+            assert '0' in server_ids
+            assert '1' in server_ids
+            assert '2' in server_ids
