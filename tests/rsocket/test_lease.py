@@ -123,7 +123,7 @@ async def test_request_response_with_lease_client_side_exception_requests_late(l
             await asyncio.wait_for(client.request_response(Payload(b'invalid request')), 3)
 
 
-@pytest.mark.allow_error_log
+@pytest.mark.allow_error_log(regex_filter='UNSUPPORTED_SETUP')
 async def test_server_rejects_all_requests_if_lease_not_supported(lazy_pipe):
     async with lazy_pipe(client_arguments={'honor_lease': True}) as (server, client):
         with pytest.raises(asyncio.exceptions.TimeoutError):

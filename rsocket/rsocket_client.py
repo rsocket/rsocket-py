@@ -1,11 +1,11 @@
 import asyncio
-from asyncio import Future
+from asyncio import Future, CancelledError
 from datetime import timedelta, datetime
 from typing import Optional, Callable, AsyncGenerator, Any
 from typing import Union
 
 from reactivestreams.publisher import Publisher
-from rsocket.exceptions import RSocketNoAvailableTransport, RSocketTransportError
+from rsocket.exceptions import RSocketNoAvailableTransport
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import create_future
 from rsocket.logger import logger
@@ -33,8 +33,10 @@ class RSocketClient(RSocketBase):
         self._transport_provider = transport_provider.__aiter__()
         self._is_server_alive = True
         self._update_last_keepalive()
+        self._connect_request_event = asyncio.Event()
         self._transport: Optional[Transport] = None
         self._next_transport = asyncio.Future()
+        self._reconnect_task = asyncio.create_task(self._reconnect_listener())
 
         super().__init__(handler_factory=handler_factory,
                          honor_lease=honor_lease,
@@ -54,33 +56,28 @@ class RSocketClient(RSocketBase):
 
     async def connect(self):
         logger().debug('%s: connecting', self._log_identifier())
-
-        if self._current_transport().done():
-            await self.close()
-
         self._is_closing = False
         self._reset_internals()
         self._start_tasks()
 
         try:
-            new_transport = await self._get_new_transport()
+            await self._connect_new_transport()
         except Exception as exception:
             logger().error('%s: Connection error', self._log_identifier(), exc_info=True)
-            self._handler.on_connection_lost(self, exception)
+            await self._on_connection_lost(exception)
             return
+
+        return await super().connect()
+
+    async def _connect_new_transport(self):
+        new_transport = await self._get_new_transport()
 
         if new_transport is None:
             raise RSocketNoAvailableTransport()
 
         self._next_transport.set_result(new_transport)
         transport = await self._current_transport()
-
-        try:
-            await transport.connect()
-        except Exception as exception:
-            raise RSocketTransportError from exception
-
-        return await super().connect()
+        await transport.connect()
 
     async def _get_new_transport(self):
         try:
@@ -89,6 +86,14 @@ class RSocketClient(RSocketBase):
             return
 
     async def close(self):
+        await self._close()
+
+    async def _close(self, reconnect=False):
+        logger().debug('%s: Closing before reconnect', self._log_identifier())
+
+        if not reconnect:
+            await self._cancel_if_task_exists(self._reconnect_task)
+
         await super().close()
         self._next_transport = create_future()
 
@@ -98,6 +103,22 @@ class RSocketClient(RSocketBase):
 
     def _get_first_stream_id(self) -> int:
         return 1
+
+    async def reconnect(self):
+        self._connect_request_event.set()
+
+    async def _reconnect_listener(self):
+        try:
+            while True:
+                await self._connect_request_event.wait()
+                self._connect_request_event.clear()
+                await self._close(reconnect=True)
+
+                await self.connect()
+        except CancelledError:
+            logger().debug('%s: Asyncio task canceled: reconnect_listener', self._log_identifier())
+        except Exception:
+            logger().error('%s: Reconnect listener', self._log_identifier(), exc_info=True)
 
     async def _keepalive_send_task(self):
         try:

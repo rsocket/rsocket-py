@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import logging
+import re
 from asyncio import Event
 from asyncio.base_events import Server
 from contextlib import asynccontextmanager
@@ -35,14 +36,24 @@ def pytest_configure(config):
 
 @pytest.fixture(autouse=True)
 def fail_on_error_log(caplog, request):
-    marks = [m.name for m in request.node.iter_markers()]
+    allow_log_error_marker = request.node.get_closest_marker('allow_error_log')
 
     yield
 
-    if 'allow_error_log' not in marks:
-        records = caplog.get_records('call')
-        errors = [record for record in records if record.levelno >= logging.ERROR]
-        assert not errors
+    def is_allowed_error(record):
+        message = record.message
+        if allow_log_error_marker is not None:
+            if 'regex_filter' in allow_log_error_marker.kwargs:
+                regex = re.compile(allow_log_error_marker.kwargs['regex_filter'])
+                return regex.search(message) is not None
+            return True
+
+        return False
+
+    records = caplog.get_records('call')
+    errors = [record for record in records if
+              record.levelno >= logging.ERROR and not is_allowed_error(record)]
+    assert not errors
 
 
 @pytest.fixture(params=tested_transports)

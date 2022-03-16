@@ -41,7 +41,7 @@ async def test_send_frame_for_non_existing_stream(pipe_tcp, caplog):
     assert len(dropped_frame_log) > 0
 
 
-@pytest.mark.allow_error_log
+@pytest.mark.allow_error_log(regex_filter='Error parsing frame')
 async def test_send_frame_for_unknown_type(pipe_tcp, caplog):
     (client, server) = pipe_tcp
 
@@ -66,7 +66,7 @@ async def test_send_frame_for_unknown_type(pipe_tcp, caplog):
     assert result.data == b'response'
 
 
-@pytest.mark.allow_error_log
+@pytest.mark.allow_error_log(regex_filter='Protocol error')
 async def test_send_frame_for_stream_id_in_use(pipe_tcp, caplog):
     (client, server) = pipe_tcp
 

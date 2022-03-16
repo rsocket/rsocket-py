@@ -52,7 +52,6 @@ async def test_rx_support_request_stream_with_error(pipe: Tuple[RSocketServer, R
         )
 
 
-@pytest.mark.allow_error_log
 @pytest.mark.parametrize('success_count, request_limit', (
         (0, 2),
         (2, 2),

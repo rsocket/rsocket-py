@@ -50,8 +50,8 @@ async def test_connection_lost(unused_tcp_port):
 
     class ClientHandler(BaseRequestHandler):
         async def on_connection_lost(self, rsocket, exception: Exception):
-            logger().info('Reconnecting')
-            await rsocket.connect()
+            logger().info('Test Reconnecting')
+            await rsocket.reconnect()
 
     def session(*connection):
         nonlocal server, server_connection
@@ -117,6 +117,7 @@ class FailingTransportTCP(Transport):
         pass
 
 
+@pytest.mark.allow_error_log(regex_filter='Connection error')
 async def test_connection_failure(unused_tcp_port):
     index_iterator = iter(range(1, 3))
 
@@ -126,8 +127,8 @@ async def test_connection_failure(unused_tcp_port):
 
     class ClientHandler(BaseRequestHandler):
         async def on_connection_lost(self, rsocket, exception: Exception):
-            logger().info('Reconnecting')
-            await rsocket.connect()
+            logger().info('Test Reconnecting')
+            await rsocket.reconnect()
 
     def session(*connection):
         nonlocal server, server_connection
@@ -168,10 +169,14 @@ async def test_connection_failure(unused_tcp_port):
         async with client as connection:
             await wait_for_server.wait()
             wait_for_server.clear()
+
             response1 = await connection.request_response(Payload(b'request 1'))
+
             await force_closing_connection(server_connection)
+
             await server.close()  # cleanup async tasks from previous server to avoid errors (?)
             await wait_for_server.wait()
+
             response2 = await connection.request_response(Payload(b'request 2'))
 
             assert response1.data == b'data: request 1 server 1'
@@ -182,6 +187,7 @@ async def test_connection_failure(unused_tcp_port):
         service.close()
 
 
+@pytest.mark.allow_error_log(regex_filter='Connection error')
 async def test_connection_failure_during_stream(unused_tcp_port):
     index_iterator = iter(range(1, 3))
 
@@ -191,8 +197,8 @@ async def test_connection_failure_during_stream(unused_tcp_port):
 
     class ClientHandler(BaseRequestHandler):
         async def on_connection_lost(self, rsocket, exception: Exception):
-            logger().info('Reconnecting')
-            await rsocket.connect()
+            logger().info('Test Reconnecting')
+            await rsocket.reconnect()
 
     def session(*connection):
         nonlocal server, server_connection

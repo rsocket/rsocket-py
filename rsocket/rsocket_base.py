@@ -345,7 +345,8 @@ class RSocketBase(RSocket, RSocketInternal):
             raise
 
     async def _on_connection_lost(self, exception: Exception):
-        logger().debug(str(exception))
+        logger().warning(str(exception))
+        logger().debug(str(exception), exc_info=exception)
         self.stop_all_streams(ErrorCode.CONNECTION_ERROR, b'Connection error')
         await self._handler.on_connection_lost(self, exception)
 
@@ -364,12 +365,12 @@ class RSocketBase(RSocket, RSocketInternal):
                 try:
                     await self._handle_next_frame(frame)
                 except RSocketProtocolError as exception:
-                    logger().error('%s: Protocol Error %s', self._log_identifier(), str(exception))
+                    logger().error('%s: Protocol error %s', self._log_identifier(), str(exception))
                     self.send_error(frame.stream_id, exception)
                 except RSocketTransportError:
                     raise
                 except Exception as exception:
-                    logger().error('%s: Unknown Error', self._log_identifier(), exc_info=True)
+                    logger().error('%s: Unknown error', self._log_identifier(), exc_info=True)
                     self.send_error(frame.stream_id, exception)
 
     async def _handle_next_frame(self, frame: Frame):
@@ -442,6 +443,7 @@ class RSocketBase(RSocket, RSocketInternal):
 
     async def close(self):
         logger().debug('%s: Closing', self._log_identifier())
+
         self._is_closing = True
         await self._cancel_if_task_exists(self._sender_task)
         await self._cancel_if_task_exists(self._receiver_task)
@@ -463,7 +465,9 @@ class RSocketBase(RSocket, RSocketInternal):
             try:
                 await task
             except asyncio.CancelledError:
-                logger().debug('%s: Asyncio task canceled: %s', self._log_identifier(), str(task))
+                logger().debug('%s: Asyncio task cancel error: %s', self._log_identifier(), str(task))
+            except RuntimeError:
+                logger().error('Runtime error', exc_info=True)
 
     async def __aenter__(self) -> 'RSocketBase':
         return self

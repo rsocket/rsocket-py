@@ -13,7 +13,7 @@ from rsocket.rsocket_server import RSocketServer
 from tests.rsocket.misbehaving_rsocket import MisbehavingRSocket
 
 
-@pytest.mark.allow_error_log
+@pytest.mark.allow_error_log(regex_filter='Protocol error')
 async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSocketServer, RSocketClient]):
     _, client = pipe_tcp_without_auto_connect
     received_error_code = None
@@ -48,7 +48,7 @@ async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSo
         assert received_error_code == ErrorCode.UNSUPPORTED_SETUP
 
 
-@pytest.mark.allow_error_log
+@pytest.mark.allow_error_log(regex_filter='Protocol error')
 async def test_resume_request_unsupported(pipe_tcp: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe_tcp
 

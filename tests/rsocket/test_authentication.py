@@ -93,7 +93,7 @@ async def test_authentication_success_on_setup(lazy_pipe):
         assert result.data == b'response'
 
 
-@pytest.mark.allow_error_log
+@pytest.mark.allow_error_log(regex_filter='(Protocol|Setup) error')
 async def test_authentication_failure_on_setup(lazy_pipe):
     received_error_event = Event()
     received_error: Optional[tuple] = None
