@@ -70,3 +70,5 @@ are in java to show compatibility with a different implementation.
     - [X] Response
 - [ ] Other
     - [ ] Error handling all scenarios in the protocol spec
+    - [X] Reconnect
+    - [X] Load balancing
