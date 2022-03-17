@@ -2,7 +2,7 @@ import pytest
 
 from rsocket.exceptions import RSocketUnknownMimetype, RSocketMimetypeTooLong
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame_helpers import serialize_well_known_encoding
+from rsocket.helpers import serialize_well_known_encoding
 
 
 def test_mimetype_raise_exception_on_unknown_type():

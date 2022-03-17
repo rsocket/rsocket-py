@@ -40,6 +40,10 @@ class TransportAioHttpClient(AbstractWebsocketTransport):
     def __init__(self, url):
         super().__init__()
         self._url = url
+        self._session = None
+        self._ws_context = None
+        self._ws = None
+        self._message_handler = None
 
     async def connect(self):
         self._session = aiohttp.ClientSession()

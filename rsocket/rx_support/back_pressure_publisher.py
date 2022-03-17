@@ -31,6 +31,7 @@ async def observable_to_async_event_generator(observable: Observable):
 
 
 def from_aiter(iterator, feedback: Optional[Observable] = None):
+    # noinspection PyUnusedLocal
     def on_subscribe(observer: Observer, scheduler):
         async def _aio_next():
             try:
@@ -61,6 +62,7 @@ def from_aiter(iterator, feedback: Optional[Observable] = None):
 class BackPressurePublisher(DefaultPublisherSubscription):
     def __init__(self, wrapped_observable: Observable):
         self._wrapped_observable = wrapped_observable
+        self._feedback = None
 
     def subscribe(self, subscriber: Subscriber):
         super().subscribe(subscriber)

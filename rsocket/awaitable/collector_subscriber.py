@@ -10,6 +10,7 @@ class CollectorSubscriber(Subscriber):
         self.is_done = asyncio.Event()
         self.error = None
         self.values = []
+        self.subscription = None
 
     def on_complete(self):
         self.is_done.set()

@@ -9,7 +9,7 @@ from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.datetime_helpers import to_milliseconds
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, RSocketTransportError
-from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.extensions.mimetypes import WellKnownMimeTypes, ensure_encoding_name
 from rsocket.frame import (KeepAliveFrame,
                            MetadataPushFrame, RequestFireAndForgetFrame,
                            RequestResponseFrame, RequestStreamFrame, Frame,
@@ -22,7 +22,6 @@ from rsocket.frame import (RequestChannelFrame, ResumeFrame,
 from rsocket.frame import SetupFrame
 from rsocket.frame_builders import to_payload_frame, to_fire_and_forget_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
-from rsocket.frame_helpers import ensure_bytes
 from rsocket.frame_logger import log_frame
 from rsocket.handlers.request_cahnnel_responder import RequestChannelResponder
 from rsocket.handlers.request_channel_requester import RequestChannelRequester
@@ -30,7 +29,7 @@ from rsocket.handlers.request_response_requester import RequestResponseRequester
 from rsocket.handlers.request_response_responder import RequestResponseResponder
 from rsocket.handlers.request_stream_requester import RequestStreamRequester
 from rsocket.handlers.request_stream_responder import RequestStreamResponder
-from rsocket.helpers import payload_from_frame
+from rsocket.helpers import payload_from_frame, async_noop
 from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -40,11 +39,6 @@ from rsocket.rsocket_internal import RSocketInternal
 from rsocket.stream_control import StreamControl
 from rsocket.streams.backpressureapi import BackpressureApi
 from rsocket.streams.stream_handler import StreamHandler
-
-
-async def noop_frame_handler(frame):
-    pass
-
 
 T = TypeVar('T')
 
@@ -76,11 +70,15 @@ class RSocketBase(RSocket, RSocketInternal):
         self._max_lifetime_period = max_lifetime_period
         self._keep_alive_period = keep_alive_period
         self._setup_payload = setup_payload
-        self._data_encoding = self._ensure_encoding_name(data_encoding)
-        self._metadata_encoding = self._ensure_encoding_name(metadata_encoding)
+        self._data_encoding = ensure_encoding_name(data_encoding)
+        self._metadata_encoding = ensure_encoding_name(metadata_encoding)
         self._lease_publisher = lease_publisher
         self._sender_task = None
         self._receiver_task = None
+        self._handler = None
+        self._responder_lease = None
+        self._requester_lease = None
+        self._is_closing = False
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -137,12 +135,6 @@ class RSocketBase(RSocket, RSocketInternal):
             self._subscribe_to_lease_publisher()
 
         return self
-
-    def _ensure_encoding_name(self, encoding) -> bytes:
-        if isinstance(encoding, WellKnownMimeTypes):
-            return encoding.value.name
-
-        return ensure_bytes(encoding)
 
     def _start_task_if_not_closing(self, task_factory: Callable[[], Coroutine]) -> Optional[Task]:
         if not self._is_closing:
@@ -397,8 +389,7 @@ class RSocketBase(RSocket, RSocketInternal):
     async def _handle_frame_by_type(self, frame: Frame):
 
         self._is_frame_allowed(frame)
-        frame_handler = self._async_frame_handler_by_type.get(type(frame),
-                                                              noop_frame_handler)
+        frame_handler = self._async_frame_handler_by_type.get(type(frame), async_noop)
         await frame_handler(frame)
 
     def _send_new_keepalive(self, data: bytes = b''):

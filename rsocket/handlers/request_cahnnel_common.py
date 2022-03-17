@@ -44,6 +44,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
         self._sent_complete = False
         self._received_complete = False
         self._remote_publisher = remote_publisher
+        self.subscriber = None
 
     def setup(self):
         self.subscriber = StreamSubscriber(self.stream_id, self.socket, self)

@@ -2,6 +2,7 @@ from enum import Enum, unique
 from typing import Optional
 
 from rsocket.exceptions import RSocketUnknownMimetype
+from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import WellKnownType
 
 
@@ -85,3 +86,10 @@ class WellKnownMimeTypes(Enum):
                 return value.value
 
         return None
+
+
+def ensure_encoding_name(encoding) -> bytes:
+    if isinstance(encoding, WellKnownMimeTypes):
+        return encoding.value.name
+
+    return ensure_bytes(encoding)

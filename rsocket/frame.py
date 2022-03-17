@@ -288,6 +288,8 @@ class LeaseFrame(Frame):
     def __init__(self):
         super().__init__(FrameType.LEASE)
         self.metadata_only = True
+        self.time_to_live = None
+        self.number_of_requests = None
 
     def parse(self, buffer: bytes, offset: int):
         parse_header(self, buffer, offset)

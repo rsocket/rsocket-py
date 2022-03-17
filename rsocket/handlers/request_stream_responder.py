@@ -36,6 +36,7 @@ class RequestStreamResponder(StreamHandler):
     def __init__(self, socket: RSocket, publisher: Publisher):
         super().__init__(socket)
         self.publisher = publisher
+        self.subscriber = None
 
     def setup(self):
         self.subscriber = StreamSubscriber(self.stream_id, self.socket)

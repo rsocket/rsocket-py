@@ -1,8 +1,7 @@
 import struct
 from io import BytesIO
-from typing import Union, Callable, Optional, TypeVar, Tuple, AsyncGenerator
+from typing import Union, AsyncGenerator
 
-from rsocket.exceptions import RSocketMimetypeTooLong
 from rsocket.fragment import Fragment
 
 MASK_63_BITS = 0x7FFFFFFFFFFFFFFF
@@ -34,47 +33,6 @@ def unpack_24bit(metadata: bytes, offset: int) -> int:
 
 def unpack_32bit(buffer: bytes, offset: int) -> int:
     return struct.unpack_from('>I', buffer, offset)[0]
-
-
-T = TypeVar('T')
-V = TypeVar('V')
-
-
-def serialize_well_known_encoding(
-        encoding: Union[bytes, T],
-        encoding_parser: Callable[[bytes], Optional[T]]) -> bytes:
-    if isinstance(encoding, (bytes, bytearray, str)):
-        known_type = encoding_parser(encoding)
-    else:
-        known_type = encoding
-
-    if known_type is None:
-        encoding_length = len(encoding)
-        encoded_encoding_length = encoding_length - 1  # mime length cannot be 0
-
-        if encoded_encoding_length > 0b1111111:
-            raise RSocketMimetypeTooLong(encoding)
-
-        serialized = ((0 << 7) | encoded_encoding_length & 0b1111111).to_bytes(1, 'big')
-        serialized += encoding
-    else:
-        serialized = ((1 << 7) | known_type.id & 0b1111111).to_bytes(1, 'big')
-
-    return serialized
-
-
-def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[T], V]) -> Tuple[bytes, int]:
-    is_known_mime_id = struct.unpack('>B', buffer[:1])[0] >> 7 == 1
-    mime_length_or_type = (struct.unpack('>B', buffer[:1])[0]) & 0b1111111
-    if is_known_mime_id:
-        metadata_encoding = encoding_name_provider(mime_length_or_type).name
-        offset = 1
-    else:
-        real_mime_type_length = mime_length_or_type + 1  # mime length cannot be 0
-        metadata_encoding = bytes(buffer[1:1 + real_mime_type_length])
-        offset = 1 + real_mime_type_length
-
-    return metadata_encoding, offset
 
 
 async def payload_to_n_size_fragments(data_reader: BytesIO,

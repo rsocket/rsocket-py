@@ -4,7 +4,7 @@ from rsocket.extensions.authentication import Authentication, AuthenticationSimp
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata_item import CompositeMetadataItem
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.frame_helpers import serialize_well_known_encoding, parse_well_known_encoding
+from rsocket.helpers import serialize_well_known_encoding, parse_well_known_encoding
 
 
 class AuthenticationContent(CompositeMetadataItem):

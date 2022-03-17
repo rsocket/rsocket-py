@@ -20,6 +20,7 @@ class RxSubscriber(Subscriber):
         self._received_messages = 0
         self.done = asyncio.Event()
         self.get_next_n = asyncio.Event()
+        self.subscription = None
 
     def on_subscribe(self, subscription: Subscription):
         self.subscription = subscription
@@ -74,6 +75,7 @@ async def _trigger_next_request_n(subscriber, limit_rate):
 def from_rsocket_publisher(publisher: Publisher, limit_rate=5) -> Observable:
     loop = asyncio.get_event_loop()
 
+    # noinspection PyUnusedLocal
     def on_subscribe(observer: Observer, scheduler):
         subscriber = RxSubscriber(observer, limit_rate)
 

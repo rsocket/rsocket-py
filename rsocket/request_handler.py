@@ -65,6 +65,7 @@ class RequestHandler(metaclass=ABCMeta):
     async def on_connection_lost(self, rsocket, exception):
         ...
 
+    # noinspection PyMethodMayBeStatic
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:
         composite_metadata = CompositeMetadata()
         composite_metadata.parse(metadata)

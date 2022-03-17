@@ -7,7 +7,17 @@ from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 
 decorated_method = Callable[[RSocket, Payload, CompositeMetadata], Any]
-channel_decorated_method = Callable[[RSocket, Payload, CompositeMetadata], Any]
+
+
+def decorator_factory(container: dict, route: str):
+    def decorator(function: decorated_method):
+        if route in container:
+            raise KeyError('Duplicate route "%s" already registered', route)
+
+        container[route] = function
+        return function
+
+    return decorator
 
 
 class RequestRouter:
@@ -37,30 +47,20 @@ class RequestRouter:
             FrameType.METADATA_PUSH: self._metadata_push,
         }
 
-    def _decorator_factory(self, container: dict, route: str):
-        def decorator(function: decorated_method):
-            if route in container:
-                raise KeyError('Duplicate route "%s" already registered', route)
-
-            container[route] = function
-            return function
-
-        return decorator
-
     def response(self, route: str):
-        return self._decorator_factory(self._response_routes, route)
+        return decorator_factory(self._response_routes, route)
 
     def stream(self, route: str):
-        return self._decorator_factory(self._stream_routes, route)
+        return decorator_factory(self._stream_routes, route)
 
     def channel(self, route: str):
-        return self._decorator_factory(self._channel_routes, route)
+        return decorator_factory(self._channel_routes, route)
 
     def fire_and_forget(self, route: str):
-        return self._decorator_factory(self._fnf_routes, route)
+        return decorator_factory(self._fnf_routes, route)
 
     def metadata_push(self, route: str):
-        return self._decorator_factory(self._metadata_push, route)
+        return decorator_factory(self._metadata_push, route)
 
     async def route(self,
                     frame_type: FrameType,
