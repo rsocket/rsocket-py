@@ -1,8 +1,11 @@
+from rsocket.datetime_helpers import to_milliseconds
 from rsocket.fragment import Fragment
 from rsocket.frame import (PayloadFrame, RequestNFrame,
                            CancelFrame, RequestChannelFrame,
-                           MAX_REQUEST_N,
-                           RequestStreamFrame, RequestResponseFrame, RequestFireAndForgetFrame)
+                           RequestStreamFrame, RequestResponseFrame,
+                           RequestFireAndForgetFrame, SetupFrame,
+                           MetadataPushFrame, KeepAliveFrame,
+                           MAX_REQUEST_N)
 from rsocket.payload import Payload
 
 
@@ -71,4 +74,35 @@ def to_fire_and_forget_frame(stream_id: int, payload: Payload):
     frame.stream_id = stream_id
     frame.data = payload.data
     frame.metadata = payload.metadata
+    return frame
+
+
+def to_setup_frame(payload,
+                   data_encoding,
+                   metadata_encoding,
+                   keep_alive_period,
+                   max_lifetime_period,
+                   honor_lease=False):
+    setup = SetupFrame()
+    setup.flags_lease = honor_lease
+    setup.keep_alive_milliseconds = to_milliseconds(keep_alive_period)
+    setup.max_lifetime_milliseconds = to_milliseconds(max_lifetime_period)
+    setup.data_encoding = data_encoding
+    setup.metadata_encoding = metadata_encoding
+    if payload is not None:
+        setup.data = payload.data
+        setup.metadata = payload.metadata
+    return setup
+
+
+def to_metadata_push_frame(metadata: bytes):
+    frame = MetadataPushFrame()
+    frame.metadata = metadata
+    return frame
+
+
+def to_keepalive_frame(data: bytes):
+    frame = KeepAliveFrame()
+    frame.flags_respond = True
+    frame.data = data
     return frame

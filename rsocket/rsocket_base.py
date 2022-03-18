@@ -1,12 +1,11 @@
 import abc
 import asyncio
-from asyncio import Future, QueueEmpty, Task
+from asyncio import Future, Task
 from datetime import timedelta
 from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type, cast, TypeVar
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
-from rsocket.datetime_helpers import to_milliseconds
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, RSocketTransportError
 from rsocket.extensions.mimetypes import WellKnownMimeTypes, ensure_encoding_name
@@ -20,7 +19,8 @@ from rsocket.frame import (KeepAliveFrame,
 from rsocket.frame import (RequestChannelFrame, ResumeFrame,
                            is_fragmentable_frame, CONNECTION_STREAM_ID)
 from rsocket.frame import SetupFrame
-from rsocket.frame_builders import to_payload_frame, to_fire_and_forget_frame
+from rsocket.frame_builders import to_payload_frame, to_fire_and_forget_frame, to_setup_frame, to_metadata_push_frame, \
+    to_keepalive_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
 from rsocket.frame_logger import log_frame
 from rsocket.handlers.request_cahnnel_responder import RequestChannelResponder
@@ -319,11 +319,8 @@ class RSocketBase(RSocket, RSocketInternal):
         )
 
         while not self._request_queue.empty() and self._requester_lease.is_request_allowed():
-            try:
-                self.send_frame(self._request_queue.get_nowait())
-                self._request_queue.task_done()
-            except QueueEmpty:
-                break
+            self.send_frame(self._request_queue.get_nowait())
+            self._request_queue.task_done()
 
     async def _receiver(self):
         try:
@@ -387,16 +384,11 @@ class RSocketBase(RSocket, RSocketInternal):
             logger().debug('%s: Dropping frame from unknown stream %d', self._log_identifier(), frame.stream_id)
 
     async def _handle_frame_by_type(self, frame: Frame):
-
-        self._is_frame_allowed(frame)
         frame_handler = self._async_frame_handler_by_type.get(type(frame), async_noop)
         await frame_handler(frame)
 
     def _send_new_keepalive(self, data: bytes = b''):
-        frame = KeepAliveFrame()
-        frame.flags_respond = True
-        frame.data = data
-        self.send_frame(frame)
+        self.send_frame(to_keepalive_frame(data))
         logger().debug('%s: Sent keepalive', self._log_identifier())
 
     def _before_sender(self):
@@ -439,6 +431,9 @@ class RSocketBase(RSocket, RSocketInternal):
         await self._cancel_if_task_exists(self._sender_task)
         await self._cancel_if_task_exists(self._receiver_task)
 
+        await self._close_transport()
+
+    async def _close_transport(self):
         if self._current_transport().done():
             logger().debug('%s: Closing transport', self._log_identifier())
             transport = self._current_transport().result()
@@ -456,7 +451,7 @@ class RSocketBase(RSocket, RSocketInternal):
             try:
                 await task
             except asyncio.CancelledError:
-                logger().debug('%s: Asyncio task cancel error: %s', self._log_identifier(), str(task))
+                logger().debug('%s: Asyncio task cancellation error: %s', self._log_identifier(), str(task))
             except RuntimeError:
                 logger().error('Runtime error', exc_info=True)
 
@@ -484,8 +479,7 @@ class RSocketBase(RSocket, RSocketInternal):
         logger().debug('%s: request-stream: %s', self._log_identifier(), payload)
 
         requester = RequestStreamRequester(self, payload)
-        self.register_new_stream(requester)
-        return requester
+        return self.register_new_stream(requester)
 
     def request_channel(
             self,
@@ -494,15 +488,12 @@ class RSocketBase(RSocket, RSocketInternal):
         logger().debug('%s: request-channel: %s', self._log_identifier(), payload)
 
         requester = RequestChannelRequester(self, payload, local_publisher)
-        self.register_new_stream(requester)
-        return requester
+        return self.register_new_stream(requester)
 
     def metadata_push(self, metadata: bytes):
         logger().debug('%s: metadata-push: %s', self._log_identifier(), metadata)
 
-        frame = MetadataPushFrame()
-        frame.metadata = metadata
-        self.send_frame(frame)
+        self.send_frame(to_metadata_push_frame(metadata))
 
     def _is_frame_allowed_to_send(self, frame: Frame) -> bool:
         if isinstance(frame, initiate_request_frame_types):
@@ -510,32 +501,16 @@ class RSocketBase(RSocket, RSocketInternal):
 
         return True
 
-    def _is_frame_allowed(self, frame: Frame) -> bool:
-        if isinstance(frame, (RequestResponseFrame,
-                              RequestStreamFrame,
-                              RequestChannelFrame,
-                              RequestFireAndForgetFrame
-                              )):
-            return self._responder_lease.is_request_allowed(frame.stream_id)
-
-        return True
-
     def _create_setup_frame(self,
                             data_encoding: bytes,
                             metadata_encoding: bytes,
                             payload: Optional[Payload] = None) -> SetupFrame:
-        setup = SetupFrame()
-        setup.flags_lease = self._honor_lease
-        setup.keep_alive_milliseconds = to_milliseconds(self._keep_alive_period)
-        setup.max_lifetime_milliseconds = to_milliseconds(self._max_lifetime_period)
-        setup.data_encoding = data_encoding
-        setup.metadata_encoding = metadata_encoding
-
-        if payload is not None:
-            setup.data = payload.data
-            setup.metadata = payload.metadata
-
-        return setup
+        return to_setup_frame(payload,
+                              data_encoding,
+                              metadata_encoding,
+                              self._keep_alive_period,
+                              self._max_lifetime_period,
+                              self._honor_lease)
 
     @abc.abstractmethod
     def _log_identifier(self) -> str:
