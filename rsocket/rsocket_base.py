@@ -125,8 +125,6 @@ class RSocketBase(RSocket, RSocketInternal):
         self._sender_task = self._start_task_if_not_closing(self._sender)
 
     async def connect(self):
-        logger().debug('%s: sending setup frame', self._log_identifier())
-
         self.send_priority_frame(self._create_setup_frame(self._data_encoding,
                                                           self._metadata_encoding,
                                                           self._setup_payload))
@@ -181,18 +179,12 @@ class RSocketBase(RSocket, RSocketInternal):
         self._send_queue.put_nowait(frame)
 
     def send_complete(self, stream_id: int):
-        logger().debug('%s: Sending complete', self._log_identifier())
         self.send_payload(stream_id, Payload(), complete=True, is_next=False)
 
     def send_error(self, stream_id: int, exception: Exception):
-        logger().debug('%s: Sending error: %s', self._log_identifier(), str(exception))
         self.send_frame(exception_to_error_frame(stream_id, exception))
 
     def send_payload(self, stream_id: int, payload: Payload, complete=False, is_next=True):
-        logger().debug('%s: Sending payload: %s (complete=%s, next=%s)',
-                       self._log_identifier(),
-                       payload, complete,
-                       is_next)
         self.send_frame(to_payload_frame(stream_id, payload, complete, is_next=is_next))
 
     def _update_last_keepalive(self):
@@ -212,14 +204,11 @@ class RSocketBase(RSocket, RSocketInternal):
         await self._handler.on_error(frame.error_code, payload_from_frame(frame))
 
     async def handle_keep_alive(self, frame: KeepAliveFrame):
-        logger().debug('%s: Received keepalive', self._log_identifier())
-
         self._update_last_keepalive()
 
         if frame.flags_respond:
             frame.flags_respond = False
             self.send_frame(frame)
-            logger().debug('%s: Responded to keepalive', self._log_identifier())
 
     async def handle_request_response(self, frame: RequestResponseFrame):
         stream_id = frame.stream_id
@@ -277,8 +266,6 @@ class RSocketBase(RSocket, RSocketInternal):
         try:
             self._responder_lease = lease
 
-            logger().debug('%s: Sending lease %s', self._log_identifier(), self._responder_lease)
-
             self.send_frame(self._responder_lease.to_frame())
         except Exception as exception:
             self.send_error(CONNECTION_STREAM_ID, exception)
@@ -311,8 +298,6 @@ class RSocketBase(RSocket, RSocketInternal):
         raise RSocketProtocolError(ErrorCode.REJECTED_RESUME, data='Resume not supported')
 
     async def handle_lease(self, frame: LeaseFrame):
-        logger().debug('%s: received lease frame', self._log_identifier())
-
         self._requester_lease = DefinedLease(
             frame.number_of_requests,
             timedelta(milliseconds=frame.time_to_live)
@@ -389,7 +374,6 @@ class RSocketBase(RSocket, RSocketInternal):
 
     def _send_new_keepalive(self, data: bytes = b''):
         self.send_frame(to_keepalive_frame(data))
-        logger().debug('%s: Sent keepalive', self._log_identifier())
 
     def _before_sender(self):
         pass
@@ -405,8 +389,8 @@ class RSocketBase(RSocket, RSocketInternal):
                 self._before_sender()
                 while self.is_server_alive():
                     frame = await self._send_queue.get()
-
                     await transport.send_frame(frame)
+                    log_frame(frame, self._log_identifier(), 'Sent')
                     self._send_queue.task_done()
 
                     if self._send_queue.empty():

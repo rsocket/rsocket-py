@@ -72,13 +72,13 @@ async def test_rsocket_keepalive(pipe, caplog):
     found_server_received_keepalive = False
 
     for record in caplog.records:
-        if record.message == 'client: Sent keepalive':
+        if record.message == 'client: Sent frame (type=KEEPALIVE, stream_id=0)':
             found_client_sent_keepalive = True
-        if record.message == 'server: Received keepalive':
+        if record.message == 'server: Received frame (type=KEEPALIVE, stream_id=0)':
             found_server_received_keepalive = True
-        if record.message == 'server: Responded to keepalive':
+        if record.message == 'server: Sent frame (type=KEEPALIVE, stream_id=0)':
             found_server_sent_keepalive = True
-        if record.message == 'client: Received keepalive':
+        if record.message == 'client: Received frame (type=KEEPALIVE, stream_id=0)':
             found_client_received_keepalive = True
 
         assert record.levelname not in ("CRITICAL", "ERROR", "WARNING")

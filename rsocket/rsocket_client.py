@@ -89,13 +89,12 @@ class RSocketClient(RSocketBase):
         await self._close()
 
     async def _close(self, reconnect=False):
-        logger().debug('%s: Closing before reconnect', self._log_identifier())
-
         if not reconnect:
             await self._cancel_if_task_exists(self._reconnect_task)
+        else:
+            logger().debug('%s: Closing before reconnect', self._log_identifier())
 
         await super().close()
-        self._next_transport = create_future()
 
     async def __aenter__(self) -> 'RSocketClient':
         await self.connect()
@@ -113,7 +112,7 @@ class RSocketClient(RSocketBase):
                 await self._connect_request_event.wait()
                 self._connect_request_event.clear()
                 await self._close(reconnect=True)
-
+                self._next_transport = create_future()
                 await self.connect()
         except CancelledError:
             logger().debug('%s: Asyncio task canceled: reconnect_listener', self._log_identifier())
