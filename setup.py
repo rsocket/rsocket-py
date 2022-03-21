@@ -10,6 +10,7 @@ setup(
     license='MIT',
     packages=find_packages(exclude=['examples', 'tests', 'docs']),
     zip_safe=True,
+    python_requires='>=3.8',
     extra_required={
         'rx': {'Rx >= 3.0.0'},
         'aiohttp': {'aiohttp == 3.8.1'},
