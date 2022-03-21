@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='rsocket',
-    version='0.3',
+    version='0.3.dev1',
     description='Python RSocket library',
     url='https://github.com/rsocket/rsocket-py',
     author='Gabriel Shaar',
