@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import timedelta
+from typing import Union
 
 import pytest
 
@@ -9,6 +10,7 @@ from rsocket.exceptions import RSocketProtocolError
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
+from rsocket.rsocket import RSocket
 from rsocket.rsocket_internal import RSocketInternal
 
 
@@ -46,7 +48,7 @@ async def test_rsocket_max_server_keepalive_reached_and_request_canceled_explici
 
         async def on_keepalive_timeout(self,
                                        time_since_last_keepalive: timedelta,
-                                       socket: RSocketInternal):
+                                       socket: Union[RSocketInternal, RSocket]):
             socket.stop_all_streams(data=b'Server not alive')
 
     async with lazy_pipe(

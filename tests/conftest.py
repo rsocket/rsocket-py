@@ -8,8 +8,6 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 import pytest
-from aiohttp.test_utils import RawTestServer
-from quart import Quart
 
 from rsocket.frame_parser import FrameParser
 from rsocket.helpers import single_transport_provider
@@ -17,7 +15,7 @@ from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
-from rsocket.transports.quart_websocket import websocket_handler
+
 from rsocket.transports.tcp import TransportTCP
 from tests.rsocket.helpers import assert_no_open_streams
 
@@ -158,6 +156,8 @@ def frame_parser():
 
 @pytest.fixture
 def aiohttp_raw_server(event_loop: asyncio.BaseEventLoop, unused_tcp_port):
+    from aiohttp.test_utils import RawTestServer
+
     servers = []
 
     async def go(handler, *args, **kwargs):  # type: ignore[no-untyped-def]
@@ -202,6 +202,9 @@ async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, cl
 
 @asynccontextmanager
 async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, server_arguments=None):
+    from quart import Quart
+    from rsocket.transports.quart_websocket import websocket_handler
+
     app = Quart(__name__)
     server: Optional[RSocketBase] = None
     wait_for_server = Event()

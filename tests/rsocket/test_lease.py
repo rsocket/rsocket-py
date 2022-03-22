@@ -99,7 +99,7 @@ async def test_request_response_with_lease_too_many_requests(lazy_pipe):
             response = await client.request_response(Payload(b'dog', b'cat'))
             assert response == Payload(b'data: dog', b'meta: cat')
 
-        with pytest.raises(asyncio.exceptions.TimeoutError):
+        with pytest.raises(asyncio.TimeoutError):
             await asyncio.wait_for(client.request_response(Payload(b'invalid request')), 3)
 
 
@@ -119,14 +119,14 @@ async def test_request_response_with_lease_client_side_exception_requests_late(l
 
         await asyncio.sleep(5)
 
-        with pytest.raises(asyncio.exceptions.TimeoutError):
+        with pytest.raises(asyncio.TimeoutError):
             await asyncio.wait_for(client.request_response(Payload(b'invalid request')), 3)
 
 
 @pytest.mark.allow_error_log(regex_filter='UNSUPPORTED_SETUP')
 async def test_server_rejects_all_requests_if_lease_not_supported(lazy_pipe):
     async with lazy_pipe(client_arguments={'honor_lease': True}) as (server, client):
-        with pytest.raises(asyncio.exceptions.TimeoutError):
+        with pytest.raises(asyncio.TimeoutError):
             await asyncio.wait_for(client.request_response(Payload(b'invalid request')), 3)
 
 
