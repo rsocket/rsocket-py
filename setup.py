@@ -1,9 +1,13 @@
 from setuptools import setup, find_packages
 
+with open('README.md') as fd:
+    long_description = fd.read()
+
 setup(
     name='rsocket',
     version='0.3.dev1',
     description='Python RSocket library',
+    long_description=long_description,
     url='https://github.com/rsocket/rsocket-py',
     author='Gabriel Shaar',
     author_email='gabis@precog.co',
