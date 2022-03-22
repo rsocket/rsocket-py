@@ -1,7 +1,0 @@
-image: python:3.6
-
-test:
-    script:
-        - pip install -r requirements.txt
-        - pip install .
-        - py.test -v
