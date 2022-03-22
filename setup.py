@@ -17,8 +17,8 @@ setup(
     python_requires='>=3.8',
     extra_required={
         'rx': {'Rx >= 3.0.0'},
-        'aiohttp': {'aiohttp == 3.8.1'},
-        'quart': {'quart == 0.16.2'}
+        'aiohttp': {'aiohttp >= 3.0.0'},
+        'quart': {'quart >= 0.15.0'}
     },
     classifiers=[
         'Development Status :: 3 - Alpha',
