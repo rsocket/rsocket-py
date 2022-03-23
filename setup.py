@@ -15,7 +15,7 @@ setup(
     packages=find_packages(exclude=['examples', 'tests', 'docs']),
     zip_safe=True,
     python_requires='>=3.8',
-    extra_required={
+    extras_require={
         'rx': {'Rx >= 3.0.0'},
         'aiohttp': {'aiohttp >= 3.0.0'},
         'quart': {'quart >= 0.15.0'}
