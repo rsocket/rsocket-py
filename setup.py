@@ -12,7 +12,7 @@ setup(
     author='Gabriel Shaar',
     author_email='gabis@precog.co',
     license='MIT',
-    packages=find_packages(exclude=['examples', 'tests', 'docs']),
+    packages=find_packages(exclude=['examples', 'tests', 'tests.*', 'docs']),
     zip_safe=True,
     python_requires='>=3.8',
     extras_require={
