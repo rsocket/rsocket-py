@@ -34,8 +34,8 @@ Examples can be found in the /examples folder. It contains various server and cl
 denoting which <b>client</b> example is constructed to be run against which <b>server</b> example. Some of the examples
 are in java to show compatibility with a different implementation.
 
-The **examples/test_examples.py** shows which pairs of client/server work with each other, and can be used to execute all the
-examples
+The **examples/test_examples.py** shows which pairs of client/server work with each other, and can be used to execute
+all the examples
 (except for the client_springboot.py which is set up to work against https://github.com/benwilcock/spring-rsocket-demo)
 
 | server (python)             | server (java) | client (python)                    | client(java)    |
