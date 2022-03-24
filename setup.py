@@ -8,6 +8,7 @@ setup(
     version='0.3.dev2',
     description='Python RSocket library',
     long_description=long_description,
+    long_description_content_type='text/markdown',
     url='https://github.com/rsocket/rsocket-py',
     author='Gabriel Shaar',
     author_email='gabis@precog.co',
