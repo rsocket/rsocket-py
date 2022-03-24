@@ -11,7 +11,7 @@ from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 from rsocket.transports.transport import Transport
 
 
-def rsocket_connect(host: str, port: int, configuration: QuicConfiguration = None) -> Transport:
+async def rsocket_connect(host: str, port: int, configuration: QuicConfiguration = None) -> Transport:
     if configuration is None:
         configuration = QuicConfiguration(alpn_protocols=["doq-i03"], is_client=True)
 
@@ -20,19 +20,29 @@ def rsocket_connect(host: str, port: int, configuration: QuicConfiguration = Non
         port,
         configuration=configuration,
         create_protocol=RSocketQuicProtocol,
-    ).__anext__())
+    ).__aenter__())
 
     return RSocketQuicTransport(client)
 
 
-async def rsocket_serve(host: str,
-                        port: int,
-                        handler_factory,
-                        configuration: QuicConfiguration = None,
-                        **kwargs):
+def rsocket_serve(host: str,
+                  port: int,
+                  configuration: QuicConfiguration = None,
+                  on_server_create=None,
+                  **kwargs):
+    if configuration is None:
+        configuration = QuicConfiguration(
+            alpn_protocols=["doq-i03"],
+            is_client=False
+        )
+
     def protocol_factory(*protocol_args, **protocol_kwargs):
         protocol = RSocketQuicProtocol(*protocol_args, **protocol_kwargs)
-        RSocketServer(RSocketQuicTransport(protocol), handler_factory=handler_factory, **kwargs)
+        server = RSocketServer(RSocketQuicTransport(protocol), **kwargs)
+
+        if on_server_create is not None:
+            on_server_create(server)
+
         return protocol
 
     return asyncio.create_task(serve(

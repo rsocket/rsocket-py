@@ -5,7 +5,8 @@ import re
 from asyncio import Event
 from asyncio.base_events import Server
 from contextlib import asynccontextmanager
-from typing import Optional
+import socket
+from typing import Optional, Tuple
 
 import pytest
 
@@ -15,6 +16,7 @@ from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
+from rsocket.transports.aioquic_transport import rsocket_connect, rsocket_serve
 
 from rsocket.transports.tcp import TransportTCP
 from tests.rsocket.helpers import assert_no_open_streams
@@ -24,7 +26,8 @@ logging.basicConfig(level=logging.DEBUG)
 tested_transports = [
     'tcp',
     'aiohttp',
-    'quart'
+    'quart',
+    'quic'
 ]
 
 
@@ -85,6 +88,8 @@ def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
         return pipe_factory_quart_websocket
     if transport_id == 'aiohttp':
         return functools.partial(pipe_factory_aiohttp_websocket, aiohttp_raw_server)
+    if transport_id == 'quic':
+        return pipe_factory_quic
 
 
 @pytest.fixture
@@ -176,6 +181,39 @@ def aiohttp_raw_server(event_loop: asyncio.BaseEventLoop, unused_tcp_port):
 
 
 @asynccontextmanager
+async def pipe_factory_quic(unused_tcp_port,
+                            client_arguments=None,
+                            server_arguments=None):
+    server: Optional[RSocketBase] = None
+    wait_for_server = Event()
+
+    def store_server(new_server):
+        nonlocal server
+        server = new_server
+        wait_for_server.set()
+
+    quic_server = await rsocket_serve(host='localhost',
+                                      port=unused_tcp_port,
+                                      on_server_create=store_server,
+                                      **(server_arguments or {}))
+
+    # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
+    client_arguments = client_arguments or {}
+    # client_arguments.update(test_overrides)
+    transport = await rsocket_connect('localhost', unused_tcp_port)
+
+    async with RSocketClient(single_transport_provider(transport),
+                             **client_arguments) as client:
+        await wait_for_server.wait()
+        yield server, client
+        await server.close()
+        assert_no_open_streams(client, server)
+
+    quic_server.cancel()
+    await quic_server
+
+
+@asynccontextmanager
 async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, client_arguments=None,
                                          server_arguments=None):
     server: Optional[RSocketBase] = None
@@ -236,3 +274,34 @@ async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, s
         await server_task
     except asyncio.CancelledError:
         pass
+
+
+def generate_openssl_certificate_and_key() -> Tuple[str, bytes]:
+    import random
+    from OpenSSL import crypto
+
+    pkey = crypto.PKey()
+    pkey.generate_key(crypto.TYPE_RSA, 2048)
+
+    x509 = crypto.X509()
+    subject = x509.get_subject()
+    subject.commonName = socket.gethostname()
+    x509.set_issuer(subject)
+    x509.gmtime_adj_notBefore(0)
+    x509.gmtime_adj_notAfter(5 * 365 * 24 * 60 * 60)
+    x509.set_pubkey(pkey)
+    x509.set_serial_number(random.randrange(100000))
+    x509.set_version(2)
+    x509.add_extensions([
+        crypto.X509Extension(b'subjectAltName', False,
+                             ','.join([
+                                 'DNS:%s' % socket.gethostname(),
+                                 'DNS:*.%s' % socket.gethostname(),
+                                 'DNS:localhost',
+                                 'DNS:*.localhost']).encode()),
+        crypto.X509Extension(b"basicConstraints", True, b"CA:false")])
+
+    x509.sign(pkey, 'SHA256')
+
+    return (crypto.dump_certificate(crypto.FILETYPE_PEM, x509),
+            crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
