@@ -85,18 +85,17 @@ async def pipe_factory_quic(unused_tcp_port,
                                       on_server_create=store_server,
                                       **(server_arguments or {}))
 
+    # from datetime import timedelta
     # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
     client_arguments = client_arguments or {}
     # client_arguments.update(test_overrides)
-    transport = await rsocket_connect('localhost', unused_tcp_port,
-                                      configuration=client_configuration)
+    async with rsocket_connect('localhost', unused_tcp_port,
+                                configuration=client_configuration) as transport:
+        async with RSocketClient(single_transport_provider(transport),
+                                 **client_arguments) as client:
+            await wait_for_server.wait()
+            yield server, client
+            await server.close()
+            assert_no_open_streams(client, server)
 
-    async with RSocketClient(single_transport_provider(transport),
-                             **client_arguments) as client:
-        await wait_for_server.wait()
-        yield server, client
-        await server.close()
-        assert_no_open_streams(client, server)
-
-    quic_server.cancel()
-    await quic_server
+    quic_server.close()

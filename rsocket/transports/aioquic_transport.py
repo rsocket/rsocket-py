@@ -1,5 +1,5 @@
 import asyncio
-from typing import cast
+from contextlib import asynccontextmanager
 
 from aioquic.asyncio import QuicConnectionProtocol, connect, serve
 from aioquic.quic.configuration import QuicConfiguration
@@ -11,20 +11,20 @@ from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 from rsocket.transports.transport import Transport
 
 
+@asynccontextmanager
 async def rsocket_connect(host: str, port: int, configuration: QuicConfiguration = None) -> Transport:
     if configuration is None:
         configuration = QuicConfiguration(
             is_client=True
         )
 
-    client = cast(RSocketQuicProtocol, await connect(
-        host,
-        port,
-        configuration=configuration,
-        create_protocol=RSocketQuicProtocol,
-    ).__aenter__())
-
-    return RSocketQuicTransport(client)
+    async with connect(
+            host,
+            port,
+            configuration=configuration,
+            create_protocol=RSocketQuicProtocol,
+    ) as client:
+        yield RSocketQuicTransport(client)
 
 
 def rsocket_serve(host: str,
@@ -46,23 +46,22 @@ def rsocket_serve(host: str,
 
         return protocol
 
-    return asyncio.create_task(serve(
+    return serve(
         host,
         port,
         create_protocol=protocol_factory,
-        configuration=configuration))
+        configuration=configuration)
 
 
 class RSocketQuicProtocol(QuicConnectionProtocol):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.frame_queue = asyncio.Queue()
+        self._stream_id = self._quic.get_next_available_stream_id()
 
     async def query(self, frame: Frame) -> None:
         data = frame.serialize()
-
-        stream_id = self._quic.get_next_available_stream_id()
-        self._quic.send_stream_data(stream_id, data, end_stream=True)
+        self._quic.send_stream_data(self._stream_id, data, end_stream=False)
         self.transmit()
 
     def quic_event_received(self, event: QuicEvent) -> None:
@@ -75,7 +74,7 @@ class RSocketQuicTransport(AbstractMessagingTransport):
         super().__init__()
         self._quic_protocol = quic_protocol
         self._incoming_bytes_queue = quic_protocol.frame_queue
-        asyncio.create_task(self.incoming_data_listener())
+        self._listener = asyncio.create_task(self.incoming_data_listener())
 
     async def send_frame(self, frame: Frame):
         await self._quic_protocol.query(frame)
@@ -89,3 +88,4 @@ class RSocketQuicTransport(AbstractMessagingTransport):
 
     async def close(self):
         self._quic_protocol.close()
+        self._listener.cancel()
