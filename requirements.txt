@@ -10,3 +10,5 @@ aiohttp==3.8.1
 quart==0.16.3
 coveralls==3.3.1
 aioquic==0.9.19
+
+Jinja2==3.0.3
