@@ -36,8 +36,9 @@ async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, s
                                 **client_arguments) as client:
         await wait_for_server.wait()
         yield server, client
-        await server.close()
-        assert_no_open_streams(client, server)
+
+    await server.close()
+    assert_no_open_streams(client, server)
 
     try:
         server_task.cancel()

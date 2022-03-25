@@ -75,8 +75,8 @@ async def pipe_factory_quic(generate_test_certificates,
     client_configuration = QuicConfiguration(
         is_client=True
     )
-    cadata = certificate.public_bytes(serialization.Encoding.PEM)
-    client_configuration.load_verify_locations(cadata=cadata, cafile=None)
+    ca_data = certificate.public_bytes(serialization.Encoding.PEM)
+    client_configuration.load_verify_locations(cadata=ca_data, cafile=None)
 
     server: Optional[RSocketBase] = None
     wait_for_server = Event()
@@ -102,7 +102,8 @@ async def pipe_factory_quic(generate_test_certificates,
                                  **client_arguments) as client:
             await wait_for_server.wait()
             yield server, client
-            await server.close()
-            assert_no_open_streams(client, server)
+
+    await server.close()
+    assert_no_open_streams(client, server)
 
     quic_server.close()

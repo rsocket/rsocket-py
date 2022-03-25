@@ -6,6 +6,8 @@ from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import QuicEvent, StreamDataReceived
 
 from rsocket.frame import Frame
+from rsocket.helpers import wrap_transport_exception
+from rsocket.logger import logger
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 from rsocket.transports.transport import Transport
@@ -77,15 +79,20 @@ class RSocketQuicTransport(AbstractMessagingTransport):
         self._listener = asyncio.create_task(self.incoming_data_listener())
 
     async def send_frame(self, frame: Frame):
-        await self._quic_protocol.query(frame)
+        with wrap_transport_exception():
+            await self._quic_protocol.query(frame)
 
     async def incoming_data_listener(self):
-        while True:
-            data = await self._incoming_bytes_queue.get()
+        with wrap_transport_exception():
+            try:
+                while True:
+                    data = await self._incoming_bytes_queue.get()
 
-            async for frame in self._frame_parser.receive_data(data, 0):
-                self._incoming_frame_queue.put_nowait(frame)
+                    async for frame in self._frame_parser.receive_data(data, 0):
+                        self._incoming_frame_queue.put_nowait(frame)
+            except asyncio.CancelledError:
+                logger().debug('Asyncio task canceled: incoming_data_listener')
 
     async def close(self):
-        self._quic_protocol.close()
         self._listener.cancel()
+        self._quic_protocol.close()

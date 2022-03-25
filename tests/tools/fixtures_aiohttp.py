@@ -52,5 +52,6 @@ async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, cl
                                 **client_arguments) as client:
         await wait_for_server.wait()
         yield server, client
-        await server.close()
-        assert_no_open_streams(client, server)
+
+    await server.close()
+    assert_no_open_streams(client, server)
