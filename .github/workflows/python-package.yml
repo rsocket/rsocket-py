@@ -36,7 +36,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pytest --cov-report=html --cov tests
+        pytest --cov-report=html --cov --ignore=examples tests
     - name: Archive code coverage html report
       uses: actions/upload-artifact@v2
       with:
