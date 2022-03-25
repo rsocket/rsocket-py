@@ -56,6 +56,7 @@ async def test_request_response_with_server_side_lease_works(lazy_pipe):
             assert response == Payload(b'data: dog', b'meta: cat')
 
 
+@pytest.mark.timeout(15)
 async def test_request_response_with_client_and_server_side_lease_works(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
@@ -103,6 +104,7 @@ async def test_request_response_with_lease_too_many_requests(lazy_pipe):
             await asyncio.wait_for(client.request_response(Payload(b'invalid request')), 3)
 
 
+@pytest.mark.timeout(15)
 async def test_request_response_with_lease_client_side_exception_requests_late(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
