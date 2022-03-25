@@ -13,7 +13,9 @@ from rsocket.transports.transport import Transport
 
 async def rsocket_connect(host: str, port: int, configuration: QuicConfiguration = None) -> Transport:
     if configuration is None:
-        configuration = QuicConfiguration(alpn_protocols=["doq-i03"], is_client=True)
+        configuration = QuicConfiguration(
+            is_client=True
+        )
 
     client = cast(RSocketQuicProtocol, await connect(
         host,
@@ -32,7 +34,6 @@ def rsocket_serve(host: str,
                   **kwargs):
     if configuration is None:
         configuration = QuicConfiguration(
-            alpn_protocols=["doq-i03"],
             is_client=False
         )
 
