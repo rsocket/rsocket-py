@@ -3,6 +3,7 @@ from asyncio import Event
 from contextlib import asynccontextmanager
 from typing import Optional
 
+import pytest
 from aioquic.quic.configuration import QuicConfiguration
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -53,11 +54,17 @@ def generate_ec_certificate(common_name, alternative_names=None, curve=ec.SECP25
     )
 
 
+@pytest.fixture(scope="session")
+def generate_test_certificates():
+    return generate_ec_certificate(common_name="localhost")
+
+
 @asynccontextmanager
-async def pipe_factory_quic(unused_tcp_port,
+async def pipe_factory_quic(generate_test_certificates,
+                            unused_tcp_port,
                             client_arguments=None,
                             server_arguments=None):
-    certificate, private_key = generate_ec_certificate(common_name="localhost")
+    certificate, private_key = generate_test_certificates
 
     server_configuration = QuicConfiguration(
         certificate=certificate,
@@ -90,7 +97,7 @@ async def pipe_factory_quic(unused_tcp_port,
     client_arguments = client_arguments or {}
     # client_arguments.update(test_overrides)
     async with rsocket_connect('localhost', unused_tcp_port,
-                                configuration=client_configuration) as transport:
+                               configuration=client_configuration) as transport:
         async with RSocketClient(single_transport_provider(transport),
                                  **client_arguments) as client:
             await wait_for_server.wait()

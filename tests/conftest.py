@@ -7,7 +7,8 @@ import pytest
 from rsocket.frame_parser import FrameParser
 # noinspection PyUnresolvedReferences
 from tests.tools.fixtures_aiohttp import pipe_factory_aiohttp_websocket, aiohttp_raw_server
-from tests.tools.fixtures_aioquic import pipe_factory_quic
+# noinspection PyUnresolvedReferences
+from tests.tools.fixtures_aioquic import pipe_factory_quic, generate_test_certificates
 from tests.tools.fixtures_quart import pipe_factory_quart_websocket
 from tests.tools.fixtures_tcp import pipe_factory_tcp
 
@@ -48,14 +49,14 @@ def fail_on_error_log(caplog, request):
 
 
 @pytest.fixture(params=tested_transports)
-async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port):
-    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
+async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):
+    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param, generate_test_certificates)
     yield functools.partial(pipe_factory, unused_tcp_port)
 
 
 @pytest.fixture(params=tested_transports)
-async def pipe(request, aiohttp_raw_server, unused_tcp_port):
-    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
+async def pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):
+    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param, generate_test_certificates)
     async with pipe_factory(unused_tcp_port) as components:
         yield components
 
@@ -71,7 +72,9 @@ async def lazy_pipe_tcp(aiohttp_raw_server, unused_tcp_port):
     yield functools.partial(pipe_factory_tcp, unused_tcp_port)
 
 
-def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
+def get_pipe_factory_by_id(aiohttp_raw_server,
+                           transport_id: str,
+                           generate_test_certificates):
     if transport_id == 'tcp':
         return pipe_factory_tcp
     if transport_id == 'quart':
@@ -79,7 +82,7 @@ def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
     if transport_id == 'aiohttp':
         return functools.partial(pipe_factory_aiohttp_websocket, aiohttp_raw_server)
     if transport_id == 'quic':
-        return pipe_factory_quic
+        return functools.partial(pipe_factory_quic, generate_test_certificates)
 
 
 @pytest.fixture
