@@ -19,6 +19,19 @@ def test_simple_client_server(unused_tcp_port):
         os.kill(pid, signal.SIGTERM)
 
 
+def test_quic_client_server(unused_tcp_port):
+    pid = os.spawnlp(os.P_NOWAIT, 'python3', 'python3', './server_quic.py', str(unused_tcp_port))
+
+    try:
+        sleep(2)
+        client = subprocess.Popen(['python3', './client.py_quic', str(unused_tcp_port)])
+        client.wait(timeout=10)
+
+        assert client.returncode == 0
+    finally:
+        os.kill(pid, signal.SIGTERM)
+
+
 @pytest.mark.timeout(30)
 def test_client_server_with_routing(unused_tcp_port):
     pid = os.spawnlp(os.P_NOWAIT, 'python3', 'python3', './server_with_routing.py', str(unused_tcp_port))

@@ -10,6 +10,7 @@ from rsocket.request_handler import BaseRequestHandler
 from tests.rsocket.helpers import future_from_payload
 
 
+@pytest.mark.timeout(4)
 async def test_request_response_awaitable_wrapper(pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):

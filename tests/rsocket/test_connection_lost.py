@@ -110,7 +110,7 @@ class FailingTransportTCP(Transport):
     async def send_frame(self, frame: Frame):
         pass
 
-    async def next_frame_generator(self, is_server_alive):
+    async def next_frame_generator(self, is_server_alive: bool):
         pass
 
     async def close(self):
@@ -118,7 +118,7 @@ class FailingTransportTCP(Transport):
 
 
 @pytest.mark.allow_error_log(regex_filter='Connection error')
-async def test_connection_failure(unused_tcp_port):
+async def test_connection_failure(unused_tcp_port: int):
     index_iterator = iter(range(1, 3))
 
     wait_for_server = Event()

@@ -246,6 +246,7 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     assert fragments_sent == 24
 
 
+@pytest.mark.timeout(15)
 async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
 

@@ -5,12 +5,12 @@ from quart import websocket
 from rsocket.frame import Frame
 from rsocket.logger import logger
 from rsocket.rsocket_server import RSocketServer
-from rsocket.transports.abstract_websocket import AbstractWebsocketTransport
+from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 
 
 async def websocket_handler(*args, on_server_create=None, **kwargs):
     transport = TransportQuartWebsocket()
-    server = RSocketServer(transport=transport, *args, **kwargs)
+    server = RSocketServer(transport, *args, **kwargs)
 
     if on_server_create is not None:
         on_server_create(server)
@@ -18,7 +18,7 @@ async def websocket_handler(*args, on_server_create=None, **kwargs):
     await transport.handle_incoming_ws_messages()
 
 
-class TransportQuartWebsocket(AbstractWebsocketTransport):
+class TransportQuartWebsocket(AbstractMessagingTransport):
 
     async def handle_incoming_ws_messages(self):
         try:

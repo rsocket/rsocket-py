@@ -9,7 +9,7 @@ from rsocket.helpers import wrap_transport_exception, single_transport_provider
 from rsocket.logger import logger
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
-from rsocket.transports.abstract_websocket import AbstractWebsocketTransport
+from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 
 
 @asynccontextmanager
@@ -35,7 +35,7 @@ def websocket_handler_factory(*args, on_server_create=None, **kwargs):
     return websocket_handler
 
 
-class TransportAioHttpClient(AbstractWebsocketTransport):
+class TransportAioHttpClient(AbstractMessagingTransport):
 
     def __init__(self, url):
         super().__init__()
@@ -69,7 +69,7 @@ class TransportAioHttpClient(AbstractWebsocketTransport):
         await self._message_handler
 
 
-class TransportAioHttpWebsocket(AbstractWebsocketTransport):
+class TransportAioHttpWebsocket(AbstractMessagingTransport):
     def __init__(self, websocket):
         super().__init__()
         self._ws = websocket

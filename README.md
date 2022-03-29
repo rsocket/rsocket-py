@@ -41,6 +41,7 @@ all the examples
 | server (python)             | server (java) | client (python)                    | client(java)    |
 |-----------------------------|---------------|------------------------------------|-----------------|
 | server.py                   |               | client.py                          |                 |
+| server_quic.py              |               | client_quic.py                     |                 |
 | server_with_lease.py        |               |                                    | ClientWithLease |
 | server_with_routing.py      |               | client_with_routing.py             | Client          |
 |                             | Server        | run_against_example_java_server.py |                 |
@@ -74,6 +75,7 @@ all the examples
 - [ ] Transports
     - [X] TCP
     - [X] Websocket
+    - [X] QUIC
     - [ ] HTTP/2
     - [ ] Aeron
 - [X] RxPy Integration

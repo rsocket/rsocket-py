@@ -23,7 +23,7 @@ class TransportTCP(Transport):
         self._writer.close()
         await self._writer.wait_closed()
 
-    async def next_frame_generator(self, is_server_alive):
+    async def next_frame_generator(self, is_server_alive: bool):
         with wrap_transport_exception():
             data = await self._reader.read(1024)
 

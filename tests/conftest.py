@@ -1,30 +1,24 @@
-import asyncio
 import functools
 import logging
 import re
-from asyncio import Event
-from asyncio.base_events import Server
-from contextlib import asynccontextmanager
-from typing import Optional
 
 import pytest
 
 from rsocket.frame_parser import FrameParser
-from rsocket.helpers import single_transport_provider
-from rsocket.rsocket_base import RSocketBase
-from rsocket.rsocket_client import RSocketClient
-from rsocket.rsocket_server import RSocketServer
-from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
-
-from rsocket.transports.tcp import TransportTCP
-from tests.rsocket.helpers import assert_no_open_streams
+# noinspection PyUnresolvedReferences
+from tests.tools.fixtures_aiohttp import pipe_factory_aiohttp_websocket, aiohttp_raw_server
+# noinspection PyUnresolvedReferences
+from tests.tools.fixtures_aioquic import pipe_factory_quic, generate_test_certificates
+from tests.tools.fixtures_quart import pipe_factory_quart_websocket
+from tests.tools.fixtures_tcp import pipe_factory_tcp
 
 logging.basicConfig(level=logging.DEBUG)
 
 tested_transports = [
     'tcp',
     'aiohttp',
-    'quart'
+    'quart',
+    'quic'
 ]
 
 
@@ -55,14 +49,14 @@ def fail_on_error_log(caplog, request):
 
 
 @pytest.fixture(params=tested_transports)
-async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port):
-    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
+async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):
+    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param, generate_test_certificates)
     yield functools.partial(pipe_factory, unused_tcp_port)
 
 
 @pytest.fixture(params=tested_transports)
-async def pipe(request, aiohttp_raw_server, unused_tcp_port):
-    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param)
+async def pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):
+    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, request.param, generate_test_certificates)
     async with pipe_factory(unused_tcp_port) as components:
         yield components
 
@@ -78,13 +72,17 @@ async def lazy_pipe_tcp(aiohttp_raw_server, unused_tcp_port):
     yield functools.partial(pipe_factory_tcp, unused_tcp_port)
 
 
-def get_pipe_factory_by_id(aiohttp_raw_server, transport_id: str):
+def get_pipe_factory_by_id(aiohttp_raw_server,
+                           transport_id: str,
+                           generate_test_certificates):
     if transport_id == 'tcp':
         return pipe_factory_tcp
     if transport_id == 'quart':
         return pipe_factory_quart_websocket
     if transport_id == 'aiohttp':
         return functools.partial(pipe_factory_aiohttp_websocket, aiohttp_raw_server)
+    if transport_id == 'quic':
+        return functools.partial(pipe_factory_quic, generate_test_certificates)
 
 
 @pytest.fixture
@@ -93,146 +91,6 @@ async def pipe_tcp_without_auto_connect(unused_tcp_port):
         yield components
 
 
-@asynccontextmanager
-async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_arguments=None, auto_connect_client=True):
-    wait_for_server = Event()
-
-    def session(*connection):
-        nonlocal server
-        server = RSocketServer(TransportTCP(*connection), **(server_arguments or {}))
-        wait_for_server.set()
-
-    async def start():
-        nonlocal service, client
-        service = await asyncio.start_server(session, host, port)
-        connection = await asyncio.open_connection(host, port)
-        nonlocal client_arguments
-        # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
-        client_arguments = client_arguments or {}
-
-        # client_arguments.update(test_overrides)
-
-        client = RSocketClient(single_transport_provider(TransportTCP(*connection)), **(client_arguments or {}))
-
-        if auto_connect_client:
-            await client.connect()
-
-    async def finish():
-        if auto_connect_client:
-            await client.close()
-
-        await server.close()
-
-        service.close()
-
-    service: Optional[Server] = None
-    server: Optional[RSocketServer] = None
-    client: Optional[RSocketClient] = None
-    port = unused_tcp_port
-    host = 'localhost'
-
-    await start()
-
-    async def server_provider():
-        await wait_for_server.wait()
-        return server
-
-    try:
-        if auto_connect_client:
-            await wait_for_server.wait()
-            yield server, client
-        else:
-            yield server_provider, client
-
-        assert_no_open_streams(client, server)
-    finally:
-        await finish()
-
-
 @pytest.fixture
 def frame_parser():
     return FrameParser()
-
-
-@pytest.fixture
-def aiohttp_raw_server(event_loop: asyncio.BaseEventLoop, unused_tcp_port):
-    from aiohttp.test_utils import RawTestServer
-
-    servers = []
-
-    async def go(handler, *args, **kwargs):  # type: ignore[no-untyped-def]
-        server = RawTestServer(handler, port=unused_tcp_port)
-        await server.start_server(**kwargs)
-        servers.append(server)
-        return server
-
-    yield go
-
-    async def finalize() -> None:
-        while servers:
-            await servers.pop().close()
-
-    event_loop.run_until_complete(finalize())
-
-
-@asynccontextmanager
-async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, client_arguments=None,
-                                         server_arguments=None):
-    server: Optional[RSocketBase] = None
-    wait_for_server = Event()
-
-    def store_server(new_server):
-        nonlocal server
-        server = new_server
-        wait_for_server.set()
-
-    await aiohttp_raw_server(websocket_handler_factory(on_server_create=store_server, **(server_arguments or {})))
-
-    # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
-    client_arguments = client_arguments or {}
-    # client_arguments.update(test_overrides)
-
-    async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
-                                **client_arguments) as client:
-        await wait_for_server.wait()
-        yield server, client
-        await server.close()
-        assert_no_open_streams(client, server)
-
-
-@asynccontextmanager
-async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, server_arguments=None):
-    from quart import Quart
-    from rsocket.transports.quart_websocket import websocket_handler
-
-    app = Quart(__name__)
-    server: Optional[RSocketBase] = None
-    wait_for_server = Event()
-
-    def store_server(new_server):
-        nonlocal server
-        server = new_server
-        wait_for_server.set()
-
-    @app.websocket("/")
-    async def ws():
-        await websocket_handler(on_server_create=store_server, **(server_arguments or {}))
-        # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
-
-    client_arguments = client_arguments or {}
-    # client_arguments.update(test_overrides)
-    server_task = asyncio.create_task(app.run_task(port=unused_tcp_port))
-    await asyncio.sleep(0.1)
-
-    async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
-                                **client_arguments) as client:
-        await wait_for_server.wait()
-        yield server, client
-        await server.close()
-        assert_no_open_streams(client, server)
-
-    try:
-        server_task.cancel()
-        await server_task
-    except asyncio.CancelledError:
-        pass

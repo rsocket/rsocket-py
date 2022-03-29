@@ -19,7 +19,8 @@ setup(
     extras_require={
         'rx': {'Rx >= 3.0.0'},
         'aiohttp': {'aiohttp >= 3.0.0'},
-        'quart': {'quart >= 0.15.0'}
+        'quart': {'quart >= 0.15.0'},
+        'quic': {'aioquic >= 0.9.0'}
     },
     classifiers=[
         'Development Status :: 3 - Alpha',
