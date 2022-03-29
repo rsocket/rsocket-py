@@ -7,8 +7,6 @@ pytest-cov==3.0.0
 coverage==6.3.2
 Rx==3.2.0
 aiohttp==3.8.1
-quart==0.16.3
+quart==0.17.0
 coveralls==3.3.1
 aioquic==0.9.19
-
-Jinja2==3.0.3
