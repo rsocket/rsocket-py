@@ -9,7 +9,7 @@ class AbstractMessagingTransport(Transport, metaclass=abc.ABCMeta):
         super().__init__()
         self._incoming_frame_queue = asyncio.Queue()
 
-    async def next_frame_generator(self, is_server_alive: bool):
+    async def next_frame_generator(self):
         frame = await self._incoming_frame_queue.get()
 
         async def frame_generator():

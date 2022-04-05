@@ -332,7 +332,7 @@ class RSocketBase(RSocket, RSocketInternal):
 
         transport = await self._current_transport()
         while self.is_server_alive():
-            next_frame_generator = await transport.next_frame_generator(self.is_server_alive())
+            next_frame_generator = await transport.next_frame_generator()
             if next_frame_generator is None:
                 break
             async for frame in next_frame_generator:

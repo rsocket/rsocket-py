@@ -110,7 +110,7 @@ class FailingTransportTCP(Transport):
     async def send_frame(self, frame: Frame):
         pass
 
-    async def next_frame_generator(self, is_server_alive: bool):
+    async def next_frame_generator(self):
         pass
 
     async def close(self):
