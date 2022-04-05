@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 from datetime import timedelta
 from math import ceil
 from typing import Type
@@ -8,6 +9,8 @@ from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_base import RSocketBase
+from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.transport import Transport
 
 
 def data_bits(data: bytes, name: str = None):
@@ -69,6 +72,12 @@ class IdentifiedHandlerFactory:
         return self._handler_factory(socket, self._server_id, self._delay)
 
 
-async def force_closing_connection(current_connection, delay=timedelta(0)):
+async def force_closing_connection(transport, delay=timedelta(0)):
     await asyncio.sleep(delay.total_seconds())
-    current_connection[1].close()
+    await transport.close()
+
+
+@dataclass
+class ServerContainer:
+    server: RSocketServer = None
+    transport: Transport = None

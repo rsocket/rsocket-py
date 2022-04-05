@@ -79,6 +79,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._responder_lease = None
         self._requester_lease = None
         self._is_closing = False
+        self._connecting = True
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -420,7 +421,7 @@ class RSocketBase(RSocket, RSocketInternal):
     async def _close_transport(self):
         if self._current_transport().done():
             logger().debug('%s: Closing transport', self._log_identifier())
-            transport = self._current_transport().result()
+            transport = await self._current_transport()
 
             if transport is not None:
                 try:

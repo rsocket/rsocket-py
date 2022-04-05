@@ -70,14 +70,17 @@ class RSocketClient(RSocketBase):
         return await super().connect()
 
     async def _connect_new_transport(self):
-        new_transport = await self._get_new_transport()
+        try:
+            new_transport = await self._get_new_transport()
 
-        if new_transport is None:
-            raise RSocketNoAvailableTransport()
+            if new_transport is None:
+                raise RSocketNoAvailableTransport()
 
-        self._next_transport.set_result(new_transport)
-        transport = await self._current_transport()
-        await transport.connect()
+            self._next_transport.set_result(new_transport)
+            transport = await self._current_transport()
+            await transport.connect()
+        finally:
+            self._connecting = False
 
     async def _get_new_transport(self):
         try:
@@ -110,6 +113,13 @@ class RSocketClient(RSocketBase):
         try:
             while True:
                 await self._connect_request_event.wait()
+
+                logger().debug('%s: Got reconnect request', self._log_identifier())
+
+                if self._connecting:
+                    continue
+
+                self._connecting = True
                 self._connect_request_event.clear()
                 await self._close(reconnect=True)
                 self._next_transport = create_future()

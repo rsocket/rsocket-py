@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import aiohttp
 from aiohttp import web
 
+from rsocket.exceptions import RSocketTransportError
 from rsocket.frame import Frame
 from rsocket.helpers import wrap_transport_exception, single_transport_provider
 from rsocket.logger import logger
@@ -44,20 +45,29 @@ class TransportAioHttpClient(AbstractMessagingTransport):
         self._ws_context = None
         self._ws = None
         self._message_handler = None
+        self._connection_ready = asyncio.Event()
 
     async def connect(self):
         self._session = aiohttp.ClientSession()
         self._ws_context = self._session.ws_connect(self._url)
         self._ws = await self._ws_context.__aenter__()
+        self._connection_ready.set()
         self._message_handler = asyncio.create_task(self.handle_incoming_ws_messages())
 
     async def handle_incoming_ws_messages(self):
-        async for msg in self._ws:
-            if msg.type == aiohttp.WSMsgType.BINARY:
-                async for frame in self._frame_parser.receive_data(msg.data, 0):
-                    self._incoming_frame_queue.put_nowait(frame)
+        await self._connection_ready.wait()
+        try:
+            async for msg in self._ws:
+                if msg.type == aiohttp.WSMsgType.BINARY:
+                    async for frame in self._frame_parser.receive_data(msg.data, 0):
+                        self._incoming_frame_queue.put_nowait(frame)
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            self._incoming_frame_queue.put_nowait(RSocketTransportError())
 
     async def send_frame(self, frame: Frame):
+        await self._connection_ready.wait()
         with wrap_transport_exception():
             await self._ws.send_bytes(frame.serialize())
 

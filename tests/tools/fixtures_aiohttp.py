@@ -16,9 +16,9 @@ def aiohttp_raw_server(event_loop: asyncio.BaseEventLoop, unused_tcp_port):
 
     servers = []
 
-    async def go(handler, *args, **kwargs):  # type: ignore[no-untyped-def]
+    async def go(handler):
         server = RawTestServer(handler, port=unused_tcp_port)
-        await server.start_server(**kwargs)
+        await server.start_server()
         servers.append(server)
         return server
 
