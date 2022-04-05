@@ -83,15 +83,14 @@ class RSocketQuicTransport(AbstractMessagingTransport):
             await self._quic_protocol.query(frame)
 
     async def incoming_data_listener(self):
-        with wrap_transport_exception():
-            try:
-                while True:
-                    data = await self._incoming_bytes_queue.get()
+        try:
+            while True:
+                data = await self._incoming_bytes_queue.get()
 
-                    async for frame in self._frame_parser.receive_data(data, 0):
-                        self._incoming_frame_queue.put_nowait(frame)
-            except asyncio.CancelledError:
-                logger().debug('Asyncio task canceled: incoming_data_listener')
+                async for frame in self._frame_parser.receive_data(data, 0):
+                    self._incoming_frame_queue.put_nowait(frame)
+        except asyncio.CancelledError:
+            logger().debug('Asyncio task canceled: incoming_data_listener')
 
     async def close(self):
         self._listener.cancel()

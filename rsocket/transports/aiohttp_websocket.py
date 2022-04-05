@@ -52,11 +52,10 @@ class TransportAioHttpClient(AbstractMessagingTransport):
         self._message_handler = asyncio.create_task(self.handle_incoming_ws_messages())
 
     async def handle_incoming_ws_messages(self):
-        with wrap_transport_exception():
-            async for msg in self._ws:
-                if msg.type == aiohttp.WSMsgType.BINARY:
-                    async for frame in self._frame_parser.receive_data(msg.data, 0):
-                        self._incoming_frame_queue.put_nowait(frame)
+        async for msg in self._ws:
+            if msg.type == aiohttp.WSMsgType.BINARY:
+                async for frame in self._frame_parser.receive_data(msg.data, 0):
+                    self._incoming_frame_queue.put_nowait(frame)
 
     async def send_frame(self, frame: Frame):
         with wrap_transport_exception():
