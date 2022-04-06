@@ -426,9 +426,8 @@ class RSocketBase(RSocket, RSocketInternal):
             if transport is not None:
                 try:
                     await transport.close()
-                except Exception as exception:
-                    logger().debug('Transport already closed or failed to close: %s', str(exception))
-                    pass
+                except Exception:
+                    logger().debug('Transport already closed or failed to close', exc_info=True)
 
     async def __aenter__(self) -> 'RSocketBase':
         return self

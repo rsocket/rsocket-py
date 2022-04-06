@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from asyncio import Event, Future
 from asyncio.base_events import Server
 from datetime import timedelta
@@ -48,6 +49,8 @@ class ServerHandler(IdentifiedHandler):
 
 
 async def test_connection_lost(unused_tcp_port):
+    logging.info('Testing transport tcp (explicitly) on port %s', unused_tcp_port)
+
     index_iterator = iter(range(1, 3))
 
     wait_for_server = Event()
@@ -127,6 +130,8 @@ class FailingTransport(Transport):
 
 @pytest.mark.allow_error_log(regex_filter='Connection error')
 async def test_tcp_connection_failure(unused_tcp_port: int):
+    logging.info('Testing transport tcp (explicitly) on port %s', unused_tcp_port)
+
     index_iterator = iter(range(1, 3))
 
     wait_for_server = Event()
@@ -326,15 +331,17 @@ async def start_quic_client(port: int, generate_test_certificates) -> RSocketCli
 
 @pytest.mark.allow_error_log()  # regex_filter='Connection error') # todo: fix error log
 @pytest.mark.parametrize(
-    'start_service, start_client',
+    'transport_id, start_service, start_client',
     (
-            (start_tcp_service, start_tcp_client),
-            (start_websocket_service, start_websocket_client),
-            (start_quic_service, start_quic_client),
+            ('tcp', start_tcp_service, start_tcp_client),
+            ('aiohttp', start_websocket_service, start_websocket_client),
+            ('quic', start_quic_service, start_quic_client),
     )
 )
 async def test_connection_failure_during_stream(unused_tcp_port, generate_test_certificates,
-                                                start_service, start_client):
+                                                transport_id, start_service, start_client):
+    logging.info('Testing transport %s on port %s', transport_id, unused_tcp_port)
+
     server_container = ServerContainer()
     wait_for_server = Event()
 

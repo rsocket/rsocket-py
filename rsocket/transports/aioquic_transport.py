@@ -85,11 +85,15 @@ class RSocketQuicTransport(AbstractMessagingTransport):
         self._listener = asyncio.create_task(self.incoming_data_listener())
 
     async def send_frame(self, frame: Frame):
+        await self._quic_protocol.wait_connected()
+
         with wrap_transport_exception():
             await self._quic_protocol.query(frame)
 
     async def incoming_data_listener(self):
         try:
+            await self._quic_protocol.wait_connected()
+
             while True:
                 data = await self._incoming_bytes_queue.get()
 
@@ -108,3 +112,5 @@ class RSocketQuicTransport(AbstractMessagingTransport):
     async def close(self):
         await cancel_if_task_exists(self._listener)
         self._quic_protocol.close()
+
+        await self._quic_protocol.wait_closed()
