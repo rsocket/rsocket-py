@@ -1,5 +1,6 @@
 import asyncio
 import struct
+from asyncio import Task
 from typing import TypeVar
 from contextlib import contextmanager
 from typing import Any
@@ -11,6 +12,7 @@ from reactivestreams.subscription import DefaultSubscription
 from rsocket.exceptions import RSocketMimetypeTooLong
 from rsocket.exceptions import RSocketTransportError
 from rsocket.frame import Frame
+from rsocket.logger import logger
 from rsocket.payload import Payload
 
 _default = object()
@@ -111,3 +113,15 @@ def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[W
         offset = 1 + real_mime_type_length
 
     return metadata_encoding, offset
+
+
+async def cancel_if_task_exists(task: Optional[Task]):
+    if task is not None:
+        task.cancel()
+
+        try:
+            await task
+        except asyncio.CancelledError:
+            logger().debug('Asyncio task cancellation error: %s', str(task))
+        except RuntimeError:
+            logger().error('Runtime error', exc_info=True)

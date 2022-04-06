@@ -7,7 +7,7 @@ from typing import Union
 from reactivestreams.publisher import Publisher
 from rsocket.exceptions import RSocketNoAvailableTransport
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.helpers import create_future
+from rsocket.helpers import create_future, cancel_if_task_exists
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -93,7 +93,7 @@ class RSocketClient(RSocketBase):
 
     async def _close(self, reconnect=False):
         if not reconnect:
-            await self._cancel_if_task_exists(self._reconnect_task)
+            await cancel_if_task_exists(self._reconnect_task)
         else:
             logger().debug('%s: Closing before reconnect', self._log_identifier())
 
@@ -141,7 +141,7 @@ class RSocketClient(RSocketBase):
         self._keepalive_task = self._start_task_if_not_closing(self._keepalive_send_task)
 
     async def _finally_sender(self):
-        await self._cancel_if_task_exists(self._keepalive_task)
+        await cancel_if_task_exists(self._keepalive_task)
 
     def _update_last_keepalive(self):
         self._last_server_keepalive = datetime.now()
@@ -171,4 +171,4 @@ class RSocketClient(RSocketBase):
         try:
             await super()._receiver_listen()
         finally:
-            await self._cancel_if_task_exists(keepalive_timeout_task)
+            await cancel_if_task_exists(keepalive_timeout_task)

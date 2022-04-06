@@ -7,7 +7,7 @@ from aioquic.quic.events import QuicEvent, StreamDataReceived, ConnectionTermina
 
 from rsocket.exceptions import RSocketTransportError
 from rsocket.frame import Frame
-from rsocket.helpers import wrap_transport_exception
+from rsocket.helpers import wrap_transport_exception, cancel_if_task_exists
 from rsocket.logger import logger
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.abstract_messaging import AbstractMessagingTransport
@@ -95,16 +95,16 @@ class RSocketQuicTransport(AbstractMessagingTransport):
 
                 if isinstance(data, Exception):
                     self._incoming_frame_queue.put_nowait(data)
+                    return
                 else:
                     async for frame in self._frame_parser.receive_data(data, 0):
                         self._incoming_frame_queue.put_nowait(frame)
 
-                self._incoming_bytes_queue.task_done()
         except asyncio.CancelledError:
             logger().debug('Asyncio task canceled: incoming_data_listener')
         except Exception:
             self._incoming_frame_queue.put_nowait(RSocketTransportError())
 
     async def close(self):
-        self._listener.cancel()
+        await cancel_if_task_exists(self._listener)
         self._quic_protocol.close()

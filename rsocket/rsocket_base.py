@@ -29,7 +29,7 @@ from rsocket.handlers.request_response_requester import RequestResponseRequester
 from rsocket.handlers.request_response_responder import RequestResponseResponder
 from rsocket.handlers.request_stream_requester import RequestStreamRequester
 from rsocket.handlers.request_stream_responder import RequestStreamResponder
-from rsocket.helpers import payload_from_frame, async_noop
+from rsocket.helpers import payload_from_frame, async_noop, cancel_if_task_exists
 from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -413,8 +413,8 @@ class RSocketBase(RSocket, RSocketInternal):
         logger().debug('%s: Closing', self._log_identifier())
 
         self._is_closing = True
-        await self._cancel_if_task_exists(self._sender_task)
-        await self._cancel_if_task_exists(self._receiver_task)
+        await cancel_if_task_exists(self._sender_task)
+        await cancel_if_task_exists(self._receiver_task)
 
         await self._close_transport()
 
@@ -429,16 +429,6 @@ class RSocketBase(RSocket, RSocketInternal):
                 except Exception as exception:
                     logger().debug('Transport already closed or failed to close: %s', str(exception))
                     pass
-
-    async def _cancel_if_task_exists(self, task):
-        if task is not None:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                logger().debug('%s: Asyncio task cancellation error: %s', self._log_identifier(), str(task))
-            except RuntimeError:
-                logger().error('Runtime error', exc_info=True)
 
     async def __aenter__(self) -> 'RSocketBase':
         return self

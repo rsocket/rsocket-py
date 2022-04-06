@@ -12,8 +12,6 @@ class AbstractMessagingTransport(Transport, metaclass=abc.ABCMeta):
     async def next_frame_generator(self):
         frame = await self._incoming_frame_queue.get()
 
-        self._incoming_frame_queue.task_done()
-
         if isinstance(frame, Exception):
             raise frame
 
