@@ -62,7 +62,7 @@ class TransportAioHttpClient(AbstractMessagingTransport):
                     async for frame in self._frame_parser.receive_data(msg.data, 0):
                         self._incoming_frame_queue.put_nowait(frame)
         except asyncio.CancelledError:
-            pass
+            logger().debug('Asyncio task canceled: incoming_data_listener')
         except Exception:
             self._incoming_frame_queue.put_nowait(RSocketTransportError())
 

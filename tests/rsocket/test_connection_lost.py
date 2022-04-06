@@ -6,7 +6,9 @@ from typing import Optional, Tuple
 
 import pytest
 from aiohttp.test_utils import RawTestServer
+from aioquic.quic.configuration import QuicConfiguration
 from asyncstdlib import sync
+from cryptography.hazmat.primitives import serialization
 
 from reactivestreams.publisher import Publisher
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
@@ -20,6 +22,7 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.transports.aiohttp_websocket import websocket_handler_factory, TransportAioHttpClient
+from rsocket.transports.aioquic_transport import rsocket_connect, rsocket_serve
 from rsocket.transports.tcp import TransportTCP
 from rsocket.transports.transport import Transport
 from tests.rsocket.helpers import future_from_payload, IdentifiedHandlerFactory, \
@@ -107,7 +110,7 @@ async def test_connection_lost(unused_tcp_port):
         service.close()
 
 
-class FailingTransportTCP(Transport):
+class FailingTransport(Transport):
 
     async def connect(self):
         raise Exception
@@ -152,7 +155,7 @@ async def test_tcp_connection_failure(unused_tcp_port: int):
                 client_connection = await asyncio.open_connection(host, port)
                 yield TransportTCP(*client_connection)
 
-                yield FailingTransportTCP()
+                yield FailingTransport()
 
                 client_connection = await asyncio.open_connection(host, port)
                 yield TransportTCP(*client_connection)
@@ -198,7 +201,7 @@ class ClientHandler(BaseRequestHandler):
         await rsocket.reconnect()
 
 
-async def start_tcp_service(waiter: asyncio.Event, container, port: int):
+async def start_tcp_service(waiter: asyncio.Event, container, port: int, generate_test_certificates):
     index_iterator = iter(range(1, 3))
 
     def session(*connection):
@@ -213,13 +216,13 @@ async def start_tcp_service(waiter: asyncio.Event, container, port: int):
     return sync(service.close)
 
 
-async def start_tcp_client(port: int) -> RSocketClient:
+async def start_tcp_client(port: int, generate_test_certificates) -> RSocketClient:
     async def transport_provider():
         try:
             client_connection = await asyncio.open_connection('localhost', port)
             yield TransportTCP(*client_connection)
 
-            yield FailingTransportTCP()
+            yield FailingTransport()
 
             client_connection = await asyncio.open_connection('localhost', port)
             yield TransportTCP(*client_connection)
@@ -230,7 +233,7 @@ async def start_tcp_client(port: int) -> RSocketClient:
     return RSocketClient(transport_provider(), handler_factory=ClientHandler)
 
 
-async def start_websocket_service(waiter: asyncio.Event, container, port: int):
+async def start_websocket_service(waiter: asyncio.Event, container, port: int, generate_test_certificates):
     index_iterator = iter(range(1, 3))
 
     def handler_factory(*args, **kwargs):
@@ -250,16 +253,70 @@ async def start_websocket_service(waiter: asyncio.Event, container, port: int):
     return server.close
 
 
-async def start_websocket_client(port: int) -> RSocketClient:
+async def start_websocket_client(port: int, generate_test_certificates) -> RSocketClient:
     url = 'http://localhost:{}'.format(port)
 
     async def transport_provider():
         try:
             yield TransportAioHttpClient(url)
 
-            yield FailingTransportTCP()
+            yield FailingTransport()
 
             yield TransportAioHttpClient(url)
+        except Exception:
+            logger().error('Client connection error', exc_info=True)
+            raise
+
+    return RSocketClient(transport_provider(), handler_factory=ClientHandler)
+
+
+async def start_quic_service(waiter: asyncio.Event, container, port: int, generate_test_certificates):
+    index_iterator = iter(range(1, 3))
+    certificate, private_key = generate_test_certificates
+    server_configuration = QuicConfiguration(
+        certificate=certificate,
+        private_key=private_key,
+        is_client=False
+    )
+
+    def handler_factory(*args, **kwargs):
+        return IdentifiedHandlerFactory(
+            next(index_iterator),
+            ServerHandler,
+            delay=timedelta(seconds=1)).factory(*args, **kwargs)
+
+    def on_server_create(server):
+        container.server = server
+        container.transport = server._transport
+        waiter.set()
+
+    quic_server = await rsocket_serve(host='localhost',
+                                      port=port,
+                                      configuration=server_configuration,
+                                      on_server_create=on_server_create,
+                                      handler_factory=handler_factory)
+    return sync(quic_server.close)
+
+
+async def start_quic_client(port: int, generate_test_certificates) -> RSocketClient:
+    certificate, private_key = generate_test_certificates
+    client_configuration = QuicConfiguration(
+        is_client=True
+    )
+    ca_data = certificate.public_bytes(serialization.Encoding.PEM)
+    client_configuration.load_verify_locations(cadata=ca_data, cafile=None)
+
+    async def transport_provider():
+        try:
+            async with rsocket_connect('localhost', port,
+                                       configuration=client_configuration) as transport:
+                yield transport
+
+            yield FailingTransport()
+
+            async with rsocket_connect('localhost', port,
+                                       configuration=client_configuration) as transport:
+                yield transport
         except Exception:
             logger().error('Client connection error', exc_info=True)
             raise
@@ -273,14 +330,16 @@ async def start_websocket_client(port: int) -> RSocketClient:
     (
             (start_tcp_service, start_tcp_client),
             (start_websocket_service, start_websocket_client),
+            (start_quic_service, start_quic_client),
     )
 )
-async def test_connection_failure_during_stream(unused_tcp_port, start_service, start_client):
+async def test_connection_failure_during_stream(unused_tcp_port, generate_test_certificates,
+                                                start_service, start_client):
     server_container = ServerContainer()
     wait_for_server = Event()
 
-    service_closer = await start_service(wait_for_server, server_container, unused_tcp_port)
-    client = await start_client(unused_tcp_port)
+    service_closer = await start_service(wait_for_server, server_container, unused_tcp_port, generate_test_certificates)
+    client = await start_client(unused_tcp_port, generate_test_certificates)
 
     try:
         async with AwaitableRSocket(client) as a_client:
