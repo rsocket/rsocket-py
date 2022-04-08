@@ -7,7 +7,7 @@ from typing import Tuple, Optional
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
-    ensure_bytes
+    ensure_bytes, pack_string, unpack_string
 
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
@@ -122,10 +122,6 @@ class Frame(Header, metaclass=ABCMeta):
         self.data = buffer[offset:offset + length]
         return length
 
-    @staticmethod
-    def pack_string(buffer):
-        return struct.pack('b', len(buffer)) + buffer
-
     @abc.abstractmethod
     def parse(self, buffer: bytes, offset: int):
         ...
@@ -224,15 +220,10 @@ class SetupFrame(Frame):
                 buffer[offset:offset + self.token_length])
             offset += self.token_length
 
-        def unpack_string():
-            nonlocal offset
-            length = struct.unpack_from('b', buffer, offset)[0]
-            result = buffer[offset + 1:offset + length + 1]
-            offset += length + 1
-            return result
-
-        self.metadata_encoding = unpack_string()
-        self.data_encoding = unpack_string()
+        length, self.metadata_encoding = unpack_string(buffer, offset)
+        offset += length + 1
+        length, self.data_encoding = unpack_string(buffer, offset)
+        offset += length + 1
 
         offset += self.parse_metadata(buffer, offset)
         offset += self.parse_data(buffer, offset)
@@ -251,8 +242,8 @@ class SetupFrame(Frame):
             # assert len(self.resume_identification_token) == self.token_length
             # assert isinstance(self.resume_identification_token, bytes)
             middle += self.resume_identification_token
-        middle += self.pack_string(self.metadata_encoding)
-        middle += self.pack_string(self.data_encoding)
+        middle += pack_string(self.metadata_encoding)
+        middle += pack_string(self.data_encoding)
         return Frame.serialize(self, middle, flags)
 
 

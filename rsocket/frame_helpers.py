@@ -1,7 +1,8 @@
 import struct
 from io import BytesIO
-from typing import Union, AsyncGenerator
+from typing import Union, AsyncGenerator, Tuple
 
+from rsocket.exceptions import RSocketMimetypeTooLong
 from rsocket.fragment import Fragment
 
 MASK_63_BITS = 0x7FFFFFFFFFFFFFFF
@@ -9,6 +10,16 @@ MASK_63_BITS = 0x7FFFFFFFFFFFFFFF
 
 def is_flag_set(flags: int, bit: int) -> bool:
     return (flags & bit) != 0
+
+
+def pack_string(buffer: bytes) -> bytes:
+    return struct.pack('b', len(buffer)) + buffer
+
+
+def unpack_string(buffer: bytes, offset: int) -> Tuple[int, bytes]:
+    length = struct.unpack_from('b', buffer, offset)[0]
+    result = buffer[offset + 1:offset + length + 1]
+    return length, result
 
 
 def pack_position(position: int) -> bytes:
@@ -84,3 +95,20 @@ def ensure_bytes(item: Union[bytes, str]) -> bytes:
         return str_to_bytes(item)
 
     return item
+
+
+def serialize_128max_value(encoding: bytes) -> bytes:
+    encoding_length = len(encoding)
+    encoded_encoding_length = encoding_length - 1  # mime length cannot be 0
+    if encoded_encoding_length > 0b1111111:
+        raise RSocketMimetypeTooLong(encoding)
+    serialized = ((0 << 7) | encoded_encoding_length & 0b1111111).to_bytes(1, 'big')
+    serialized += encoding
+    return serialized
+
+
+def parse_type(buffer: bytes) -> Tuple[int, int]:
+    data_byte = struct.unpack('>B', buffer[:1])[0]
+    is_known_type = data_byte >> 7 == 1
+    length_or_type = data_byte & 0b1111111
+    return is_known_type, length_or_type

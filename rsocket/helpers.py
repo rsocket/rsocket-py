@@ -1,17 +1,16 @@
 import asyncio
-import struct
 from asyncio import Task
-from typing import TypeVar
 from contextlib import contextmanager
 from typing import Any
+from typing import TypeVar
 from typing import Union, Callable, Optional, Tuple
 
 from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
-from rsocket.exceptions import RSocketMimetypeTooLong
 from rsocket.exceptions import RSocketTransportError
 from rsocket.frame import Frame
+from rsocket.frame_helpers import serialize_128max_value, parse_type
 from rsocket.logger import logger
 from rsocket.payload import Payload
 
@@ -87,14 +86,7 @@ def serialize_well_known_encoding(
         known_type = encoding
 
     if known_type is None:
-        encoding_length = len(encoding)
-        encoded_encoding_length = encoding_length - 1  # mime length cannot be 0
-
-        if encoded_encoding_length > 0b1111111:
-            raise RSocketMimetypeTooLong(encoding)
-
-        serialized = ((0 << 7) | encoded_encoding_length & 0b1111111).to_bytes(1, 'big')
-        serialized += encoding
+        serialized = serialize_128max_value(encoding)
     else:
         serialized = ((1 << 7) | known_type.id & 0b1111111).to_bytes(1, 'big')
 
@@ -102,8 +94,8 @@ def serialize_well_known_encoding(
 
 
 def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[WellKnownType], V]) -> Tuple[bytes, int]:
-    is_known_mime_id = struct.unpack('>B', buffer[:1])[0] >> 7 == 1
-    mime_length_or_type = (struct.unpack('>B', buffer[:1])[0]) & 0b1111111
+    is_known_mime_id, mime_length_or_type = parse_type(buffer)
+
     if is_known_mime_id:
         metadata_encoding = encoding_name_provider(mime_length_or_type).name
         offset = 1
