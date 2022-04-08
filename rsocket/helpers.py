@@ -116,4 +116,4 @@ async def cancel_if_task_exists(task: Optional[Task]):
         except asyncio.CancelledError:
             logger().debug('Asyncio task cancellation error: %s', str(task))
         except RuntimeError:
-            logger().error('Runtime error', exc_info=True)
+            logger().debug('Runtime error', exc_info=True)
