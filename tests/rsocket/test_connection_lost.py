@@ -313,12 +313,15 @@ async def start_quic_client(port: int, generate_test_certificates) -> RSocketCli
 
     async def transport_provider():
         try:
+            logging.info('Quic connection lost valid connection 1')
             async with rsocket_connect('localhost', port,
                                        configuration=client_configuration) as transport:
                 yield transport
 
+            logging.info('Quic connection lost invalid connection')
             yield FailingTransport()
 
+            logging.info('Quic connection lost valid connection 2')
             async with rsocket_connect('localhost', port,
                                        configuration=client_configuration) as transport:
                 yield transport
@@ -349,13 +352,13 @@ async def test_connection_failure_during_stream(unused_tcp_port, generate_test_c
     client = await start_client(unused_tcp_port, generate_test_certificates)
 
     try:
-        async with AwaitableRSocket(client) as a_client:
+        async with AwaitableRSocket(client) as async_client:
             await wait_for_server.wait()
             wait_for_server.clear()
 
             with pytest.raises(RSocketProtocolError) as exc_info:
                 await asyncio.gather(
-                    a_client.request_stream(Payload(b'request 1')),
+                    async_client.request_stream(Payload(b'request 1')),
                     force_closing_connection(server_container.transport, timedelta(seconds=2)))
 
             assert exc_info.value.data == 'Connection error'
@@ -363,7 +366,7 @@ async def test_connection_failure_during_stream(unused_tcp_port, generate_test_c
 
             await server_container.server.close()  # cleanup async tasks from previous server to avoid errors (?)
             await wait_for_server.wait()
-            response2 = await a_client.request_response(Payload(b'request 2'))
+            response2 = await async_client.request_response(Payload(b'request 2'))
 
             assert response2.data == b'data: request 2 server 2'
     finally:

@@ -12,7 +12,25 @@ from tests.tools.fixtures_aioquic import pipe_factory_quic, generate_test_certif
 from tests.tools.fixtures_quart import pipe_factory_quart_websocket
 from tests.tools.fixtures_tcp import pipe_factory_tcp
 
-logging.basicConfig(level=logging.DEBUG)
+
+def setup_logging():
+    file_handler = logging.FileHandler('tests.log')
+    console_handler = logging.StreamHandler()
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.DEBUG)
+
+    handlers = [console_handler, file_handler]
+    logging.basicConfig(level=logging.DEBUG, handlers=handlers)
+
+
+# def pytest_sessionstart(session):
+setup_logging()
+
 
 tested_transports = [
     'tcp',

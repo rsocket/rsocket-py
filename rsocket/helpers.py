@@ -108,12 +108,12 @@ def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[W
 
 
 async def cancel_if_task_exists(task: Optional[Task]):
-    if task is not None:
+    if task is not None and not task.done():
         task.cancel()
 
         try:
             await task
         except asyncio.CancelledError:
-            logger().debug('Asyncio task cancellation error: %s', str(task))
+            logger().debug('Asyncio task cancellation error: %s', task)
         except RuntimeError:
-            logger().warning('Runtime error', exc_info=True)
+            logger().warning('Runtime error canceling task: %s', task, exc_info=True)

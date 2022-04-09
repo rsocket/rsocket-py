@@ -76,6 +76,8 @@ class RSocketQuicProtocol(QuicConnectionProtocol):
         elif isinstance(event, StreamDataReceived):
             self.frame_queue.put_nowait(event.data)
 
+        super().quic_event_received(event)
+
 
 class RSocketQuicTransport(AbstractMessagingTransport):
     def __init__(self, quic_protocol: RSocketQuicProtocol):
