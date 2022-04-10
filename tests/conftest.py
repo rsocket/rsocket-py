@@ -61,7 +61,7 @@ def fail_on_error_log(caplog, request):
         return False
 
     records = caplog.get_records('call')
-    errors = [record for record in records if
+    errors = [record.message for record in records if
               record.levelno >= logging.ERROR and not is_allowed_error(record)]
     assert not errors
 
