@@ -16,7 +16,6 @@ class RxSubscriber(Subscriber):
     def __init__(self, observer, limit_rate: int):
         self.limit_rate = limit_rate
         self.observer = observer
-        self.is_done = False
         self._received_messages = 0
         self.done = asyncio.Event()
         self.get_next_n = asyncio.Event()
@@ -39,7 +38,6 @@ class RxSubscriber(Subscriber):
 
     def _finish(self):
         self.done.set()
-        self.is_done = True
 
     def on_error(self, exception: Exception):
         self.observer.on_error(exception)
@@ -50,13 +48,13 @@ class RxSubscriber(Subscriber):
         self._finish()
 
 
-async def _aio_sub(publisher, subscriber, observer, loop):
+async def _aio_sub(publisher: Publisher, subscriber: RxSubscriber, observer: Observer, loop):
     try:
         publisher.subscribe(subscriber)
         await subscriber.done.wait()
 
     except asyncio.CancelledError:
-        if not subscriber.is_done:
+        if not subscriber.done.is_set():
             subscriber.subscription.cancel()
     except Exception as exception:
         loop.call_soon(functools.partial(observer.on_error, exception))
