@@ -75,7 +75,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._lease_publisher = lease_publisher
         self._sender_task = None
         self._receiver_task = None
-        self._handler = None
+        self._handler = self._handler_factory(self)
         self._responder_lease = None
         self._requester_lease = None
         self._is_closing = False
@@ -115,7 +115,6 @@ class RSocketBase(RSocket, RSocketInternal):
 
         self._responder_lease = NullLease()
         self._stream_control = StreamControl(self._get_first_stream_id())
-        self._handler = self._handler_factory(self)
         self._is_closing = False
 
     def stop_all_streams(self, error_code=ErrorCode.CANCELED, data=b''):
@@ -138,9 +137,6 @@ class RSocketBase(RSocket, RSocketInternal):
     def _start_task_if_not_closing(self, task_factory: Callable[[], Coroutine]) -> Optional[Task]:
         if not self._is_closing:
             return asyncio.create_task(task_factory())
-
-    def set_handler_factory(self, handler_factory):
-        self._handler_factory = handler_factory
 
     def set_handler_using_factory(self, handler_factory) -> RequestHandler:
         self._handler = handler_factory(self)
@@ -421,7 +417,10 @@ class RSocketBase(RSocket, RSocketInternal):
     async def _close_transport(self):
         if self._current_transport().done():
             logger().debug('%s: Closing transport', self._log_identifier())
-            transport = await self._current_transport()
+            try:
+                transport = await self._current_transport()
+            except asyncio.CancelledError:
+                raise RSocketTransportError()
 
             if transport is not None:
                 try:

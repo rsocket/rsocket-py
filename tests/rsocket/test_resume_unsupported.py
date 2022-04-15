@@ -25,7 +25,7 @@ async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSo
             received_error_code = error_code
             error_received.set()
 
-    client.set_handler_factory(Handler)
+    client.set_handler_using_factory(Handler)
 
     async with client as connected_client:
         transport = await connected_client._current_transport()
