@@ -9,9 +9,9 @@ from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 
 
-async def websocket_handler(*args, on_server_create=None, **kwargs):
+async def websocket_handler(on_server_create=None, **kwargs):
     transport = TransportQuartWebsocket()
-    server = RSocketServer(transport, *args, **kwargs)
+    server = RSocketServer(transport, **kwargs)
 
     if on_server_create is not None:
         on_server_create(server)

@@ -14,18 +14,18 @@ from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 
 
 @asynccontextmanager
-async def websocket_client(url, *args, **kwargs) -> RSocketClient:
+async def websocket_client(url, **kwargs) -> RSocketClient:
     async with RSocketClient(single_transport_provider(TransportAioHttpClient(url)),
-                             *args, **kwargs) as client:
+                             **kwargs) as client:
         yield client
 
 
-def websocket_handler_factory(*args, on_server_create=None, **kwargs):
+def websocket_handler_factory(on_server_create=None, **kwargs):
     async def websocket_handler(request):
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         transport = TransportAioHttpWebsocket(ws)
-        server = RSocketServer(transport, *args, **kwargs)
+        server = RSocketServer(transport, **kwargs)
 
         if on_server_create is not None:
             on_server_create(server)

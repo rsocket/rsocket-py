@@ -5,18 +5,10 @@ from pathlib import Path
 
 from aioquic.quic.configuration import QuicConfiguration
 
-from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.aioquic_transport import rsocket_connect
-
-
-class StreamSubscriber(DefaultSubscriber):
-
-    def on_next(self, value, is_complete=False):
-        logging.info('RS: {}'.format(value))
-        self.subscription.request(1)
 
 
 async def main(server_port):
