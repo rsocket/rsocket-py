@@ -12,7 +12,18 @@ Currently, the pre-release package can be installed using:
 pip install --pre rsocket
 ```
 
-or download the source code, build a package:
+or install any of the extras:
+  * rx
+  * aiohttp
+  * quart
+  * uic
+
+Example:
+```shell
+pip install --pre rsocket[rx]
+```
+
+Alternatively, download the source code, build a package:
 
 ```shell
 python3 setup.py bdist_wheel
