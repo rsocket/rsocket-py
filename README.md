@@ -4,7 +4,7 @@ Python implementation of [RSocket](http://rsocket.io)
 
 # Installation
 
-The [pypi](https://pypi.org/project/rsocket/) stable package (version 0.2) is very old (and barely implements anything).
+The [pypi](https://pypi.org/project/rsocket/) stable package (version 0.2) is very old.
 
 Currently, the pre-release package can be installed using:
 
