@@ -37,6 +37,7 @@ class RSocketClient(RSocketBase):
         self._transport: Optional[Transport] = None
         self._next_transport = asyncio.Future()
         self._reconnect_task = asyncio.create_task(self._reconnect_listener())
+        self._keepalive_task = None
 
         super().__init__(handler_factory=handler_factory,
                          honor_lease=honor_lease,
@@ -128,6 +129,8 @@ class RSocketClient(RSocketBase):
             logger().debug('%s: Asyncio task canceled: reconnect_listener', self._log_identifier())
         except Exception:
             logger().error('%s: Reconnect listener', self._log_identifier(), exc_info=True)
+        finally:
+            self.stop_all_streams()
 
     async def _keepalive_send_task(self):
         try:

@@ -56,6 +56,7 @@ all the examples
 | server_with_lease.py        |               |                                    | ClientWithLease |
 | server_with_routing.py      |               | client_with_routing.py             | Client          |
 | server_with_routing.py      |               | client_rx.py                       |                 |
+| server_with_routing.py      |               | client_reconnect.py                |                 |
 |                             | Server        | run_against_example_java_server.py |                 |
 | server_quart_websocket.py   |               | client_websocket.py                |                 |
 | server_aiohttp_websocket.py |               | client_websocket.py                |                 |
