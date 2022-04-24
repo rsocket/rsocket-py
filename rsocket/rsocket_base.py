@@ -390,6 +390,9 @@ class RSocketBase(RSocket, RSocketInternal):
                     log_frame(frame, self._log_identifier(), 'Sent')
                     self._send_queue.task_done()
 
+                    if frame.sent_future is not None:
+                        frame.sent_future.set_result(None)
+
                     if self._send_queue.empty():
                         await transport.on_send_queue_empty()
             except RSocketTransportError as exception:
@@ -441,12 +444,14 @@ class RSocketBase(RSocket, RSocketInternal):
         self.register_new_stream(requester).setup()
         return requester.run()
 
-    def fire_and_forget(self, payload: Payload):
+    def fire_and_forget(self, payload: Payload) -> Future:
         logger().debug('%s: fire-and-forget: %s', self._log_identifier(), payload)
 
         stream_id = self._allocate_stream()
-        self.send_request(to_fire_and_forget_frame(stream_id, payload))
+        frame = to_fire_and_forget_frame(stream_id, payload)
+        self.send_request(frame)
         self.finish_stream(stream_id)
+        return frame.sent_future
 
     def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:
         logger().debug('%s: request-stream: %s', self._log_identifier(), payload)
@@ -463,10 +468,12 @@ class RSocketBase(RSocket, RSocketInternal):
         requester = RequestChannelRequester(self, payload, local_publisher)
         return self.register_new_stream(requester)
 
-    def metadata_push(self, metadata: bytes):
+    def metadata_push(self, metadata: bytes) -> Future:
         logger().debug('%s: metadata-push: %s', self._log_identifier(), metadata)
 
-        self.send_frame(to_metadata_push_frame(metadata))
+        frame = to_metadata_push_frame(metadata)
+        self.send_frame(frame)
+        return frame.sent_future
 
     def _is_frame_allowed_to_send(self, frame: Frame) -> bool:
         if isinstance(frame, initiate_request_frame_types):

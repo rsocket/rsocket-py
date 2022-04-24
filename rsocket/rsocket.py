@@ -21,7 +21,7 @@ class RSocket(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def fire_and_forget(self, payload: Payload):
+    def fire_and_forget(self, payload: Payload) -> Future:
         ...
 
     @abc.abstractmethod
@@ -29,7 +29,7 @@ class RSocket(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def metadata_push(self, metadata: bytes):
+    def metadata_push(self, metadata: bytes) -> Future:
         ...
 
     @abc.abstractmethod

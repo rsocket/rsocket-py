@@ -21,14 +21,14 @@ class LoadBalancerRSocket(RSocket):
     def request_response(self, payload: Payload) -> Future:
         return self._select_client().request_response(payload)
 
-    def fire_and_forget(self, payload: Payload):
-        self._select_client().fire_and_forget(payload)
+    def fire_and_forget(self, payload: Payload) -> Future:
+        return self._select_client().fire_and_forget(payload)
 
     def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:
         return self._select_client().request_stream(payload)
 
-    def metadata_push(self, metadata: bytes):
-        self._select_client().metadata_push(metadata)
+    def metadata_push(self, metadata: bytes) -> Future:
+        return self._select_client().metadata_push(metadata)
 
     async def connect(self):
         await self._strategy.connect()

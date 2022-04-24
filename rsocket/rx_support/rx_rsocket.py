@@ -35,11 +35,11 @@ class RxRSocket:
         ).initial_request_n(request_limit)
         return from_rsocket_publisher(response_publisher, request_limit)
 
-    def fire_and_forget(self, request: Payload):
-        self._rsocket.fire_and_forget(request)
+    def fire_and_forget(self, request: Payload) -> rx.Observable:
+        return rx.from_future(self._rsocket.fire_and_forget(request))
 
-    def metadata_push(self, metadata: bytes):
-        self._rsocket.metadata_push(metadata)
+    def metadata_push(self, metadata: bytes) -> rx.Observable:
+        return rx.from_future(self._rsocket.metadata_push(metadata))
 
     async def connect(self):
         return await self._rsocket.connect()
