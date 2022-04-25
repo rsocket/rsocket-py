@@ -31,8 +31,7 @@ async def test_metadata_push(pipe):
     client: RSocketClient = pipe[1]
     server.set_handler_using_factory(handler_factory)
 
-    # noinspection PyAsyncCall
-    client.metadata_push(b'cat')
+    await client.metadata_push(b'cat')
 
     await handler.received.wait()
 
@@ -67,7 +66,7 @@ async def test_metadata_push_awaitable_client(pipe):
     client = AwaitableRSocket(pipe[1])
     server.set_handler_using_factory(handler_factory)
 
-    client.metadata_push(b'cat')
+    await client.metadata_push(b'cat')
 
     await handler.received.wait()
 

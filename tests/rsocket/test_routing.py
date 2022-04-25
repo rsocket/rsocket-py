@@ -203,7 +203,7 @@ async def test_routed_push_metadata(lazy_pipe):
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
             server_arguments={'handler_factory': handler_factory}) as (server, client):
         metadata = composite(route('test.path'))
-        client.metadata_push(metadata)
+        await client.metadata_push(metadata)
 
         await received.wait()
         assert received_metadata == metadata
