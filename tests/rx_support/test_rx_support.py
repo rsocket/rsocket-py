@@ -200,7 +200,7 @@ async def test_rx_support_metadata_push(pipe: Tuple[RSocketServer, RSocketClient
     server.set_handler_using_factory(Handler)
 
     rx_client = RxRSocket(client)
-    rx_client.metadata_push(b'request text')
+    await rx_client.metadata_push(b'request text')
 
     await received_item_event.wait()
 
@@ -221,7 +221,7 @@ async def test_rx_support_fire_and_forget(pipe: Tuple[RSocketServer, RSocketClie
     server.set_handler_using_factory(Handler)
 
     rx_client = RxRSocket(client)
-    rx_client.fire_and_forget(Payload(b'request text'))
+    await rx_client.fire_and_forget(Payload(b'request text'))
 
     await received_item_event.wait()
 

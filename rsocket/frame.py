@@ -1,6 +1,7 @@
 import abc
 import struct
 from abc import ABCMeta
+from asyncio import Future
 from enum import IntEnum, unique
 from typing import Tuple, Optional
 
@@ -86,7 +87,8 @@ class Frame(Header, metaclass=ABCMeta):
         'data',
         'flags_follows',
         'flags_complete',
-        'metadata_only'
+        'metadata_only',
+        'sent_future'
     )
 
     def __init__(self, frame_type: FrameType):
@@ -100,8 +102,9 @@ class Frame(Header, metaclass=ABCMeta):
         self.flags_metadata = False
         self.flags_follows = False
         self.flags_complete = False
-
         self.metadata_only = False
+
+        self.sent_future: Optional[Future] = None
 
     def parse_metadata(self, buffer: bytes, offset: int) -> int:
         if not self.flags_metadata:
