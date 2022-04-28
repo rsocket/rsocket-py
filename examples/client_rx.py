@@ -8,7 +8,7 @@ from rx import operators
 
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
-from rsocket.extensions.helpers import route, composite, authenticate_simple
+from rsocket.extensions.helpers import route, composite, authenticate_simple, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.fragment import Fragment
 from rsocket.helpers import single_transport_provider
@@ -99,6 +99,46 @@ async def request_response(client: RxRSocket):
     await client.request_response(payload).pipe()
 
 
+async def request_last_metadata(client: RxRSocket):
+    payload = Payload(metadata=composite(
+        route('last_metadata_push'),
+        authenticate_simple('user', '12345')
+    ))
+
+    result = await client.request_response(payload).pipe()
+
+    assert result.data == b'audit info'
+
+
+async def request_last_fnf(client: RxRSocket):
+    payload = Payload(metadata=composite(
+        route('last_fnf'),
+        authenticate_simple('user', '12345')
+    ))
+
+    result = await client.request_response(payload).pipe()
+
+    assert result.data == b'aux data'
+
+
+async def metadata_push(client: RxRSocket, metadata: bytes):
+
+    await client.metadata_push(composite(
+        route('metadata_push'),
+        authenticate_simple('user', '12345'),
+        metadata_item(metadata, WellKnownMimeTypes.TEXT_PLAIN.value.name)
+    )).pipe()
+
+
+async def fire_and_forget(client: RxRSocket, data: bytes):
+    payload = Payload(data, composite(
+        route('no_response'),
+        authenticate_simple('user', '12345')
+    ))
+
+    await client.fire_and_forget(payload).pipe()
+
+
 async def request_channel(client: RxRSocket):
     # channel_completion_event = Event()
     # requester_completion_event = Event()
@@ -169,6 +209,12 @@ async def main(server_port):
         await request_channel(rx_client)
         await request_stream_invalid_login(rx_client)
         await request_fragmented_stream(rx_client)
+
+        await metadata_push(rx_client, b'audit info')
+        await request_last_metadata(rx_client)
+
+        await fire_and_forget(rx_client, b'aux data')
+        await request_last_fnf(rx_client)
 
 
 if __name__ == '__main__':
