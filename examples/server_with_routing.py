@@ -35,13 +35,13 @@ async def single_request_response(payload, composite_metadata):
 
 
 @router.response('last_fnf')
-async def single_request_response():
+async def get_last_fnf():
     logging.info('Got single request')
     return create_future(Payload(storage.last_fire_and_forget))
 
 
 @router.response('last_metadata_push')
-async def single_request_response():
+async def get_last_metadata_push():
     logging.info('Got single request')
     return create_future(Payload(storage.last_metadata_push))
 

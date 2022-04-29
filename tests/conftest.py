@@ -6,9 +6,9 @@ import pytest
 
 from rsocket.frame_parser import FrameParser
 # noinspection PyUnresolvedReferences
-from tests.tools.fixtures_aiohttp import pipe_factory_aiohttp_websocket, aiohttp_raw_server
+from tests.tools.fixtures_aiohttp import pipe_factory_aiohttp_websocket, aiohttp_raw_server  # noqa: F401
 # noinspection PyUnresolvedReferences
-from tests.tools.fixtures_aioquic import pipe_factory_quic, generate_test_certificates
+from tests.tools.fixtures_aioquic import pipe_factory_quic, generate_test_certificates  # noqa: F401
 from tests.tools.fixtures_quart import pipe_factory_quart_websocket
 from tests.tools.fixtures_tcp import pipe_factory_tcp
 
@@ -28,9 +28,7 @@ def setup_logging():
     logging.basicConfig(level=logging.DEBUG, handlers=handlers)
 
 
-# def pytest_sessionstart(session):
 setup_logging()
-
 
 tested_transports = [
     'tcp',
@@ -67,7 +65,7 @@ def fail_on_error_log(caplog, request):
 
 
 @pytest.fixture(params=tested_transports)
-async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):
+async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):  # noqa: F811
     transport_id = request.param
 
     logging.info('Testing transport %s on port %s (lazy)', transport_id, unused_tcp_port)
@@ -77,7 +75,7 @@ async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_
 
 
 @pytest.fixture(params=tested_transports)
-async def pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):
+async def pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):  # noqa: F811
     transport_id = request.param
 
     logging.info('Testing transport %s on port %s', transport_id, unused_tcp_port)
@@ -96,7 +94,7 @@ async def pipe_tcp(unused_tcp_port):
 
 
 @pytest.fixture
-async def lazy_pipe_tcp(aiohttp_raw_server, unused_tcp_port):
+async def lazy_pipe_tcp(aiohttp_raw_server, unused_tcp_port):  # noqa: F811
     logging.info('Testing transport tcp (explicitly) on port %s (lazy)', unused_tcp_port)
 
     yield functools.partial(pipe_factory_tcp, unused_tcp_port)
@@ -104,7 +102,7 @@ async def lazy_pipe_tcp(aiohttp_raw_server, unused_tcp_port):
 
 def get_pipe_factory_by_id(aiohttp_raw_server,
                            transport_id: str,
-                           generate_test_certificates):
+                           generate_test_certificates):  # noqa: F811
     if transport_id == 'tcp':
         return pipe_factory_tcp
     if transport_id == 'quart':
