@@ -77,6 +77,11 @@ async def async_noop(*args, **kwargs):
     pass
 
 
+# noinspection PyUnusedLocal
+def noop(*args, **kwargs):
+    pass
+
+
 def serialize_well_known_encoding(
         encoding: Union[bytes, WellKnownType],
         encoding_parser: Callable[[bytes], Optional[WellKnownType]]) -> bytes:

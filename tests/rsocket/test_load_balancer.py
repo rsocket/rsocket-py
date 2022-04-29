@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import AsyncExitStack
+from datetime import timedelta
 from typing import Tuple, Optional
 
 from reactivestreams.publisher import Publisher
@@ -23,18 +24,26 @@ def to_response_payload(payload, server_id):
 
 
 class Handler(IdentifiedHandler):
+    def __init__(self, socket, server_id: int, delay=timedelta(0)):
+        super().__init__(socket, server_id, delay)
+        self.fnf = []
+        self.metadata = []
+
     async def request_stream(self, payload: Payload) -> Publisher:
         return StreamFromGenerator(
             lambda: map(lambda _: (_, False), [to_response_payload(payload, self._server_id)]))
 
     async def request_fire_and_forget(self, payload: Payload):
-        ...
+        self.fnf.append(payload.data)
 
     async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
         return StreamFromGenerator(lambda: map(Payload, [b'1', b'2'])), None
 
     async def request_response(self, payload: Payload):
         return create_future(to_response_payload(payload, self._server_id))
+
+    async def on_metadata_push(self, payload: Payload):
+        self.metadata.append(payload.metadata)
 
 
 async def test_load_balancer_round_robin_request_response(unused_tcp_port_factory):
@@ -52,6 +61,7 @@ async def test_load_balancer_round_robin_request_response(unused_tcp_port_factor
             clients.append(client)
 
         round_robin = LoadBalancerRoundRobin(clients)
+
         async with LoadBalancerRSocket(round_robin) as load_balancer_client:
             results = await asyncio.gather(
                 *[load_balancer_client.request_response(Payload(('request %d' % j).encode()))
@@ -65,6 +75,72 @@ async def test_load_balancer_round_robin_request_response(unused_tcp_port_factor
             assert results[4].data == b'data: request 4 server 1'
             assert results[5].data == b'data: request 5 server 2'
             assert results[6].data == b'data: request 6 server 0'
+
+
+async def test_load_balancer_round_robin_fire_and_forget(unused_tcp_port_factory):
+    clients = []
+    handlers = []
+
+    server_count = 3
+    request_count = 7
+
+    async with AsyncExitStack() as stack:
+        for server_id in range(server_count):
+            tcp_port = unused_tcp_port_factory()
+            _, client = await stack.enter_async_context(
+                pipe_factory_tcp(tcp_port,
+                                 server_arguments={'handler_factory': IdentifiedHandlerFactory(
+                                     server_id,
+                                     Handler,
+                                     on_handler_create=handlers.append).factory},
+                                 auto_connect_client=False))
+            clients.append(client)
+
+        round_robin = LoadBalancerRoundRobin(clients)
+        async with LoadBalancerRSocket(round_robin) as load_balancer_client:
+            await asyncio.gather(
+                *[load_balancer_client.fire_and_forget(Payload(('request %d' % j).encode()))
+                  for j in range(request_count)]
+            )
+
+            await asyncio.sleep(2)
+
+            assert len(handlers[0].fnf) == 3
+            assert len(handlers[1].fnf) == 2
+            assert len(handlers[2].fnf) == 2
+
+
+async def test_load_balancer_round_robin_metadata_push(unused_tcp_port_factory):
+    clients = []
+    handlers = []
+
+    server_count = 3
+    request_count = 7
+
+    async with AsyncExitStack() as stack:
+        for server_id in range(server_count):
+            tcp_port = unused_tcp_port_factory()
+            _, client = await stack.enter_async_context(
+                pipe_factory_tcp(tcp_port,
+                                 server_arguments={'handler_factory': IdentifiedHandlerFactory(
+                                     server_id,
+                                     Handler,
+                                     on_handler_create=handlers.append).factory},
+                                 auto_connect_client=False))
+            clients.append(client)
+
+        round_robin = LoadBalancerRoundRobin(clients)
+        async with LoadBalancerRSocket(round_robin) as load_balancer_client:
+            await asyncio.gather(
+                *[load_balancer_client.metadata_push(('request %d' % j).encode())
+                  for j in range(request_count)]
+            )
+
+            await asyncio.sleep(2)
+
+            assert len(handlers[0].metadata) == 3
+            assert len(handlers[1].metadata) == 2
+            assert len(handlers[2].metadata) == 2
 
 
 async def test_load_balancer_round_robin_request_stream(unused_tcp_port_factory):
