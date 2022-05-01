@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from asyncio import Event, Future
+from asyncio import Event
 from asyncio.base_events import Server
 from datetime import timedelta
 from typing import Optional, Tuple
@@ -16,6 +16,7 @@ from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError
 from rsocket.frame import Frame
+from rsocket.local_typing import Awaitable
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -35,7 +36,7 @@ class ServerHandler(IdentifiedHandler):
         super().__init__(socket, server_id, delay)
         self._delay = delay
 
-    async def request_response(self, payload: Payload) -> Future:
+    async def request_response(self, payload: Payload) -> Awaitable[Payload]:
         await asyncio.sleep(self._delay.total_seconds())
         return future_from_payload(Payload(payload.data + (' server %d' % self._server_id).encode(), payload.metadata))
 

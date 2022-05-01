@@ -1,10 +1,10 @@
-from asyncio import Future
 from datetime import timedelta
 from typing import Optional, Union, Callable
 
 from reactivestreams.publisher import Publisher
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import create_future
+from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import RequestHandler, BaseRequestHandler
 from rsocket.rsocket_base import RSocketBase
@@ -35,7 +35,7 @@ class RSocketServer(RSocketBase):
                          setup_payload)
         self._transport = transport
 
-    def _current_transport(self) -> Future:
+    def _current_transport(self) -> Awaitable[Transport]:
         return create_future(self._transport)
 
     def _setup_internals(self):

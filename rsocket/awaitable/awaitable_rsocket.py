@@ -1,9 +1,9 @@
-from asyncio import Future
 from typing import List, Optional
 
 from reactivestreams.publisher import Publisher
 from rsocket.awaitable.collector_subscriber import CollectorSubscriber
 from rsocket.frame import MAX_REQUEST_N
+from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 
@@ -13,10 +13,10 @@ class AwaitableRSocket:
     def __init__(self, rsocket: RSocket):
         self._rsocket = rsocket
 
-    def fire_and_forget(self, payload: Payload) -> Future:
+    def fire_and_forget(self, payload: Payload) -> Awaitable[None]:
         return self._rsocket.fire_and_forget(payload)
 
-    def metadata_push(self, metadata: bytes) -> Future:
+    def metadata_push(self, metadata: bytes) -> Awaitable[None]:
         return self._rsocket.metadata_push(metadata)
 
     async def request_response(self, payload: Payload) -> Payload:

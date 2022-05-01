@@ -7,13 +7,14 @@ from pathlib import Path
 from aioquic.quic.configuration import QuicConfiguration
 
 from rsocket.helpers import create_future
+from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.transports.aioquic_transport import rsocket_serve
 
 
 class Handler(BaseRequestHandler):
-    async def request_response(self, payload: Payload) -> asyncio.Future:
+    async def request_response(self, payload: Payload) -> Awaitable[Payload]:
         await asyncio.sleep(0.1)  # Simulate not immediate process
         date_time_format = payload.data.decode('utf-8')
         formatted_date_time = datetime.now().strftime(date_time_format)

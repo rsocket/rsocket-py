@@ -1,11 +1,11 @@
 import asyncio
-from asyncio import Future
 
 import pytest
 
 from rsocket.exceptions import RSocketStreamIdInUse
 from rsocket.frame_builders import to_payload_frame
 from rsocket.helpers import create_future
+from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.stream_control import StreamControl
@@ -21,7 +21,7 @@ async def test_send_frame_for_non_existing_stream(pipe_tcp, caplog):
         async def request_fire_and_forget(self, payload: Payload):
             done.set()
 
-        async def request_response(self, payload: Payload) -> Future:
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
             return create_future(Payload(b'response'))
 
     server.set_handler_using_factory(Handler)
@@ -47,7 +47,7 @@ async def test_send_frame_for_unknown_type(pipe_tcp, caplog):
 
     class Handler(BaseRequestHandler):
 
-        async def request_response(self, payload: Payload) -> Future:
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
             return create_future(Payload(b'response'))
 
     bad_client = MisbehavingRSocket(client._transport)
@@ -76,7 +76,7 @@ async def test_send_frame_for_stream_id_in_use(pipe_tcp, caplog):
 
     class Handler(BaseRequestHandler):
 
-        async def request_response(self, payload: Payload) -> Future:
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
             await asyncio.sleep(2)
             return create_future(Payload(b'response'))
 

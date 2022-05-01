@@ -1,9 +1,10 @@
-from asyncio import Future, Event
+from asyncio import Event
 from typing import Optional
 
 import pytest
 
 from rsocket.helpers import create_future
+from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 
@@ -29,7 +30,7 @@ async def test_setup_with_explicit_data_encoding(lazy_pipe, data_mimetype):
             received_data_encoding = data_encoding
             received_data_encoding_event.set()
 
-        async def request_response(self, payload: Payload) -> Future:
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
             return create_future(Payload(b'response'))
 
     async with lazy_pipe(

@@ -1,5 +1,5 @@
 import asyncio
-from asyncio import Future, CancelledError
+from asyncio import CancelledError
 from datetime import timedelta, datetime
 from typing import Optional, Callable, AsyncGenerator, Any
 from typing import Union
@@ -8,6 +8,7 @@ from reactivestreams.publisher import Publisher
 from rsocket.exceptions import RSocketNoAvailableTransport
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import create_future, cancel_if_task_exists
+from rsocket.local_typing import Awaitable
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -49,7 +50,7 @@ class RSocketClient(RSocketBase):
                          max_lifetime_period=max_lifetime_period,
                          setup_payload=setup_payload)
 
-    def _current_transport(self) -> Future:
+    def _current_transport(self) -> Awaitable[Transport]:
         return self._next_transport
 
     def _log_identifier(self) -> str:
