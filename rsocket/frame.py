@@ -64,7 +64,12 @@ def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
     frame.stream_id, frame.frame_type, flags = struct.unpack_from('>IBB', buffer, offset)
     flags |= (frame.frame_type & 3) << 8
     frame_type_id = frame.frame_type >> 2
-    frame.frame_type = FrameType(frame_type_id)
+
+    try:
+        frame.frame_type = FrameType(frame_type_id)
+    except ValueError as exception:
+        raise RSocketUnknownFrameType(frame_type_id) from exception
+
     frame.flags_ignore = is_flag_set(flags, _FLAG_IGNORE_BIT)
     frame.flags_metadata = is_flag_set(flags, _FLAG_METADATA_BIT)
     return flags
@@ -612,10 +617,7 @@ def parse_or_ignore(buffer: bytes) -> Optional[Frame]:
     header = Header()
     parse_header(header, buffer, 0)
 
-    try:
-        frame = _frame_class_by_id[header.frame_type]()
-    except KeyError as exception:
-        raise RSocketUnknownFrameType(header.frame_type) from exception
+    frame = _frame_class_by_id[header.frame_type]()
 
     try:
         frame.parse(buffer, 0)

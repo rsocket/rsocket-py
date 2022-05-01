@@ -49,7 +49,7 @@ def test_client_server_with_routing(unused_tcp_port):
 
 
 @pytest.mark.timeout(30)
-def test_client_server_with_routing(unused_tcp_port):
+def test_rx_client_server_with_routing(unused_tcp_port):
     pid = os.spawnlp(os.P_NOWAIT, 'python3', 'python3', './server_with_routing.py', str(unused_tcp_port))
 
     try:
