@@ -1,21 +1,23 @@
-.. RSocket documentation master file, created by
-   sphinx-quickstart on Thu Feb  9 05:26:44 2017.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. Dataclasses Serialization documentation master file, created by
+sphinx-quickstart on Fri Apr 22 11:01:09 2022.
+You can adapt this file completely to your liking, but it should at least
+contain the root `toctree` directive.
 
-Welcome to RSocket's documentation!
-==========================================
+RSocket
+=======
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
 
-.. automodule:: rsocket
-.. autoclass:: rsocket.RequestHandler
-   :members:
+   quickstart
+   api
+   changelog
 
-.. automodule:: reactivestreams
-   :members:
+.. autosummary::
+   :toctree: generated
+
+
+RSocket ...
 
 Indices and tables
 ==================
