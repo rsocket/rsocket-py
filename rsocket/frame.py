@@ -9,6 +9,7 @@ from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
     ensure_bytes, pack_string, unpack_string
+from rsocket.logger import logger
 
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
@@ -621,10 +622,21 @@ def parse_or_ignore(buffer: bytes) -> Optional[Frame]:
 
     try:
         frame.parse(buffer, 0)
-        return frame
+
+        if not is_frame_to_ignore(frame):
+            return frame
+
     except Exception as exception:
         if not header.flags_ignore:
             raise RSocketProtocolError(ErrorCode.CONNECTION_ERROR, str(exception)) from exception
+
+
+def is_frame_to_ignore(frame: Frame) -> bool:
+    if isinstance(frame, MetadataPushFrame) and frame.stream_id != CONNECTION_STREAM_ID:
+        logger().error('Invalid metadata frame')
+        return True
+
+    return False
 
 
 def is_fragmentable_frame(frame: Frame) -> bool:

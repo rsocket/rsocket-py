@@ -3,6 +3,7 @@ import asyncio
 import pytest
 
 from rsocket.exceptions import RSocketStreamIdInUse
+from rsocket.frame import MetadataPushFrame
 from rsocket.frame_builders import to_payload_frame
 from rsocket.helpers import create_future
 from rsocket.local_typing import Awaitable
@@ -85,3 +86,24 @@ async def test_send_frame_for_stream_id_in_use(pipe_tcp, caplog):
 
     with pytest.raises(Exception):
         await client.request_response(Payload(b'request'))
+
+
+@pytest.mark.allow_error_log(regex_filter='Invalid metadata frame')
+async def test_metadata_frame_with_non_zero_stream_id_is_ignored(pipe_tcp):
+    (client, server) = pipe_tcp
+
+    class Handler(BaseRequestHandler):
+
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
+            return create_future(Payload(b'response'))
+
+    bad_client = MisbehavingRSocket(client._transport)
+    server.set_handler_using_factory(Handler)
+
+    frame = MetadataPushFrame()
+    frame.stream_id = 4
+    frame.metadata = b'stuff'
+
+    await bad_client.send_frame(frame)
+
+    await asyncio.sleep(2)
