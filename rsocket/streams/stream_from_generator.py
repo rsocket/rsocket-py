@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import AsyncGenerator, Tuple, Optional
 
 from reactivestreams.subscriber import Subscriber
-from rsocket.frame_helpers import payload_to_n_size_fragments
+from rsocket.frame_helpers import data_to_n_size_fragments
 from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -108,9 +108,9 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
                 if self._fragment_size is None:
                     self._send_to_subscriber(payload, is_complete)
                 else:
-                    async for fragment in payload_to_n_size_fragments(BytesIO(payload.data),
-                                                                      BytesIO(payload.metadata),
-                                                                      self._fragment_size):
+                    for fragment in data_to_n_size_fragments(BytesIO(payload.data),
+                                                                   BytesIO(payload.metadata),
+                                                                   self._fragment_size):
                         self._send_to_subscriber(fragment, is_complete and fragment.is_last)
 
                 await asyncio.sleep(self._delay_between_messages.total_seconds())

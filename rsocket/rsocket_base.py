@@ -1,6 +1,7 @@
 import abc
 import asyncio
 from asyncio import Task
+from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type, cast, TypeVar
 
@@ -63,7 +64,8 @@ class RSocketBase(RSocket, RSocketInternal):
                  metadata_encoding: Union[str, bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
-                 setup_payload: Optional[Payload] = None
+                 setup_payload: Optional[Payload] = None,
+                 fragment_size: Optional[int] = None
                  ):
 
         self._handler_factory = handler_factory
@@ -82,6 +84,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._requester_lease = None
         self._is_closing = False
         self._connecting = True
+        self._fragment_size = fragment_size
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -380,6 +383,11 @@ class RSocketBase(RSocket, RSocketInternal):
     async def _finally_sender(self):
         pass
 
+    @asynccontextmanager
+    async def _get_next_frame_to_send(self):
+        yield await self._send_queue.get()
+        self._send_queue.task_done()
+
     async def _sender(self):
         try:
             try:
@@ -387,13 +395,12 @@ class RSocketBase(RSocket, RSocketInternal):
 
                 self._before_sender()
                 while self.is_server_alive():
-                    frame = await self._send_queue.get()
-                    await transport.send_frame(frame)
-                    log_frame(frame, self._log_identifier(), 'Sent')
-                    self._send_queue.task_done()
+                    async with self._get_next_frame_to_send() as frame:
+                        await transport.send_frame(frame)
+                        log_frame(frame, self._log_identifier(), 'Sent')
 
-                    if frame.sent_future is not None:
-                        frame.sent_future.set_result(None)
+                        if frame.sent_future is not None:
+                            frame.sent_future.set_result(None)
 
                     if self._send_queue.empty():
                         await transport.on_send_queue_empty()

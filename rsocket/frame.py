@@ -3,12 +3,14 @@ import struct
 from abc import ABCMeta
 from asyncio import Future
 from enum import IntEnum, unique
+from io import BytesIO
 from typing import Tuple, Optional
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
+from rsocket.fragment import Fragment
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
-    ensure_bytes, pack_string, unpack_string
+    ensure_bytes, pack_string, unpack_string, data_to_fragments_if_required
 from rsocket.logger import logger
 
 PROTOCOL_MAJOR_VERSION = 1
@@ -94,7 +96,9 @@ class Frame(Header, metaclass=ABCMeta):
         'flags_follows',
         'flags_complete',
         'metadata_only',
-        'sent_future'
+        'sent_future',
+        'fragment_size',
+        'fragment_generator'
     )
 
     def __init__(self, frame_type: FrameType):
@@ -110,6 +114,8 @@ class Frame(Header, metaclass=ABCMeta):
         self.flags_complete = False
         self.metadata_only = False
 
+        self.fragment_size: Optional[int] = None
+        self.fragment_generator = None
         self.sent_future: Optional[Future] = None
 
     def parse_metadata(self, buffer: bytes, offset: int) -> int:
@@ -186,6 +192,38 @@ class Frame(Header, metaclass=ABCMeta):
             length += len(self.data)
 
         return length
+
+
+class FrameFragmentMixin:
+
+    def get_next_fragment(self) -> Optional['Frame']:
+        if self.fragment_generator is None:
+            self.fragment_generator = data_to_fragments_if_required(
+                BytesIO(self.data),
+                BytesIO(self.metadata),
+                self.fragment_size
+            )
+
+        try:
+            fragment = self.fragment_generator.__next__()
+            return self._new_frame_fragment(fragment)
+        except GeneratorExit:
+            return None
+
+    def _new_frame_fragment(self, fragment: Fragment) -> 'Frame':
+        frame = self.__class__()
+        frame.stream_id = self.stream_id
+
+        frame.flags_ignore = self.flags_ignore
+        frame.flags_metadata = self.flags_metadata
+        frame.flags_complete = self.flags_complete
+        frame.metadata_only = self.metadata_only
+
+        frame.data = fragment.data
+        frame.metadata = fragment.metadata
+        frame.flags_follows = not fragment.is_last
+
+        return frame
 
 
 class SetupFrame(Frame):
@@ -360,13 +398,12 @@ class RequestFrame(Frame):
         offset += self.parse_data(buffer, offset)
 
 
-class RequestResponseFrame(RequestFrame):
+class RequestResponseFrame(RequestFrame, FrameFragmentMixin):
     __slots__ = ()
 
     def __init__(self):
         super().__init__(FrameType.REQUEST_RESPONSE)
 
-    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         header = RequestFrame.parse(self, buffer, offset)
         offset += header[0]

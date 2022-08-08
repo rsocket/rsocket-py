@@ -1,13 +1,12 @@
 from io import BytesIO
 
 import pytest
-from asyncstdlib import builtins
 
 from rsocket.exceptions import RSocketFrameFragmentDifferentType
 from rsocket.frame import PayloadFrame, RequestResponseFrame
 from rsocket.frame_builders import to_payload_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
-from rsocket.frame_helpers import payload_to_n_size_fragments
+from rsocket.frame_helpers import data_to_n_size_fragments
 
 
 @pytest.mark.parametrize('data, metadata, fragment_size, expected_frame_count', (
@@ -25,7 +24,7 @@ from rsocket.frame_helpers import payload_to_n_size_fragments
         (b'', b'', 3, 1),
 ))
 async def test_fragment_only_metadata(data, metadata, fragment_size, expected_frame_count):
-    fragments = await builtins.list(payload_to_n_size_fragments(BytesIO(data), BytesIO(metadata), fragment_size))
+    fragments = list(data_to_n_size_fragments(BytesIO(data), BytesIO(metadata), fragment_size))
 
     assert len(fragments) == expected_frame_count
 

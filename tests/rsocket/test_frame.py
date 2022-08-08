@@ -602,3 +602,7 @@ def test_parse_broken_frame_raises_exception():
 
     with pytest.raises(RSocketProtocolError):
         parse_or_ignore(broken_frame_data)
+
+
+def test_fragment_request_response_frame():
+    frame = RequestResponseFrame()

@@ -1,6 +1,6 @@
 import struct
 from io import BytesIO
-from typing import Union, AsyncGenerator, Tuple
+from typing import Union, Tuple, Optional, Generator
 
 from rsocket.exceptions import RSocketMimetypeTooLong
 from rsocket.fragment import Fragment
@@ -46,10 +46,20 @@ def unpack_32bit(buffer: bytes, offset: int) -> int:
     return struct.unpack_from('>I', buffer, offset)[0]
 
 
-async def payload_to_n_size_fragments(data_reader: BytesIO,
-                                      metadata_reader: BytesIO,
-                                      fragment_size: int
-                                      ) -> AsyncGenerator[Fragment, None]:
+def data_to_fragments_if_required(data_reader: BytesIO,
+                                  metadata_reader: BytesIO,
+                                  fragment_size: Optional[int]) -> Generator[Fragment, None, None]:
+    if fragment_size is not None:
+        for frame in data_to_n_size_fragments(data_reader, metadata_reader, fragment_size):
+            yield frame
+    else:
+        yield Fragment(data_reader.read(), metadata_reader.read(), None)
+
+
+def data_to_n_size_fragments(data_reader: BytesIO,
+                             metadata_reader: BytesIO,
+                             fragment_size: int
+                             ) -> Generator[Fragment, None, None]:
     while True:
         metadata_fragment = metadata_reader.read(fragment_size)
 
