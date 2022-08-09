@@ -216,34 +216,26 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
     assert requests_received == 3
 
 
-async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
-    fragments_sent = 0
+async def test_fragmented_stream(lazy_pipe):
 
     def generator() -> Generator[Tuple[Payload, bool], None, None]:
         for i in range(3):
             yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
 
-    class StreamPayloadCounter(StreamFromGenerator):
-        def _send_to_subscriber(self, payload: Payload, is_complete=False):
-            nonlocal fragments_sent
-            fragments_sent += 1
-            return super()._send_to_subscriber(payload, is_complete)
-
     class Handler(BaseRequestHandler):
 
         async def request_stream(self, payload: Payload) -> Publisher:
-            return StreamPayloadCounter(generator)
+            return StreamFromGenerator(generator)
 
-    server.set_handler_using_factory(Handler)
-    received_messages = await AwaitableRSocket(client).request_stream(Payload())
+    async with lazy_pipe(
+            server_arguments={'handler_factory': Handler, 'fragment_size': 10}) as (server, client):
 
-    assert len(received_messages) == 3
-    assert received_messages[0].data == b'some long data which should be fragmented 0'
-    assert received_messages[1].data == b'some long data which should be fragmented 1'
-    assert received_messages[2].data == b'some long data which should be fragmented 2'
+        received_messages = await AwaitableRSocket(client).request_stream(Payload())
 
-    assert fragments_sent == 24
+        assert len(received_messages) == 3
+        assert received_messages[0].data == b'some long data which should be fragmented 0'
+        assert received_messages[1].data == b'some long data which should be fragmented 1'
+        assert received_messages[2].data == b'some long data which should be fragmented 2'
 
 
 @pytest.mark.timeout(15)

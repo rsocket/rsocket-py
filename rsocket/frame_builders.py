@@ -1,7 +1,6 @@
 from typing import Optional
 
 from rsocket.datetime_helpers import to_milliseconds
-from rsocket.fragment import Fragment
 from rsocket.frame import (PayloadFrame, RequestNFrame,
                            CancelFrame, RequestChannelFrame,
                            RequestStreamFrame, RequestResponseFrame,
@@ -22,9 +21,6 @@ def to_payload_frame(stream_id: int,
     frame.flags_complete = complete
     frame.flags_next = is_next
     frame.fragment_size = fragment_size
-
-    if isinstance(payload, Fragment):
-        frame.flags_follows = not payload.is_last
 
     frame.data = payload.data
     frame.metadata = payload.metadata

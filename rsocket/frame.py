@@ -410,7 +410,7 @@ class RequestResponseFrame(RequestFrame, FrameFragmentMixin):
         self._parse_payload(buffer, offset)
 
 
-class RequestFireAndForgetFrame(RequestFrame):
+class RequestFireAndForgetFrame(RequestFrame, FrameFragmentMixin):
     __slots__ = ()
 
     def __init__(self):
@@ -422,7 +422,7 @@ class RequestFireAndForgetFrame(RequestFrame):
         self._parse_payload(buffer, offset)
 
 
-class RequestStreamFrame(RequestFrame):
+class RequestStreamFrame(RequestFrame, FrameFragmentMixin):
     __slots__ = 'initial_request_n'
 
     def __init__(self):
@@ -441,7 +441,7 @@ class RequestStreamFrame(RequestFrame):
         return RequestFrame.serialize(self, middle)
 
 
-class RequestChannelFrame(RequestFrame):
+class RequestChannelFrame(RequestFrame, FrameFragmentMixin):
     __slots__ = (
         'initial_request_n',
         'flags_complete',
@@ -499,7 +499,7 @@ class CancelFrame(Frame):
         parse_header(self, buffer, offset)
 
 
-class PayloadFrame(Frame):
+class PayloadFrame(Frame, FrameFragmentMixin):
     __slots__ = (
         'flags_follows',
         'flags_complete',
@@ -533,7 +533,7 @@ class PayloadFrame(Frame):
         return Frame.serialize(self, flags=flags)
 
 
-class MetadataPushFrame(Frame):
+class MetadataPushFrame(Frame, FrameFragmentMixin):
     __slots__ = ()
 
     def __init__(self):
