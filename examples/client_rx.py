@@ -10,7 +10,6 @@ from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.extensions.helpers import route, composite, authenticate_simple, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.fragment import Fragment
 from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
@@ -21,13 +20,13 @@ from rsocket.transports.tcp import TransportTCP
 
 def sample_publisher(wait_for_requester_complete: Event,
                      response_count: int = 3):
-    async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         current_response = 0
         for i in range(response_count):
             is_complete = (current_response + 1) == response_count
 
             message = 'Item to server from client on channel: %s' % current_response
-            yield Fragment(message.encode('utf-8')), is_complete
+            yield Payload(message.encode('utf-8')), is_complete
 
             if is_complete:
                 wait_for_requester_complete.set()
@@ -186,15 +185,6 @@ async def request_slow_stream(client: RxRSocket):
     print(result)
 
 
-async def request_fragmented_stream(client: RxRSocket):
-    payload = Payload(b'The quick brown fox', composite(
-        route('fragmented_stream'),
-        authenticate_simple('user', '12345')
-    ))
-    result = await client.request_stream(payload).pipe(operators.to_list())
-    print(result)
-
-
 async def main(server_port):
     logging.info('Connecting to server at localhost:%s', server_port)
 
@@ -208,7 +198,6 @@ async def main(server_port):
         await request_slow_stream(rx_client)
         await request_channel(rx_client)
         await request_stream_invalid_login(rx_client)
-        await request_fragmented_stream(rx_client)
 
         await metadata_push(rx_client, b'audit info')
         await request_last_metadata(rx_client)

@@ -224,7 +224,7 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
         for i in range(3):
             yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
 
-    class StreamFragmentedCounter(StreamFromGenerator):
+    class StreamPayloadCounter(StreamFromGenerator):
         def _send_to_subscriber(self, payload: Payload, is_complete=False):
             nonlocal fragments_sent
             fragments_sent += 1
@@ -233,7 +233,7 @@ async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     class Handler(BaseRequestHandler):
 
         async def request_stream(self, payload: Payload) -> Publisher:
-            return StreamFragmentedCounter(generator, fragment_size=6)
+            return StreamPayloadCounter(generator)
 
     server.set_handler_using_factory(Handler)
     received_messages = await AwaitableRSocket(client).request_stream(Payload())

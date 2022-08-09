@@ -9,7 +9,6 @@ from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.fragment import Fragment
 from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
@@ -19,13 +18,13 @@ from rsocket.transports.tcp import TransportTCP
 
 def sample_publisher(wait_for_requester_complete: Event,
                      response_count: int = 3) -> Publisher:
-    async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         current_response = 0
         for i in range(response_count):
             is_complete = (current_response + 1) == response_count
 
             message = 'Item to server from client on channel: %s' % current_response
-            yield Fragment(message.encode('utf-8')), is_complete
+            yield Payload(message.encode('utf-8')), is_complete
 
             if is_complete:
                 wait_for_requester_complete.set()
@@ -144,16 +143,6 @@ async def request_slow_stream(client: RSocketClient):
     await completion_event.wait()
 
 
-async def request_fragmented_stream(client: RSocketClient):
-    payload = Payload(b'The quick brown fox', composite(
-        route('fragmented_stream'),
-        authenticate_simple('user', '12345')
-    ))
-    completion_event = Event()
-    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
-    await completion_event.wait()
-
-
 async def main(server_port):
     logging.info('Connecting to server at localhost:%s', server_port)
 
@@ -166,7 +155,6 @@ async def main(server_port):
         await request_slow_stream(client)
         await request_channel(client)
         await request_stream_invalid_login(client)
-        await request_fragmented_stream(client)
 
 
 if __name__ == '__main__':

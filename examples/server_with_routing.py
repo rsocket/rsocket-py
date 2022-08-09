@@ -52,12 +52,6 @@ async def stream_response(payload, composite_metadata):
     return response_stream_1()
 
 
-@router.stream('fragmented_stream')
-async def fragmented_stream(payload, composite_metadata):
-    logging.info('Got fragmented stream request')
-    return response_stream_2(fragment_size=6)
-
-
 @router.fire_and_forget('no_response')
 async def no_response(payload: Payload, composite_metadata):
     storage.last_fire_and_forget = payload.data
