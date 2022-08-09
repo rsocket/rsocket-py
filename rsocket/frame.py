@@ -194,7 +194,7 @@ class Frame(Header, metaclass=ABCMeta):
         return length
 
 
-class FrameFragmentMixin:
+class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
     def get_next_fragment(self) -> Optional['Frame']:
         if self.fragment_generator is None:
@@ -221,7 +221,7 @@ class FrameFragmentMixin:
 
         frame.data = fragment.data
         frame.metadata = fragment.metadata
-        frame.flags_follows = not fragment.is_last
+        frame.flags_follows = fragment.is_last is False
 
         return frame
 

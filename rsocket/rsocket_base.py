@@ -16,7 +16,7 @@ from rsocket.frame import (KeepAliveFrame,
                            exception_to_error_frame,
                            LeaseFrame, ErrorFrame, RequestFrame,
                            initiate_request_frame_types, InvalidFrame,
-                           FragmentableFrame)
+                           FragmentableFrame, FrameFragmentMixin)
 from rsocket.frame import (RequestChannelFrame, ResumeFrame,
                            is_fragmentable_frame, CONNECTION_STREAM_ID)
 from rsocket.frame import SetupFrame
@@ -100,6 +100,9 @@ class RSocketBase(RSocket, RSocketInternal):
         }
 
         self._setup_internals()
+
+    def get_fragment_size(self) -> Optional[int]:
+        return self._fragment_size
 
     def _setup_internals(self):
         pass
@@ -187,7 +190,8 @@ class RSocketBase(RSocket, RSocketInternal):
         self.send_frame(exception_to_error_frame(stream_id, exception))
 
     def send_payload(self, stream_id: int, payload: Payload, complete=False, is_next=True):
-        self.send_frame(to_payload_frame(stream_id, payload, complete, is_next=is_next))
+        self.send_frame(to_payload_frame(stream_id, payload, complete, is_next=is_next,
+                                         fragment_size=self.get_fragment_size()))
 
     def _update_last_keepalive(self):
         pass
@@ -384,9 +388,22 @@ class RSocketBase(RSocket, RSocketInternal):
         pass
 
     @asynccontextmanager
-    async def _get_next_frame_to_send(self):
-        yield await self._send_queue.get()
-        self._send_queue.task_done()
+    async def _get_next_frame_to_send(self) -> Frame:
+        next_frame_source = await self._send_queue.get()
+
+        if isinstance(next_frame_source, FrameFragmentMixin):
+            next_fragment = next_frame_source.get_next_fragment()
+            if next_fragment.flags_follows:
+                self._send_queue.put_nowait(next_frame_source)
+
+            yield next_fragment
+
+            if not next_fragment.flags_follows:
+                self._send_queue.task_done()
+
+        else:
+            yield next_frame_source
+            self._send_queue.task_done()
 
     async def _sender(self):
         try:

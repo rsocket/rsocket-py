@@ -1,4 +1,5 @@
 import abc
+from typing import Optional
 
 from rsocket.error_codes import ErrorCode
 from rsocket.frame import Frame, RequestFrame
@@ -32,4 +33,8 @@ class RSocketInternal(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def stop_all_streams(self, error_code=ErrorCode.CANCELED, data=b''):
+        ...
+
+    @abc.abstractmethod
+    def get_fragment_size(self) -> Optional[int]:
         ...

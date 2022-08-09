@@ -285,3 +285,21 @@ async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RS
 
     for i in range(10):
         assert received_messages[i].data == 'Feed Item: {}'.format(i).encode()
+
+
+async def test_request_stream_fragmented(lazy_pipe):
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        yield Payload(ensure_bytes('Feed Item: 1')), True
+
+    class Handler(BaseRequestHandler):
+
+        async def request_stream(self, payload: Payload) -> Publisher:
+            return StreamFromAsyncGenerator(generator)
+
+    async with lazy_pipe(
+            server_arguments={'handler_factory': Handler},
+            client_arguments={'fragment_size': 10}) as (server, client):
+        response = await AwaitableRSocket(client).request_stream(
+            Payload(b'dog-dog-dog-dog-dog-dog-dog-dog-dog', b'cat'))
+
+        assert response[0].data == b'Feed Item: 1'

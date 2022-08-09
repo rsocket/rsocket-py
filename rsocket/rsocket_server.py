@@ -23,7 +23,9 @@ class RSocketServer(RSocketBase):
                  metadata_encoding: Union[str, bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
-                 setup_payload: Optional[Payload] = None):
+                 setup_payload: Optional[Payload] = None,
+                 fragment_size: Optional[int] = None
+                 ):
         super().__init__(handler_factory,
                          honor_lease,
                          lease_publisher,
@@ -32,7 +34,8 @@ class RSocketServer(RSocketBase):
                          metadata_encoding,
                          keep_alive_period,
                          max_lifetime_period,
-                         setup_payload)
+                         setup_payload,
+                         fragment_size=fragment_size)
         self._transport = transport
 
     def _current_transport(self) -> Awaitable[Transport]:

@@ -109,3 +109,16 @@ async def test_request_response_bidirectional(pipe):
 
     assert response.data == b'(server (client data))'
     assert response.metadata == b'(server (client metadata))'
+
+
+async def test_request_response_fragmented(lazy_pipe):
+    class Handler(BaseRequestHandler):
+        async def request_response(self, request: Payload):
+            return future_from_payload(request)
+
+    async with lazy_pipe(
+            server_arguments={'handler_factory': Handler},
+            client_arguments={'fragment_size': 10}) as (server, client):
+        response = await client.request_response(Payload(b'dog-dog-dog-dog-dog-dog-dog-dog-dog', b'cat'))
+
+        assert response.data == b'data: dog-dog-dog-dog-dog-dog-dog-dog-dog'

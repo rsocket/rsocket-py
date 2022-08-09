@@ -22,7 +22,8 @@ class RequestChannelRequester(RequestChannelCommon):
             to_request_channel_frame(self.stream_id,
                                      payload,
                                      self._initial_request_n,
-                                     self._remote_publisher is None)
+                                     self._remote_publisher is None,
+                                     self.socket.get_fragment_size())
         )
 
     def subscribe(self, subscriber: Subscriber):
