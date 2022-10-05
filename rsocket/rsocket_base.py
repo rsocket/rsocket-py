@@ -35,6 +35,7 @@ from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.local_typing import Awaitable
 from rsocket.logger import logger
 from rsocket.payload import Payload
+from rsocket.queue_peekable import QueuePeekable
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
 from rsocket.rsocket import RSocket
 from rsocket.rsocket_internal import RSocketInternal
@@ -113,7 +114,7 @@ class RSocketBase(RSocket, RSocketInternal):
 
     def _reset_internals(self):
         self._frame_fragment_cache = FrameFragmentCache()
-        self._send_queue = asyncio.Queue()
+        self._send_queue = QueuePeekable()
         self._request_queue = asyncio.Queue(self._request_queue_size)
 
         if self._honor_lease:
@@ -391,22 +392,18 @@ class RSocketBase(RSocket, RSocketInternal):
 
     @asynccontextmanager
     async def _get_next_frame_to_send(self) -> Frame:
-        next_frame_source = await self._send_queue.get()
+        next_frame_source = await self._send_queue.peek()
 
         if isinstance(next_frame_source, FrameFragmentMixin):
             next_fragment = next_frame_source.get_next_fragment()
-
-            if next_fragment.flags_follows:
-                self._send_queue.put_nowait(next_frame_source)
-
             yield next_fragment
 
             if not next_fragment.flags_follows:
-                self._send_queue.task_done()
+                self._send_queue.get_nowait()
 
         else:
+            self._send_queue.get_nowait()
             yield next_frame_source
-            self._send_queue.task_done()
 
     async def _sender(self):
         try:
