@@ -193,6 +193,9 @@ class Frame(Header, metaclass=ABCMeta):
 
         return length
 
+    def __str__(self):
+        return str(f'({FrameType(self.frame_type).name},{self.data},{self.metadata},{self.flags_complete})')
+
 
 class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
@@ -223,6 +226,9 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
         if hasattr(self, 'initial_request_n'):
             frame.initial_request_n = self.initial_request_n
+
+        if hasattr(self, 'flags_next'):
+            frame.flags_next = self.flags_next
 
         frame.data = fragment.data
         frame.metadata = fragment.metadata

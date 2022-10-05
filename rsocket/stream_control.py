@@ -44,7 +44,9 @@ class StreamControl:
 
         self._streams[stream_id] = handler
 
-    def handle_stream(self, stream_id: int, frame: Frame) -> bool:
+    def handle_stream(self, frame: Frame) -> bool:
+        stream_id = frame.stream_id
+
         if stream_id in self._streams:
             self._streams[stream_id].frame_received(frame)
             return True

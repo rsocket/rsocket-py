@@ -361,18 +361,20 @@ class RSocketBase(RSocket, RSocketInternal):
             return
 
         if is_fragmentable_frame(frame):
-            frame = self._frame_fragment_cache.append(cast(FragmentableFrame, frame))
-            if frame is None:
+            complete_frame = self._frame_fragment_cache.append(cast(FragmentableFrame, frame))
+            if complete_frame is None:
                 return
+        else:
+            complete_frame = frame
 
-        stream_id = frame.stream_id
-
-        if stream_id == CONNECTION_STREAM_ID or isinstance(frame, initiate_request_frame_types):
-            await self._handle_frame_by_type(frame)
-        elif self._stream_control.handle_stream(stream_id, frame):
+        if (complete_frame.stream_id == CONNECTION_STREAM_ID or
+                isinstance(complete_frame, initiate_request_frame_types)):
+            await self._handle_frame_by_type(complete_frame)
+        elif self._stream_control.handle_stream(complete_frame):
             return
         else:
-            logger().debug('%s: Dropping frame from unknown stream %d', self._log_identifier(), frame.stream_id)
+            logger().debug('%s: Dropping frame from unknown stream %d', self._log_identifier(),
+                           complete_frame.stream_id)
 
     async def _handle_frame_by_type(self, frame: Frame):
         frame_handler = self._async_frame_handler_by_type.get(type(frame), async_noop)
