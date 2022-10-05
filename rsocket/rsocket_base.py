@@ -396,10 +396,12 @@ class RSocketBase(RSocket, RSocketInternal):
 
         if isinstance(next_frame_source, FrameFragmentMixin):
             next_fragment = next_frame_source.get_next_fragment()
-            yield next_fragment
 
             if not next_fragment.flags_follows:
+                next_frame_source.get_next_fragment()  # workaround to clean-up generator.
                 self._send_queue.get_nowait()
+
+            yield next_fragment
 
         else:
             self._send_queue.get_nowait()
