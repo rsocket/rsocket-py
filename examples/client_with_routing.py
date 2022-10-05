@@ -163,7 +163,6 @@ async def main(server_port):
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
         await request_large_data(client)
-
         await request_response(client)
         await request_stream(client)
         await request_slow_stream(client)
