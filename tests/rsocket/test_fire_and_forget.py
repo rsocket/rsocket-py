@@ -47,6 +47,7 @@ async def test_request_fire_and_forget_wait(lazy_pipe):
             server_arguments={'handler_factory': handler_factory}) as (server, client):
         await client.fire_and_forget(Payload(b'dog', b'cat'))
 
+        await asyncio.sleep(1)
 
 async def test_request_fire_and_forget_awaitable_client(lazy_pipe):
     handler: Optional[FireAndForgetHandler] = None

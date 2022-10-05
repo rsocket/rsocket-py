@@ -4,7 +4,7 @@ from asyncio import Queue, QueueEmpty
 class QueuePeekable(Queue):
 
     async def peek(self):
-        """Remove and return an item from the queue.
+        """Peek the next item in the queue.
 
         If queue is empty, wait until an item is available.
         """
@@ -30,7 +30,7 @@ class QueuePeekable(Queue):
         return self.peek_nowait()
 
     def peek_nowait(self):
-        """Remove and return an item from the queue.
+        """Peek the next item in the queue.
 
         Return an item if one is immediately available, else raise QueueEmpty.
         """
