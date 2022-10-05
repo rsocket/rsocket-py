@@ -26,7 +26,7 @@ class FrameFragmentCache:
         if type(current_frame_from_fragments) != type(next_fragment):
             raise RSocketFrameFragmentDifferentType()
 
-        if isinstance(next_fragment, PayloadFrame):
+        if isinstance(current_frame_from_fragments, PayloadFrame):
             current_frame_from_fragments.flags_complete = next_fragment.flags_complete
             current_frame_from_fragments.flags_next = next_fragment.flags_next
 
@@ -45,7 +45,11 @@ class FrameFragmentCache:
         if next_fragment.data is not None:
             if current_frame_from_fragments.data is None:
                 current_frame_from_fragments.data = b''
+
             current_frame_from_fragments.data += next_fragment.data
 
         if next_fragment.metadata is not None:
+            if current_frame_from_fragments.metadata is None:
+                current_frame_from_fragments.metadata = b''
+
             current_frame_from_fragments.metadata += next_fragment.metadata

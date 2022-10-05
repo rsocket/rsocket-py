@@ -68,6 +68,7 @@ def data_to_n_size_fragments(data: bytes,
 
     data_reader = BytesIO(data)
     metadata_reader = BytesIO(metadata)
+    is_first = True
 
     while True:
         metadata_fragment = metadata_reader.read(fragment_size)
@@ -82,7 +83,9 @@ def data_to_n_size_fragments(data: bytes,
             break
         else:
             is_last = data_length == 0 and metadata_read_length == metadata_length
-            yield Fragment(None, metadata_fragment, is_last=is_last)
+            yield Fragment(None, metadata_fragment,
+                           is_last=is_last, is_first=is_first)
+            is_first = False
 
     expected_data_fragment_length = fragment_size - len(last_metadata_fragment)
     data_fragment = data_reader.read(expected_data_fragment_length)
@@ -90,7 +93,9 @@ def data_to_n_size_fragments(data: bytes,
 
     if len(last_metadata_fragment) > 0 or len(data_fragment) > 0:
         last_fragment_sent = data_read_length == data_length
-        yield Fragment(data_fragment, last_metadata_fragment, is_last=last_fragment_sent)
+        yield Fragment(data_fragment, last_metadata_fragment,
+                       is_last=last_fragment_sent, is_first=is_first)
+        is_first = False
 
         if last_fragment_sent:
             return
@@ -104,7 +109,9 @@ def data_to_n_size_fragments(data: bytes,
         is_last_fragment = data_read_length == data_length
 
         if len(data_fragment) > 0:
-            yield Fragment(data_fragment, None, is_last=is_last_fragment)
+            yield Fragment(data_fragment, None,
+                           is_last=is_last_fragment, is_first=is_first)
+            is_first = False
         if is_last_fragment:
             break
 

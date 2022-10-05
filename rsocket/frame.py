@@ -218,7 +218,11 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
             return None
 
     def _new_frame_fragment(self, fragment: Fragment) -> 'Frame':
-        frame = self.__class__()
+        if fragment.is_first:
+            frame = self.__class__()
+        else:
+            frame = PayloadFrame()
+
         frame.stream_id = self.stream_id
 
         frame.flags_ignore = self.flags_ignore
