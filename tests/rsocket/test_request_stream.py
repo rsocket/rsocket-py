@@ -224,7 +224,7 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
 async def test_fragmented_stream(lazy_pipe):
     def generator() -> Generator[Tuple[Payload, bool], None, None]:
         for i in range(3):
-            yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
+            yield Payload(ensure_bytes('%s some long data which should be fragmented %s' % (i, i))), i == 2
 
     class Handler(BaseRequestHandler):
 
@@ -236,9 +236,9 @@ async def test_fragmented_stream(lazy_pipe):
         received_messages = await AwaitableRSocket(client).request_stream(Payload())
 
         assert len(received_messages) == 3
-        assert received_messages[0].data == b'some long data which should be fragmented 0'
-        assert received_messages[1].data == b'some long data which should be fragmented 1'
-        assert received_messages[2].data == b'some long data which should be fragmented 2'
+        assert received_messages[0].data == b'0 some long data which should be fragmented 0'
+        assert received_messages[1].data == b'1 some long data which should be fragmented 1'
+        assert received_messages[2].data == b'2 some long data which should be fragmented 2'
 
 
 @pytest.mark.timeout(15)
