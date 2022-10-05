@@ -19,8 +19,10 @@ from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
-@pytest.mark.parametrize('complete_inline',
-                         (True, False))
+@pytest.mark.parametrize('complete_inline', (
+        True,
+        False,
+))
 async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient], complete_inline):
     server, client = pipe
 
@@ -47,7 +49,10 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
     assert result[2].data == b'Feed Item: 2'
 
 
-@pytest.mark.parametrize('initial_request_n', (0, -1))
+@pytest.mark.parametrize('initial_request_n', (
+        0,
+        -1,
+))
 async def test_request_stream_prevent_negative_initial_request_n(pipe: Tuple[RSocketServer, RSocketClient],
                                                                  initial_request_n):
     server, client = pipe
@@ -217,7 +222,6 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
 
 
 async def test_fragmented_stream(lazy_pipe):
-
     def generator() -> Generator[Tuple[Payload, bool], None, None]:
         for i in range(3):
             yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
@@ -229,7 +233,6 @@ async def test_fragmented_stream(lazy_pipe):
 
     async with lazy_pipe(
             server_arguments={'handler_factory': Handler, 'fragment_size': 10}) as (server, client):
-
         received_messages = await AwaitableRSocket(client).request_stream(Payload())
 
         assert len(received_messages) == 3

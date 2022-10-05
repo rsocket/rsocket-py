@@ -48,7 +48,7 @@ def unpack_32bit(buffer: bytes, offset: int) -> int:
 
 def data_to_fragments_if_required(data_reader: BytesIO,
                                   metadata_reader: BytesIO,
-                                  fragment_size: Optional[int]) -> Generator[Fragment, None, None]:
+                                  fragment_size: Optional[int] = None) -> Generator[Fragment, None, None]:
     if fragment_size is not None:
         for fragment in data_to_n_size_fragments(data_reader, metadata_reader, fragment_size):
             yield fragment

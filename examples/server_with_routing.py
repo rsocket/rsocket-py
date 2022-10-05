@@ -46,6 +46,11 @@ async def get_last_metadata_push():
     return create_future(Payload(storage.last_metadata_push))
 
 
+@router.response('large_data')
+async def get_large_data():
+    return create_future(Payload(b'12345' * 10))
+
+
 @router.stream('stream')
 async def stream_response(payload, composite_metadata):
     logging.info('Got stream request')

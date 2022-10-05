@@ -209,6 +209,8 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
             return self._new_frame_fragment(fragment)
         except GeneratorExit:
             return None
+        except StopIteration:
+            return None
 
     def _new_frame_fragment(self, fragment: Fragment) -> 'Frame':
         frame = self.__class__()
@@ -219,9 +221,15 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
         frame.flags_complete = self.flags_complete
         frame.metadata_only = self.metadata_only
 
+        if hasattr(self, 'initial_request_n'):
+            frame.initial_request_n = self.initial_request_n
+
         frame.data = fragment.data
         frame.metadata = fragment.metadata
         frame.flags_follows = fragment.is_last is False
+
+        if fragment.is_last is None or fragment.is_last:
+            frame.sent_future = self.sent_future
 
         return frame
 

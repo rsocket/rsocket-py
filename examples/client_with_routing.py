@@ -96,6 +96,15 @@ async def request_response(client: RSocketClient):
     await client.request_response(payload)
 
 
+async def request_large_data(client: RSocketClient):
+    payload = Payload(b'The quick brown fox', composite(
+        route('large_data'),
+        authenticate_simple('user', '12345')
+    ))
+
+    await client.request_response(payload)
+
+
 async def request_channel(client: RSocketClient):
     channel_completion_event = Event()
     requester_completion_event = Event()
@@ -150,6 +159,8 @@ async def main(server_port):
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
+        await request_large_data(client)
+
         await request_response(client)
         await request_stream(client)
         await request_slow_stream(client)

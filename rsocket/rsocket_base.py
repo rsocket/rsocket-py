@@ -393,6 +393,7 @@ class RSocketBase(RSocket, RSocketInternal):
 
         if isinstance(next_frame_source, FrameFragmentMixin):
             next_fragment = next_frame_source.get_next_fragment()
+
             if next_fragment.flags_follows:
                 self._send_queue.put_nowait(next_frame_source)
 

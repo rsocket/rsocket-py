@@ -1,12 +1,10 @@
-from io import BytesIO
+from typing import cast
 
 import pytest
 
 from rsocket.exceptions import RSocketFrameFragmentDifferentType
-from rsocket.frame import PayloadFrame, RequestResponseFrame
-from rsocket.frame_builders import to_payload_frame
+from rsocket.frame import PayloadFrame, RequestResponseFrame, FragmentableFrame
 from rsocket.frame_fragment_cache import FrameFragmentCache
-from rsocket.frame_helpers import data_to_n_size_fragments
 
 
 @pytest.mark.parametrize('data, metadata, fragment_size, expected_frame_count', (
@@ -24,7 +22,21 @@ from rsocket.frame_helpers import data_to_n_size_fragments
         (b'', b'', 3, 1),
 ))
 async def test_fragment_only_metadata(data, metadata, fragment_size, expected_frame_count):
-    fragments = list(data_to_n_size_fragments(BytesIO(data), BytesIO(metadata), fragment_size))
+    frame = PayloadFrame()
+    frame.data = data
+    frame.metadata = metadata
+    frame.fragment_size = fragment_size
+
+    def fragment_generator():
+        while True:
+            next_fragment = frame.get_next_fragment()
+
+            if next_fragment is not None:
+                yield next_fragment
+            else:
+                break
+
+    fragments = list(fragment_generator())
 
     assert len(fragments) == expected_frame_count
 
@@ -32,7 +44,7 @@ async def test_fragment_only_metadata(data, metadata, fragment_size, expected_fr
 
     combined_payload = None
     for fragment in fragments:
-        combined_payload = cache.append(to_payload_frame(1, fragment, complete=True))
+        combined_payload = cache.append(cast(FragmentableFrame, fragment))
 
     if metadata is None or len(metadata) == 0:
         assert combined_payload.metadata is None or combined_payload.metadata == b''
