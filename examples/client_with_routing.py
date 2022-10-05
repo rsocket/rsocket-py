@@ -102,7 +102,10 @@ async def request_large_data(client: RSocketClient):
         authenticate_simple('user', '12345')
     ))
 
-    await client.request_response(payload)
+    result = await client.request_response(payload)
+
+    if result.data != b'12345' * 10:
+        raise Exception
 
 
 async def request_channel(client: RSocketClient):
