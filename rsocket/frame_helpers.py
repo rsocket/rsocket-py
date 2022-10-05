@@ -46,22 +46,32 @@ def unpack_32bit(buffer: bytes, offset: int) -> int:
     return struct.unpack_from('>I', buffer, offset)[0]
 
 
-def data_to_fragments_if_required(data_reader: BytesIO,
-                                  metadata_reader: BytesIO,
+def data_to_fragments_if_required(data_reader: bytes,
+                                  metadata_reader: bytes,
                                   fragment_size: Optional[int] = None) -> Generator[Fragment, None, None]:
     if fragment_size is not None:
         for fragment in data_to_n_size_fragments(data_reader, metadata_reader, fragment_size):
             yield fragment
     else:
-        yield Fragment(data_reader.read(), metadata_reader.read(), None)
+        yield Fragment(data_reader, metadata_reader, None)
 
 
-def data_to_n_size_fragments(data_reader: BytesIO,
-                             metadata_reader: BytesIO,
+def data_to_n_size_fragments(data: bytes,
+                             metadata: bytes,
                              fragment_size: int
                              ) -> Generator[Fragment, None, None]:
+    data_length = safe_len(data)
+    data_read_length = 0
+
+    metadata_length = safe_len(metadata)
+    metadata_read_length = 0
+
+    data_reader = BytesIO(data)
+    metadata_reader = BytesIO(metadata)
+
     while True:
         metadata_fragment = metadata_reader.read(fragment_size)
+        metadata_read_length += len(metadata_fragment)
 
         if len(metadata_fragment) == 0:
             last_metadata_fragment = b''
@@ -71,27 +81,30 @@ def data_to_n_size_fragments(data_reader: BytesIO,
             last_metadata_fragment = metadata_fragment
             break
         else:
-            yield Fragment(None, metadata_fragment, is_last=False)
+            is_last = data_length == 0 and metadata_read_length == metadata_length
+            yield Fragment(None, metadata_fragment, is_last=is_last)
 
     expected_data_fragment_length = fragment_size - len(last_metadata_fragment)
     data_fragment = data_reader.read(expected_data_fragment_length)
+    data_read_length += len(data_fragment)
 
     if len(last_metadata_fragment) > 0 or len(data_fragment) > 0:
-        last_fragment_sent = len(data_fragment) < expected_data_fragment_length
+        last_fragment_sent = data_read_length == data_length
         yield Fragment(data_fragment, last_metadata_fragment, is_last=last_fragment_sent)
 
         if last_fragment_sent:
             return
 
     if len(data_fragment) == 0:
-        yield Fragment(None, None, is_last=True)
         return
 
     while True:
         data_fragment = data_reader.read(fragment_size)
+        data_read_length += len(data_fragment)
+        is_last_fragment = data_read_length == data_length
 
-        is_last_fragment = len(data_fragment) < fragment_size
-        yield Fragment(data_fragment, None, is_last=is_last_fragment)
+        if len(data_fragment) > 0:
+            yield Fragment(data_fragment, None, is_last=is_last_fragment)
         if is_last_fragment:
             break
 
@@ -115,6 +128,13 @@ def serialize_128max_value(encoding: bytes) -> bytes:
     serialized = ((0 << 7) | encoded_encoding_length & 0b1111111).to_bytes(1, 'big')
     serialized += encoding
     return serialized
+
+
+def safe_len(value) -> int:
+    if value is None:
+        return 0
+
+    return len(value)
 
 
 def parse_type(buffer: bytes) -> Tuple[int, int]:

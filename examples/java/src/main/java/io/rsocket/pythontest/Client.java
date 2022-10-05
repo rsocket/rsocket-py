@@ -27,6 +27,7 @@ public class Client {
 
         assert rSocket != null;
 
+        testLargeData(rSocket);
         testSingleRequest(rSocket);
         testStream(rSocket);
         testStreamWithLimit(rSocket);
@@ -85,6 +86,13 @@ public class Client {
                         composite(route("single_request"), authenticate("simple", "12345"))))
                 .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
                 .block(Duration.ofMinutes(5));
+    }
+
+    private static void testLargeData(RSocket rSocket) {
+        rSocket.requestResponse(DefaultPayload.create(getPayload("simple stream"),
+                        composite(route("large_data"), authenticate("simple", "12345"))))
+                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
+                .block(Duration.ofMinutes(10));
     }
 
     private static CompositeByteBuf composite(CompositeItem... parts) {

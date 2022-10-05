@@ -29,6 +29,8 @@ _FLAG_RESUME_BIT = 0x80
 _FLAG_RESPOND_BIT = 0x80
 _FLAG_NEXT_BIT = 0x20
 
+MINIMUM_FRAGMENT_SIZE = 64
+
 
 @unique
 class FrameType(IntEnum):
@@ -202,8 +204,8 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
     def get_next_fragment(self) -> Optional['Frame']:
         if self.fragment_generator is None:
             self.fragment_generator = data_to_fragments_if_required(
-                BytesIO(self.data),
-                BytesIO(self.metadata),
+                self.data,
+                self.metadata,
                 self.fragment_size
             )
 
@@ -221,7 +223,6 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
         frame.flags_ignore = self.flags_ignore
         frame.flags_metadata = self.flags_metadata
-        frame.flags_complete = self.flags_complete
         frame.metadata_only = self.metadata_only
 
         if hasattr(self, 'initial_request_n'):
@@ -236,6 +237,7 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
         if fragment.is_last is None or fragment.is_last:
             frame.sent_future = self.sent_future
+            frame.flags_complete = self.flags_complete
 
         return frame
 

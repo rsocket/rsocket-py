@@ -8,7 +8,7 @@ from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type, cast, 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolError, RSocketTransportError
+from rsocket.exceptions import RSocketProtocolError, RSocketTransportError, RSocketError
 from rsocket.extensions.mimetypes import WellKnownMimeTypes, ensure_encoding_name
 from rsocket.frame import (KeepAliveFrame,
                            MetadataPushFrame, RequestFireAndForgetFrame,
@@ -16,7 +16,7 @@ from rsocket.frame import (KeepAliveFrame,
                            exception_to_error_frame,
                            LeaseFrame, ErrorFrame, RequestFrame,
                            initiate_request_frame_types, InvalidFrame,
-                           FragmentableFrame, FrameFragmentMixin)
+                           FragmentableFrame, FrameFragmentMixin, MINIMUM_FRAGMENT_SIZE)
 from rsocket.frame import (RequestChannelFrame, ResumeFrame,
                            is_fragmentable_frame, CONNECTION_STREAM_ID)
 from rsocket.frame import SetupFrame
@@ -68,6 +68,8 @@ class RSocketBase(RSocket, RSocketInternal):
                  setup_payload: Optional[Payload] = None,
                  fragment_size: Optional[int] = None
                  ):
+
+        self._assert_valid_fragment_size(fragment_size)
 
         self._handler_factory = handler_factory
         self._request_queue_size = request_queue_size
@@ -523,3 +525,8 @@ class RSocketBase(RSocket, RSocketInternal):
     @abc.abstractmethod
     def _log_identifier(self) -> str:
         ...
+
+    def _assert_valid_fragment_size(self, fragment_size: Optional[int]):
+        if fragment_size is not None and (0 < fragment_size < MINIMUM_FRAGMENT_SIZE
+                                          or fragment_size < 0):
+            raise RSocketError("Invalid fragment size specified %s" % fragment_size)

@@ -8,18 +8,17 @@ from rsocket.frame_fragment_cache import FrameFragmentCache
 
 
 @pytest.mark.parametrize('data, metadata, fragment_size, expected_frame_count', (
-        (b'', b'123abc456def', 3, 5),
-        (b'123abc456def', b'', 3, 5),
-        (b'123abc', b'456def', 3, 5),
+        (b'', b'123abc456def', 3, 4),
+        (b'123abc456def', b'', 3, 4),
+        (b'123abc', b'456def', 3, 4),
         (b'123abc89', b'456def', 3, 5),
         (b'123ab', b'456def', 3, 4),
-        (b'123', b'456def', 3, 4),
+        (b'123', b'456def', 3, 3),
         (b'123', b'45', 3, 2),
         (b'12', b'45', 3, 2),
         (b'12', b'456', 3, 2),
         (b'123', b'45', 3, 2),
-        (b'123', b'456', 3, 3),
-        (b'', b'', 3, 1),
+        (b'123', b'456', 3, 2),
 ))
 async def test_fragment_only_metadata(data, metadata, fragment_size, expected_frame_count):
     frame = PayloadFrame()

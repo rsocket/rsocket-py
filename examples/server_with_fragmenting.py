@@ -9,6 +9,7 @@ from examples.response_channel import response_stream_1, LoggingSubscriber
 from response_stream import response_stream_2
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
 from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
@@ -48,7 +49,8 @@ async def get_last_metadata_push():
 
 @router.response('large_data')
 async def get_large_data():
-    return create_future(Payload(b'12345' * 10))
+    data = b''.join(ensure_bytes(str(i)) + b'123456789' for i in range(50))
+    return create_future(Payload(data))
 
 
 @router.stream('stream')
@@ -99,7 +101,7 @@ def handler_factory(socket):
 def handle_client(reader, writer):
     RSocketServer(TransportTCP(reader, writer),
                   handler_factory=handler_factory,
-                  fragment_size=10)
+                  fragment_size=64)
 
 
 async def run_server(server_port):
