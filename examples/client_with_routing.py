@@ -4,6 +4,7 @@ import sys
 from asyncio import Event
 from typing import AsyncGenerator, Tuple
 
+from examples.example_fixtures import large_data1
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
@@ -96,7 +97,7 @@ async def request_response(client: RSocketClient):
     await client.request_response(payload)
 
 
-async def request_large_data(client: RSocketClient):
+async def request_large_response(client: RSocketClient):
     payload = Payload(b'The quick brown fox', composite(
         route('large_data'),
         authenticate_simple('user', '12345')
@@ -104,7 +105,19 @@ async def request_large_data(client: RSocketClient):
 
     result = await client.request_response(payload)
 
-    if result.data != b'12345' * 10:
+    if result.data != large_data1:
+        raise Exception
+
+
+async def request_large_request(client: RSocketClient):
+    payload = Payload(large_data1, composite(
+        route('large_request'),
+        authenticate_simple('user', '12345')
+    ))
+
+    result = await client.request_response(payload)
+
+    if result.data != large_data1:
         raise Exception
 
 
@@ -161,8 +174,10 @@ async def main(server_port):
     connection = await asyncio.open_connection('localhost', server_port)
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
-                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
-        await request_large_data(client)
+                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
+                             fragment_size=64) as client:
+        await request_large_response(client)
+        await request_large_request(client)
         await request_response(client)
         await request_stream(client)
         await request_slow_stream(client)

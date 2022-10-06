@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
+from examples.example_fixtures import large_data1
 from examples.response_channel import response_stream_1, LoggingSubscriber
 from response_stream import response_stream_2
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
@@ -49,8 +49,12 @@ async def get_last_metadata_push():
 
 @router.response('large_data')
 async def get_large_data():
-    data = b''.join(ensure_bytes(str(i)) + b'123456789' for i in range(50))
-    return create_future(Payload(data))
+    return create_future(Payload(large_data1))
+
+
+@router.response('large_request')
+async def get_large_data(payload: Payload):
+    return create_future(Payload(payload.data))
 
 
 @router.stream('stream')

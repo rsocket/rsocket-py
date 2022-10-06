@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
+from examples.example_fixtures import large_data1
 from examples.response_channel import response_stream_1, LoggingSubscriber
 from response_stream import response_stream_2
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
@@ -48,7 +49,12 @@ async def get_last_metadata_push():
 
 @router.response('large_data')
 async def get_large_data():
-    return create_future(Payload(b'12345' * 10))
+    return create_future(Payload(large_data1))
+
+
+@router.response('large_request')
+async def get_large_data(payload: Payload):
+    return create_future(Payload(payload.data))
 
 
 @router.stream('stream')
