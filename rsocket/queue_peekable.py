@@ -14,7 +14,7 @@ class QueuePeekable(Queue):
             self._getters.append(getter)
             try:
                 await getter
-            except:
+            except Exception:
                 getter.cancel()  # Just in case getter is not done yet.
                 try:
                     # Clean self._getters from canceled getters.

@@ -49,6 +49,7 @@ async def test_request_fire_and_forget_wait(lazy_pipe):
 
         await asyncio.sleep(1)
 
+
 async def test_request_fire_and_forget_awaitable_client(lazy_pipe):
     handler: Optional[FireAndForgetHandler] = None
 
