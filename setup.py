@@ -5,7 +5,7 @@ with open('README.md') as fd:
 
 setup(
     name='rsocket',
-    version='0.3',
+    version='0.3.1',
     description='Python RSocket library',
     long_description=long_description,
     long_description_content_type='text/markdown',
