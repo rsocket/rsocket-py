@@ -19,11 +19,11 @@ class RequestChannelRequester(RequestChannelCommon):
 
     def _send_channel_request(self, payload: Payload):
         self.socket.send_request(
-            to_request_channel_frame(self.stream_id,
-                                     payload,
-                                     self._initial_request_n,
-                                     self._remote_publisher is None,
-                                     self.socket.get_fragment_size())
+            to_request_channel_frame(stream_id=self.stream_id,
+                                     payload=payload,
+                                     initial_request_n=self._initial_request_n,
+                                     complete=self._remote_publisher is None,
+                                     fragment_size=self.socket.get_fragment_size())
         )
 
     def subscribe(self, subscriber: Subscriber):

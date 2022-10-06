@@ -41,10 +41,11 @@ def to_cancel_frame(stream_id: int):
     return frame
 
 
-def to_request_channel_frame(stream_id: int, payload: Payload,
+def to_request_channel_frame(stream_id: int,
+                             payload: Payload,
+                             fragment_size: Optional[int] = None,
                              initial_request_n: int = MAX_REQUEST_N,
-                             complete: bool = False,
-                             fragment_size: Optional[int] = None):
+                             complete: bool = False):
     request = RequestChannelFrame()
     request.initial_request_n = initial_request_n
     request.stream_id = stream_id
@@ -55,8 +56,10 @@ def to_request_channel_frame(stream_id: int, payload: Payload,
     return request
 
 
-def to_request_stream_frame(stream_id: int, payload: Payload, initial_request_n: int = MAX_REQUEST_N,
-                            fragment_size: Optional[int] = None):
+def to_request_stream_frame(stream_id: int,
+                            payload: Payload,
+                            fragment_size: Optional[int] = None,
+                            initial_request_n: int = MAX_REQUEST_N):
     request = RequestStreamFrame()
     request.initial_request_n = initial_request_n
     request.stream_id = stream_id

@@ -21,19 +21,20 @@ class FrameFragmentCache:
             return frame
 
     def _frame_fragment_builder(self, next_fragment: FragmentableFrame) -> FragmentableFrame:
-        current_frame_from_fragments = self._frames_by_stream_id.get(next_fragment.stream_id, next_fragment)
 
-        if type(current_frame_from_fragments) != type(next_fragment):
+        current_frame_from_fragments = self._frames_by_stream_id.get(next_fragment.stream_id)
+
+        if current_frame_from_fragments is not None and type(next_fragment) != PayloadFrame:
             raise RSocketFrameFragmentDifferentType()
+
+        if current_frame_from_fragments is None:
+            current_frame_from_fragments = next_fragment
 
         if isinstance(current_frame_from_fragments, PayloadFrame):
             current_frame_from_fragments.flags_complete = next_fragment.flags_complete
             current_frame_from_fragments.flags_next = next_fragment.flags_next
 
-        if next_fragment.flags_follows:
-            if current_frame_from_fragments is not next_fragment:
-                self._merge_frame_content_inplace(current_frame_from_fragments, next_fragment)
-        else:
+        if current_frame_from_fragments is not next_fragment:
             self._merge_frame_content_inplace(current_frame_from_fragments, next_fragment)
 
         return current_frame_from_fragments
