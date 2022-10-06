@@ -1,3 +1,4 @@
+import sys
 from asyncio import Queue, QueueEmpty
 
 
@@ -9,7 +10,7 @@ class QueuePeekable(Queue):
         If queue is empty, wait until an item is available.
         """
         while self.empty():
-            getter = self._loop.create_future()
+            getter = self._get_loop().create_future()
             self._getters.append(getter)
             try:
                 await getter
@@ -40,3 +41,12 @@ class QueuePeekable(Queue):
         item = self._queue[0]
         self._wakeup_next(self._putters)
         return item
+
+
+if sys.version_info < (3, 10):
+    class QueuePeekableBackwardCompatible(QueuePeekable):
+        def _get_loop(self):
+            return self._loop
+
+
+    QueuePeekable = QueuePeekableBackwardCompatible
