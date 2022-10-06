@@ -1,3 +1,4 @@
+import operator
 from typing import Union, Optional
 
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
@@ -28,3 +29,11 @@ class CompositeMetadataItem:
 
     def serialize(self) -> bytes:
         return self.content
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            if self.__slots__ == other.__slots__:
+                attr_getters = [operator.attrgetter(attr) for attr in self.__slots__]
+                return all(getter(self) == getter(other) for getter in attr_getters)
+
+        return False

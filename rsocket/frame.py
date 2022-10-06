@@ -206,9 +206,6 @@ class Frame(Header, metaclass=ABCMeta):
 
         return False
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
 
 class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
