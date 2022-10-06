@@ -481,7 +481,17 @@ async def test_metadata_push_frame(frame_parser):
     assert serialize_with_frame_size_header(frame) == data
 
 
-async def test_payload_frame(frame_parser):
+@pytest.mark.parametrize('follows, complete, next', (
+        (0, 1, 0),
+        (1, 1, 0),
+        (0, 0, 0),
+        (1, 0, 0),
+        (0, 1, 1),
+        (1, 1, 1),
+        (0, 0, 1),
+        (1, 0, 1)
+))
+async def test_payload_frame(frame_parser, follows, complete, next):
     data = build_frame(
         bits(24, 28, 'Frame size'),
         bits(1, 0, 'Padding'),
@@ -490,7 +500,10 @@ async def test_payload_frame(frame_parser):
         # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
-        bits(8, 0, 'Padding flags'),
+        bits(1, follows, 'Follows'),
+        bits(1, complete, 'Complete'),
+        bits(1, next, 'Next'),
+        bits(5, 0, 'Padding flags'),
         bits(24, 8, 'Metadata length'),
         data_bits(b'metadata'),
         data_bits(b'actual_data'),
@@ -504,6 +517,10 @@ async def test_payload_frame(frame_parser):
     assert frame.frame_type is FrameType.PAYLOAD
     assert frame.stream_id == 6
     assert serialize_with_frame_size_header(frame) == data
+
+    assert frame.flags_follows is bool(follows)
+    assert frame.flags_complete is bool(complete)
+    assert frame.flags_next is bool(next)
 
 
 async def test_lease_frame(frame_parser):
@@ -602,3 +619,18 @@ def test_parse_broken_frame_raises_exception():
 
     with pytest.raises(RSocketProtocolError):
         parse_or_ignore(broken_frame_data)
+
+def test_equality():
+    frame = RequestResponseFrame()
+    frame.data = b'123'
+    frame.metadata = b'abc'
+
+    other_frame = RequestResponseFrame()
+    other_frame.data = b'123'
+    other_frame.metadata = b'abc'
+
+    assert frame == other_frame
+
+    unequal_frame = RequestStreamFrame()
+
+    assert frame != unequal_frame
