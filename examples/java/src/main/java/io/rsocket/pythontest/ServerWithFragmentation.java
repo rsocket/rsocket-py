@@ -11,7 +11,8 @@ public class ServerWithFragmentation {
     public static void main(String[] args) {
         int port = getPort(args);
         System.out.println("Port: " + port);
-        RSocketServer rSocketServer = RSocketServer.create().fragment(64);
+        RSocketServer rSocketServer = RSocketServer.create()
+                .fragment(64);
         rSocketServer.acceptor(new SimpleRoutingAcceptor());
         rSocketServer.payloadDecoder(PayloadDecoder.ZERO_COPY);
         Objects.requireNonNull(rSocketServer.bind(TcpServerTransport.create(port))

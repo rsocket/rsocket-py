@@ -85,10 +85,13 @@ def log_frame(frame: Frame, log_identifier: str, direction: str = 'Received'):
         )
     else:
         logger().debug(
-            '%s: %s frame (type=%s, stream_id=%d, complete=%s)',
+            '%s: %s frame (type=%s, stream_id=%d, data=%s, metadata=%s, complete=%s, follows=%s)',
             log_identifier,
             direction,
             frame.frame_type.name,
             frame.stream_id,
-            frame.flags_complete
+            frame.data,
+            frame.metadata,
+            frame.flags_complete,
+            frame.flags_follows
         )

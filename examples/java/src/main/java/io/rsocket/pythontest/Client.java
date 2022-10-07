@@ -20,6 +20,7 @@ public class Client {
 
     public static void main(String[] args) {
         final var rSocket = RSocketConnector.create()
+                .fragment(64)
                 .dataMimeType(WellKnownMimeType.TEXT_PLAIN.getString())
                 .metadataMimeType(WellKnownMimeType.MESSAGE_RSOCKET_COMPOSITE_METADATA.getString())
                 .connect(TcpClientTransport.create("localhost", getPort(args)))
@@ -27,12 +28,13 @@ public class Client {
 
         assert rSocket != null;
 
-        testLargeData(rSocket);
-        testSingleRequest(rSocket);
-        testStream(rSocket);
-        testStreamWithLimit(rSocket);
-        testFireAndForget(rSocket);
-        testChannel(rSocket);
+        testLargeRequest(rSocket);
+//        testLargeData(rSocket);
+//        testSingleRequest(rSocket);
+//        testStream(rSocket);
+//        testStreamWithLimit(rSocket);
+//        testFireAndForget(rSocket);
+//        testChannel(rSocket);
     }
 
     private static int getPort(String[] args) {
@@ -91,6 +93,13 @@ public class Client {
     private static void testLargeData(RSocket rSocket) {
         rSocket.requestResponse(DefaultPayload.create(getPayload("simple stream"),
                         composite(route("large_data"), authenticate("simple", "12345"))))
+                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
+                .block(Duration.ofMinutes(10));
+    }
+
+    private static void testLargeRequest(RSocket rSocket) {
+        rSocket.requestResponse(DefaultPayload.create(getPayload(Fixtures.largeData()),
+                        composite(route("large_request"), authenticate("simple", "12345"))))
                 .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
                 .block(Duration.ofMinutes(10));
     }
