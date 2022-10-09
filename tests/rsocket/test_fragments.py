@@ -108,7 +108,6 @@ async def test_fragmentation_request(request_builder, data, metadata, fragment_s
         assert combined_frame.data == data
 
 
-@pytest.mark.skip
 async def test_frame_building_should_fail_if_inconsistent_frame_type():
     first_frame = RequestResponseFrame()
     first_frame.data = b'123'
