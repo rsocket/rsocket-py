@@ -528,6 +528,5 @@ class RSocketBase(RSocket, RSocketInternal):
         ...
 
     def _assert_valid_fragment_size(self, fragment_size_bytes: Optional[int]):
-        if fragment_size_bytes is not None and (0 < fragment_size_bytes < MINIMUM_FRAGMENT_SIZE_BYTES
-                                                or fragment_size_bytes < 0):
+        if fragment_size_bytes is not None and fragment_size_bytes < MINIMUM_FRAGMENT_SIZE_BYTES:
             raise RSocketError("Invalid fragment size specified. bytes: %s" % fragment_size_bytes)
