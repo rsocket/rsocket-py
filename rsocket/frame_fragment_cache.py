@@ -11,14 +11,15 @@ class FrameFragmentCache:
         self._frames_by_stream_id: Dict[str, FragmentableFrame] = {}
 
     def append(self, frame: FragmentableFrame) -> Optional[FragmentableFrame]:
-        if frame.flags_follows:
-            self._frames_by_stream_id[frame.stream_id] = self._frame_fragment_builder(frame)
-            return None
-        else:
-            if frame.stream_id in self._frames_by_stream_id:
-                frame = self._frame_fragment_builder(frame)
-                self._frames_by_stream_id.pop(frame.stream_id)
-            return frame
+        if not isinstance(frame, PayloadFrame) or frame.flags_next:
+            if frame.flags_follows:
+                self._frames_by_stream_id[frame.stream_id] = self._frame_fragment_builder(frame)
+                return None
+            else:
+                if frame.stream_id in self._frames_by_stream_id:
+                    frame = self._frame_fragment_builder(frame)
+                    self._frames_by_stream_id.pop(frame.stream_id)
+                return frame
 
     def _frame_fragment_builder(self, next_fragment: FragmentableFrame) -> FragmentableFrame:
 
