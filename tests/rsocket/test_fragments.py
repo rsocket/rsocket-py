@@ -6,21 +6,25 @@ from rsocket.exceptions import RSocketFrameFragmentDifferentType
 from rsocket.frame import PayloadFrame, RequestResponseFrame, FragmentableFrame, RequestStreamFrame, RequestChannelFrame
 from rsocket.frame_builders import to_request_response_frame, to_request_stream_frame, to_request_channel_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
+from rsocket.frame_helpers import ensure_bytes
 from rsocket.payload import Payload
 
 
+def create_data(base: bytes, multiplier: int, limit: float = None):
+    return b''.join([ensure_bytes(str(i)) + base for i in range(multiplier)])[0:limit]
+
+
+def test_create_data():
+    assert create_data(b'aaa', 3) == b'0aaa1aaa2aaa'
+
+
 @pytest.mark.parametrize('data, metadata, fragment_size_bytes, expected_frame_count', (
-        (b'', b'123abc456def', 3, 4),
-        (b'123abc456def', b'', 3, 4),
-        (b'123abc', b'456def', 3, 4),
-        (b'123abc89', b'456def', 3, 5),
-        (b'123ab', b'456def', 3, 4),
-        (b'123', b'456def', 3, 3),
-        (b'123', b'45', 3, 2),
-        (b'12', b'45', 3, 2),
-        (b'12', b'456', 3, 2),
-        (b'123', b'45', 3, 2),
-        (b'123', b'456', 3, 2),
+        (b'', create_data(b'123abc456def', 20), 64, 5),  # only data
+        (create_data(b'123abc456def', 20), b'', 64, 5),  # only metadata
+        (create_data(b'123abc456def', 20), create_data(b'123abc456def', 20, 55), 64, 6),  # metadata fits in first frame
+        (create_data(b'123abc456def', 20), create_data(b'123abc456def', 20), 64, 10),  # mixed metadata/data frame
+        (create_data(b'123abc456def', 4, 20), create_data(b'123abc456def', 4, 20), 64, 1),  # fit in one frame
+        (create_data(b'123abc456def', 4, 20), create_data(b'123abc456def', 4, 25), 64, 1),  # fit in one frame exactly
 ))
 async def test_fragmentation_payload(data, metadata, fragment_size_bytes, expected_frame_count):
     frame = PayloadFrame()
@@ -63,9 +67,9 @@ async def test_fragmentation_payload(data, metadata, fragment_size_bytes, expect
 
 
 @pytest.mark.parametrize('request_builder, data, metadata, fragment_size_bytes, expected_frame_count, request_class', (
-        (to_request_response_frame, b'', b'123abc456def', 3, 4, RequestResponseFrame),
-        (to_request_stream_frame, b'123abc456def', b'', 3, 4, RequestStreamFrame),
-        (to_request_channel_frame, b'123abc456def', b'', 3, 4, RequestChannelFrame),
+        (to_request_response_frame, b'', create_data(b'123abc456def', 20), 64, 5, RequestResponseFrame),
+        (to_request_stream_frame, create_data(b'123abc456def', 20), b'', 64, 5, RequestStreamFrame),
+        (to_request_channel_frame, create_data(b'123abc456def', 20), b'', 64, 5, RequestChannelFrame),
 ))
 async def test_fragmentation_request(request_builder, data, metadata, fragment_size_bytes, expected_frame_count,
                                      request_class):

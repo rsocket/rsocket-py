@@ -393,14 +393,15 @@ class RSocketBase(RSocket, RSocketInternal):
         pass
 
     @asynccontextmanager
-    async def _get_next_frame_to_send(self) -> Frame:
+    async def _get_next_frame_to_send(self, transport: Transport) -> Frame:
         next_frame_source = await self._send_queue.peek()
 
         if isinstance(next_frame_source, FrameFragmentMixin):
-            next_fragment = next_frame_source.get_next_fragment()
+            next_fragment = next_frame_source.get_next_fragment(transport.requires_length_header())
 
             if not next_fragment.flags_follows:
-                next_frame_source.get_next_fragment()  # workaround to clean-up generator.
+                next_frame_source.get_next_fragment(
+                    transport.requires_length_header())  # workaround to clean-up generator.
                 self._send_queue.get_nowait()
 
             yield next_fragment
@@ -416,7 +417,7 @@ class RSocketBase(RSocket, RSocketInternal):
 
                 self._before_sender()
                 while self.is_server_alive():
-                    async with self._get_next_frame_to_send() as frame:
+                    async with self._get_next_frame_to_send(transport) as frame:
                         await transport.send_frame(frame)
                         log_frame(frame, self._log_identifier(), 'Sent')
 

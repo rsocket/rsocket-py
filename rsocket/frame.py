@@ -9,8 +9,9 @@ from typing import Tuple, Optional
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
 from rsocket.fragment import Fragment
+from rsocket.frame_fragmenter import data_to_fragments_if_required
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
-    ensure_bytes, pack_string, unpack_string, data_to_fragments_if_required
+    ensure_bytes, pack_string, unpack_string
 from rsocket.logger import logger
 
 PROTOCOL_MAJOR_VERSION = 1
@@ -213,12 +214,14 @@ class Frame(Header, metaclass=ABCMeta):
 
 class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
-    def get_next_fragment(self) -> Optional['Frame']:
+    def get_next_fragment(self, requires_length_header:bool=True) -> Optional['Frame']:
         if self.fragment_generator is None:
             self.fragment_generator = data_to_fragments_if_required(
                 self.data,
                 self.metadata,
-                self.fragment_size_bytes
+                get_header_length(self),
+                self.fragment_size_bytes,
+                requires_length_header
             )
 
         try:
@@ -573,7 +576,7 @@ class PayloadFrame(Frame, FrameFragmentMixin):
         return Frame.serialize(self, flags=flags)
 
 
-class MetadataPushFrame(Frame, FrameFragmentMixin):
+class MetadataPushFrame(Frame):
     __slots__ = ()
 
     def __init__(self):
@@ -759,3 +762,15 @@ initiate_request_frame_types = (RequestResponseFrame,
                                 RequestChannelFrame,
                                 RequestFireAndForgetFrame
                                 )
+
+frame_header_length = {
+    PayloadFrame: 6,
+    RequestResponseFrame: 6,
+    RequestFireAndForgetFrame: 6,
+    RequestStreamFrame: 10,
+    RequestChannelFrame: 10,
+}
+
+
+def get_header_length(frame: Frame) -> int:
+    return frame_header_length[frame.__class__]

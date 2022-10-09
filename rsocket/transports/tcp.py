@@ -32,3 +32,6 @@ class TransportTCP(Transport):
                 return
 
         return self._frame_parser.receive_data(data)
+
+    def requires_length_header(self) -> bool:
+        return True
