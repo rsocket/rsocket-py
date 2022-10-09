@@ -10,7 +10,8 @@ from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, FrameType,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
                            MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
                            serialize_with_frame_size_header, RequestStreamFrame, RequestChannelFrame, ParseError,
-                           parse_or_ignore)
+                           parse_or_ignore, Frame, RequestFireAndForgetFrame)
+from rsocket.frame_parser import FrameParser
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
 
@@ -175,8 +176,7 @@ async def test_request_stream_frame(frame_parser, follows):
         data_bits(b'\x01\x02\x03'),
     )
 
-    frames = await asyncstdlib.builtins.list(frame_parser.receive_data(data))
-    frame = frames[0]
+    frame = await parse_frame(data, frame_parser)
     assert isinstance(frame, RequestStreamFrame)
     assert serialize_with_frame_size_header(frame) == data
 
@@ -185,6 +185,7 @@ async def test_request_stream_frame(frame_parser, follows):
     assert frame.flags_complete is False
     assert frame.stream_id == 15
     assert frame.frame_type is FrameType.REQUEST_STREAM
+    assert frame.initial_request_n == 10
 
     composite_metadata = CompositeMetadata()
     composite_metadata.parse(frame.metadata)
@@ -193,6 +194,27 @@ async def test_request_stream_frame(frame_parser, follows):
     assert composite_metadata.items[0].tags == [b'target.path']
 
     assert composite_metadata.serialize() == frame.metadata
+
+
+async def test_request_stream_without_body(frame_parser):
+    data = build_frame(
+        bits(24, 10, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 15, 'Stream id'),
+        bits(6, FrameType.REQUEST_STREAM.value, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(1, 0, 'Follows'),
+        bits(7, 0, 'Empty flags'),
+        bits(1, 0, 'Padding'),
+        bits(31, 10, 'Initial request N'),
+    )
+
+    frame = await parse_frame(data, frame_parser)
+
+    assert isinstance(frame, RequestStreamFrame)
+    assert frame.initial_request_n == 10
 
 
 @pytest.mark.parametrize('follows, complete', (
@@ -238,6 +260,7 @@ async def test_request_channel_frame(frame_parser, follows, complete):
     assert frame.flags_complete == bool(complete)
     assert frame.stream_id == 15
     assert frame.frame_type is FrameType.REQUEST_CHANNEL
+    assert frame.initial_request_n == 10
 
     composite_metadata = CompositeMetadata()
     composite_metadata.parse(frame.metadata)
@@ -246,6 +269,28 @@ async def test_request_channel_frame(frame_parser, follows, complete):
     assert composite_metadata.items[0].tags == [b'target.path']
 
     assert composite_metadata.serialize() == frame.metadata
+
+
+async def test_request_channel_without_body(frame_parser):
+    data = build_frame(
+        bits(24, 10, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 15, 'Stream id'),
+        bits(6, FrameType.REQUEST_CHANNEL.value, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(1, 0, 'Follows'),
+        bits(1, 1, 'Complete'),
+        bits(6, 0, 'Empty flags'),
+        bits(1, 0, 'Padding'),
+        bits(31, 10, 'Initial request N'),
+    )
+
+    frame = await parse_frame(data, frame_parser)
+
+    assert isinstance(frame, RequestChannelFrame)
+    assert frame.initial_request_n == 10
 
 
 def test_basic_composite_metadata_item():
@@ -308,6 +353,24 @@ async def test_request_with_composite_metadata(frame_parser):
     assert composite_metadata.items[0].tags == [b'target.path']
 
     assert composite_metadata.serialize() == frame.metadata
+
+
+async def test_request_response_without_body(frame_parser):
+    data = build_frame(
+        bits(24, 6, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 15, 'Stream id'),
+        bits(6, FrameType.REQUEST_RESPONSE.value, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(1, 0, 'Follows'),
+        bits(7, 0, 'Empty flags'),
+    )
+
+    frame = await parse_frame(data, frame_parser)
+
+    assert isinstance(frame, RequestResponseFrame)
 
 
 async def test_composite_metadata_multiple_items():
@@ -546,6 +609,24 @@ async def test_lease_frame(frame_parser):
     assert serialize_with_frame_size_header(frame) == data
 
 
+async def test_fire_and_forget_without_body(frame_parser):
+    data = build_frame(
+        bits(24, 6, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 15, 'Stream id'),
+        bits(6, FrameType.REQUEST_FNF.value, 'Frame type'),
+        # Flags
+        bits(1, 0, 'Ignore'),
+        bits(1, 0, 'Metadata'),
+        bits(1, 0, 'Follows'),
+        bits(7, 0, 'Empty flags'),
+    )
+
+    frame = await parse_frame(data, frame_parser)
+
+    assert isinstance(frame, RequestFireAndForgetFrame)
+
+
 async def test_resume_ok_frame(frame_parser):
     data = build_frame(
         bits(24, 14, 'Frame size'),
@@ -633,3 +714,9 @@ def test_equality():
     unequal_frame.metadata = b'abc'
 
     assert frame != unequal_frame
+
+
+async def parse_frame(data: bytes, frame_parser: FrameParser) -> Frame:
+    frames = await asyncstdlib.builtins.list(frame_parser.receive_data(data))
+    frame = frames[0]
+    return frame
