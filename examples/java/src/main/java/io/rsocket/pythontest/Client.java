@@ -4,6 +4,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
+import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.core.RSocketConnector;
 import io.rsocket.metadata.AuthMetadataCodec;
@@ -29,12 +30,12 @@ public class Client {
         assert rSocket != null;
 
         testLargeRequest(rSocket);
-//        testLargeData(rSocket);
-//        testSingleRequest(rSocket);
-//        testStream(rSocket);
-//        testStreamWithLimit(rSocket);
-//        testFireAndForget(rSocket);
-//        testChannel(rSocket);
+        testLargeData(rSocket);
+        testSingleRequest(rSocket);
+        testStream(rSocket);
+        testStreamWithLimit(rSocket);
+        testFireAndForget(rSocket);
+        testChannel(rSocket);
     }
 
     private static int getPort(String[] args) {
@@ -98,8 +99,10 @@ public class Client {
     }
 
     private static void testLargeRequest(RSocket rSocket) {
-        rSocket.requestResponse(DefaultPayload.create(getPayload(Fixtures.largeData()),
-                        composite(route("large_request"), authenticate("simple", "12345"))))
+        final Payload payload = DefaultPayload.create(getPayload(Fixtures.largeData()),
+                composite(route("large_request"), authenticate("simple", "12345")
+                ));
+        rSocket.requestResponse(payload)
                 .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
                 .block(Duration.ofMinutes(10));
     }
@@ -119,8 +122,8 @@ public class Client {
 
     private static CompositeItem route(String route) {
         final var routes = List.of(route);
-        final var routingMetadata = TaggingMetadataCodec.createRoutingMetadata(ByteBufAllocator.DEFAULT, routes);
-        return new CompositeItem(routingMetadata.getContent(), WellKnownMimeType.MESSAGE_RSOCKET_ROUTING);
+        final var routingMetadata = TaggingMetadataCodec.createTaggingContent(ByteBufAllocator.DEFAULT, routes);
+        return new CompositeItem(routingMetadata, WellKnownMimeType.MESSAGE_RSOCKET_ROUTING);
 
     }
 

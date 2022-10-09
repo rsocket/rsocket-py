@@ -2,9 +2,13 @@ package io.rsocket.pythontest;
 
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
+import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.metadata.RoutingMetadata;
+import io.rsocket.metadata.WellKnownMimeType;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.Objects;
 
 public class RoutingRSocketAdapter implements RSocket {
 
@@ -34,13 +38,17 @@ public class RoutingRSocketAdapter implements RSocket {
         return routingRSocket.metadataPush(requireRoute(payload), payload);
     }
 
-    private static String requireRoute(Payload payload) {
-        final String route;
-        if (payload.hasMetadata()) { // check if you have compulsory metadata
-            route = new RoutingMetadata(payload.metadata().slice()).iterator().next(); // read the routing metadata value
-        } else {
-            throw new IllegalStateException();
+    static String requireRoute(Payload payload) {
+        final var metadata = payload.sliceMetadata();
+        final CompositeMetadata compositeMetadata = new CompositeMetadata(metadata, false);
+
+        for (CompositeMetadata.Entry metadatum : compositeMetadata) {
+            if (Objects.requireNonNull(metadatum.getMimeType())
+                    .equals(WellKnownMimeType.MESSAGE_RSOCKET_ROUTING.getString())) {
+                return new RoutingMetadata(metadatum.getContent()).iterator().next();
+            }
         }
-        return route;
+
+        throw new IllegalStateException();
     }
 }
