@@ -230,6 +230,7 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
             frame = self.__class__()
         else:
             frame = PayloadFrame()
+            frame.flags_next = True
 
         frame.stream_id = self.stream_id
 
