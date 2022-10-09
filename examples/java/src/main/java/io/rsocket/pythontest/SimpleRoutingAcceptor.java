@@ -5,6 +5,7 @@ import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
 import io.rsocket.util.DefaultPayload;
+import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -54,6 +55,22 @@ public class SimpleRoutingAcceptor implements SocketAcceptor {
                     }
 
                     return RoutingRSocket.super.requestStream(route, payload);
+                });
+            }
+
+            @Override
+            public Flux<Payload> requestChannel(String route, Publisher<Payload> payloads) {
+                return Flux.defer(() -> {
+                    switch (route) {
+                        case "channel":
+                            return Flux.from(payloads).count()
+                                    .doOnNext(count -> System.out.println("Received :: " + count))
+                                    .thenMany(Flux.range(0, 3)
+                                            .map(index -> "Item on channel: " + index)
+                                            .map(DefaultPayload::create));
+                    }
+
+                    return RoutingRSocket.super.requestChannel(route, payloads);
                 });
             }
         }));

@@ -5,6 +5,7 @@ import io.rsocket.RSocket;
 import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.metadata.RoutingMetadata;
 import io.rsocket.metadata.WellKnownMimeType;
+import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -31,6 +32,15 @@ public class RoutingRSocketAdapter implements RSocket {
     @Override
     public Flux<Payload> requestStream(Payload payload) {
         return routingRSocket.requestStream(requireRoute(payload), payload);
+    }
+
+    @Override
+    public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+        return Flux.from(payloads).collectList()
+                .flatMapMany(items -> {
+                    final var first = items.get(0);
+                    return routingRSocket.requestChannel(requireRoute(first), Flux.fromIterable(items));
+                });
     }
 
     @Override

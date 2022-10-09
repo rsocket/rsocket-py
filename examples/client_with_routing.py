@@ -42,12 +42,14 @@ class ChannelSubscriber(Subscriber):
     def __init__(self, wait_for_responder_complete: Event) -> None:
         super().__init__()
         self._wait_for_responder_complete = wait_for_responder_complete
+        self.values = []
 
     def on_subscribe(self, subscription: Subscription):
         self.subscription = subscription
 
     def on_next(self, value: Payload, is_complete=False):
         logging.info('From server on channel: ' + value.data.decode('utf-8'))
+        self.values.append(value.data)
         if is_complete:
             self._wait_for_responder_complete.set()
 
@@ -135,10 +137,18 @@ async def request_channel(client: RSocketClient):
 
     requested = client.request_channel(payload, publisher)
 
-    requested.initial_request_n(5).subscribe(ChannelSubscriber(channel_completion_event))
+    subscriber = ChannelSubscriber(channel_completion_event)
+    requested.initial_request_n(5).subscribe(subscriber)
 
     await channel_completion_event.wait()
     await requester_completion_event.wait()
+
+    if subscriber.values != [
+        b'Item on channel: 0',
+        b'Item on channel: 1',
+        b'Item on channel: 2',
+    ]:
+        raise Exception()
 
 
 async def request_stream_invalid_login(client: RSocketClient):
@@ -146,8 +156,10 @@ async def request_stream_invalid_login(client: RSocketClient):
         route('stream'),
         authenticate_simple('user', 'wrong_password')
     ))
+
     completion_event = Event()
-    client.request_stream(payload).initial_request_n(1).subscribe(StreamSubscriber(completion_event))
+    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+
     await completion_event.wait()
 
 
@@ -185,7 +197,7 @@ async def main(server_port):
         await request_stream(client)
         await request_slow_stream(client)
         await request_channel(client)
-        await request_stream_invalid_login(client)
+        # await request_stream_invalid_login(client)
 
 
 if __name__ == '__main__':
