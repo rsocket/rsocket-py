@@ -16,7 +16,7 @@ from rsocket.frame import (KeepAliveFrame,
                            exception_to_error_frame,
                            LeaseFrame, ErrorFrame, RequestFrame,
                            initiate_request_frame_types, InvalidFrame,
-                           FragmentableFrame, FrameFragmentMixin, MINIMUM_FRAGMENT_SIZE)
+                           FragmentableFrame, FrameFragmentMixin, MINIMUM_FRAGMENT_SIZE_BYTES)
 from rsocket.frame import (RequestChannelFrame, ResumeFrame,
                            is_fragmentable_frame, CONNECTION_STREAM_ID)
 from rsocket.frame import SetupFrame
@@ -66,10 +66,10 @@ class RSocketBase(RSocket, RSocketInternal):
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  setup_payload: Optional[Payload] = None,
-                 fragment_size: Optional[int] = None
+                 fragment_size_bytes: Optional[int] = None
                  ):
 
-        self._assert_valid_fragment_size(fragment_size)
+        self._assert_valid_fragment_size(fragment_size_bytes)
 
         self._handler_factory = handler_factory
         self._request_queue_size = request_queue_size
@@ -87,7 +87,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._requester_lease = None
         self._is_closing = False
         self._connecting = True
-        self._fragment_size = fragment_size
+        self._fragment_size_bytes = fragment_size_bytes
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -104,8 +104,8 @@ class RSocketBase(RSocket, RSocketInternal):
 
         self._setup_internals()
 
-    def get_fragment_size(self) -> Optional[int]:
-        return self._fragment_size
+    def get_fragment_size_bytes(self) -> Optional[int]:
+        return self._fragment_size_bytes
 
     def _setup_internals(self):
         pass
@@ -194,7 +194,7 @@ class RSocketBase(RSocket, RSocketInternal):
 
     def send_payload(self, stream_id: int, payload: Payload, complete=False, is_next=True):
         self.send_frame(to_payload_frame(stream_id, payload, complete, is_next=is_next,
-                                         fragment_size=self.get_fragment_size()))
+                                         fragment_size_bytes=self.get_fragment_size_bytes()))
 
     def _update_last_keepalive(self):
         pass
@@ -526,7 +526,7 @@ class RSocketBase(RSocket, RSocketInternal):
     def _log_identifier(self) -> str:
         ...
 
-    def _assert_valid_fragment_size(self, fragment_size: Optional[int]):
-        if fragment_size is not None and (0 < fragment_size < MINIMUM_FRAGMENT_SIZE
-                                          or fragment_size < 0):
-            raise RSocketError("Invalid fragment size specified %s" % fragment_size)
+    def _assert_valid_fragment_size(self, fragment_size_bytes: Optional[int]):
+        if fragment_size_bytes is not None and (0 < fragment_size_bytes < MINIMUM_FRAGMENT_SIZE_BYTES
+                                                or fragment_size_bytes < 0):
+            raise RSocketError("Invalid fragment size specified. bytes: %s" % fragment_size_bytes)

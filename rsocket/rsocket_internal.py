@@ -36,5 +36,5 @@ class RSocketInternal(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def get_fragment_size(self) -> Optional[int]:
+    def get_fragment_size_bytes(self) -> Optional[int]:
         ...

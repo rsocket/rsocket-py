@@ -23,7 +23,7 @@ class RequestChannelRequester(RequestChannelCommon):
                                      payload=payload,
                                      initial_request_n=self._initial_request_n,
                                      complete=self._remote_publisher is None,
-                                     fragment_size=self.socket.get_fragment_size())
+                                     fragment_size_bytes=self.socket.get_fragment_size_bytes())
         )
 
     def subscribe(self, subscriber: Subscriber):

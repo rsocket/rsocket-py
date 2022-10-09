@@ -24,7 +24,7 @@ class RSocketServer(RSocketBase):
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  setup_payload: Optional[Payload] = None,
-                 fragment_size: Optional[int] = None
+                 fragment_size_bytes: Optional[int] = None
                  ):
         super().__init__(handler_factory,
                          honor_lease,
@@ -35,7 +35,7 @@ class RSocketServer(RSocketBase):
                          keep_alive_period,
                          max_lifetime_period,
                          setup_payload,
-                         fragment_size=fragment_size)
+                         fragment_size_bytes=fragment_size_bytes)
         self._transport = transport
 
     def _current_transport(self) -> Awaitable[Transport]:

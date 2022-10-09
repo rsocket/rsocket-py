@@ -21,7 +21,7 @@ class RequestResponseRequester(StreamHandler):
     def run(self) -> Awaitable[Payload]:
         request = to_request_response_frame(self.stream_id,
                                             self._payload,
-                                            self.socket.get_fragment_size())
+                                            self.socket.get_fragment_size_bytes())
         self.socket.send_request(request)
         return self._future
 

@@ -105,7 +105,7 @@ def handler_factory(socket):
 def handle_client(reader, writer):
     RSocketServer(TransportTCP(reader, writer),
                   handler_factory=handler_factory,
-                  fragment_size=64)
+                  fragment_size_bytes=64)
 
 
 async def run_server(server_port):

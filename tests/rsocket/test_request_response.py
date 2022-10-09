@@ -117,8 +117,8 @@ async def test_request_response_fragmented(lazy_pipe):
             return future_from_payload(request)
 
     async with lazy_pipe(
-            server_arguments={'handler_factory': Handler, 'fragment_size': 64},
-            client_arguments={'fragment_size': 64}) as (server, client):
+            server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 64},
+            client_arguments={'fragment_size_bytes': 64}) as (server, client):
         data = b'dog-dog-dog-dog-dog-dog-dog-dog-dog' * 10
         response = await client.request_response(Payload(data, b'cat'))
 

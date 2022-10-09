@@ -9,7 +9,7 @@ from rsocket.frame_fragment_cache import FrameFragmentCache
 from rsocket.payload import Payload
 
 
-@pytest.mark.parametrize('data, metadata, fragment_size, expected_frame_count', (
+@pytest.mark.parametrize('data, metadata, fragment_size_bytes, expected_frame_count', (
         (b'', b'123abc456def', 3, 4),
         (b'123abc456def', b'', 3, 4),
         (b'123abc', b'456def', 3, 4),
@@ -22,11 +22,11 @@ from rsocket.payload import Payload
         (b'123', b'45', 3, 2),
         (b'123', b'456', 3, 2),
 ))
-async def test_fragmentation_payload(data, metadata, fragment_size, expected_frame_count):
+async def test_fragmentation_payload(data, metadata, fragment_size_bytes, expected_frame_count):
     frame = PayloadFrame()
     frame.data = data
     frame.metadata = metadata
-    frame.fragment_size = fragment_size
+    frame.fragment_size_bytes = fragment_size_bytes
 
     def fragment_generator():
         while True:
@@ -62,14 +62,14 @@ async def test_fragmentation_payload(data, metadata, fragment_size, expected_fra
         assert combined_payload.data == data
 
 
-@pytest.mark.parametrize('request_builder, data, metadata, fragment_size, expected_frame_count, request_class', (
+@pytest.mark.parametrize('request_builder, data, metadata, fragment_size_bytes, expected_frame_count, request_class', (
         (to_request_response_frame, b'', b'123abc456def', 3, 4, RequestResponseFrame),
         (to_request_stream_frame, b'123abc456def', b'', 3, 4, RequestStreamFrame),
         (to_request_channel_frame, b'123abc456def', b'', 3, 4, RequestChannelFrame),
 ))
-async def test_fragmentation_request(request_builder, data, metadata, fragment_size, expected_frame_count,
+async def test_fragmentation_request(request_builder, data, metadata, fragment_size_bytes, expected_frame_count,
                                      request_class):
-    frame = request_builder(1, Payload(data, metadata), fragment_size)
+    frame = request_builder(1, Payload(data, metadata), fragment_size_bytes)
 
     def fragment_generator():
         while True:

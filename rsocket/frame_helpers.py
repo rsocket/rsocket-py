@@ -48,9 +48,9 @@ def unpack_32bit(buffer: bytes, offset: int) -> int:
 
 def data_to_fragments_if_required(data_reader: bytes,
                                   metadata_reader: bytes,
-                                  fragment_size: Optional[int] = None) -> Generator[Fragment, None, None]:
-    if fragment_size is not None:
-        for fragment in data_to_n_size_fragments(data_reader, metadata_reader, fragment_size):
+                                  fragment_size_bytes: Optional[int] = None) -> Generator[Fragment, None, None]:
+    if fragment_size_bytes is not None:
+        for fragment in data_to_n_size_fragments(data_reader, metadata_reader, fragment_size_bytes):
             yield fragment
     else:
         yield Fragment(data_reader, metadata_reader, None)
@@ -58,7 +58,7 @@ def data_to_fragments_if_required(data_reader: bytes,
 
 def data_to_n_size_fragments(data: bytes,
                              metadata: bytes,
-                             fragment_size: int
+                             fragment_size_bytes: int
                              ) -> Generator[Fragment, None, None]:
     data_length = safe_len(data)
     data_read_length = 0
@@ -71,14 +71,14 @@ def data_to_n_size_fragments(data: bytes,
     is_first = True
 
     while True:
-        metadata_fragment = metadata_reader.read(fragment_size)
+        metadata_fragment = metadata_reader.read(fragment_size_bytes)
         metadata_read_length += len(metadata_fragment)
 
         if len(metadata_fragment) == 0:
             last_metadata_fragment = b''
             break
 
-        if len(metadata_fragment) < fragment_size:
+        if len(metadata_fragment) < fragment_size_bytes:
             last_metadata_fragment = metadata_fragment
             break
         else:
@@ -87,7 +87,7 @@ def data_to_n_size_fragments(data: bytes,
                            is_last=is_last, is_first=is_first)
             is_first = False
 
-    expected_data_fragment_length = fragment_size - len(last_metadata_fragment)
+    expected_data_fragment_length = fragment_size_bytes - len(last_metadata_fragment)
     data_fragment = data_reader.read(expected_data_fragment_length)
     data_read_length += len(data_fragment)
 
@@ -104,7 +104,7 @@ def data_to_n_size_fragments(data: bytes,
         return
 
     while True:
-        data_fragment = data_reader.read(fragment_size)
+        data_fragment = data_reader.read(fragment_size_bytes)
         data_read_length += len(data_fragment)
         is_last_fragment = data_read_length == data_length
 

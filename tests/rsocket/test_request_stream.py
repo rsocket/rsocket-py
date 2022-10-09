@@ -232,7 +232,7 @@ async def test_fragmented_stream(lazy_pipe):
             return StreamFromGenerator(generator)
 
     async with lazy_pipe(
-            server_arguments={'handler_factory': Handler, 'fragment_size': 64}) as (server, client):
+            server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 64}) as (server, client):
         received_messages = await AwaitableRSocket(client).request_stream(Payload())
 
         assert len(received_messages) == 3
@@ -296,7 +296,7 @@ async def test_request_stream_fragmented(lazy_pipe):
 
     async with lazy_pipe(
             server_arguments={'handler_factory': Handler},
-            client_arguments={'fragment_size': 64}) as (server, client):
+            client_arguments={'fragment_size_bytes': 64}) as (server, client):
         data = b'dog-dog-dog-dog-dog-dog-dog-dog-dog' * 10
 
         response = await AwaitableRSocket(client).request_stream(

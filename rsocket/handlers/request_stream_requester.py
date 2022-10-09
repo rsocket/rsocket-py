@@ -45,5 +45,5 @@ class RequestStreamRequester(StreamHandler, DefaultPublisherSubscription):
             stream_id=self.stream_id,
             payload=payload,
             initial_request_n=self._initial_request_n,
-            fragment_size=self.socket.get_fragment_size()
+            fragment_size_bytes=self.socket.get_fragment_size_bytes()
         ))

@@ -29,7 +29,7 @@ _FLAG_RESUME_BIT = 0x80
 _FLAG_RESPOND_BIT = 0x80
 _FLAG_NEXT_BIT = 0x20
 
-MINIMUM_FRAGMENT_SIZE = 64
+MINIMUM_FRAGMENT_SIZE_BYTES = 64
 
 
 @unique
@@ -103,7 +103,7 @@ class Frame(Header, metaclass=ABCMeta):
         'flags_complete',
         'metadata_only',
         'sent_future',
-        'fragment_size',
+        'fragment_size_bytes',
         'fragment_generator'
     )
 
@@ -120,7 +120,7 @@ class Frame(Header, metaclass=ABCMeta):
         self.flags_complete = False
         self.metadata_only = False
 
-        self.fragment_size: Optional[int] = None
+        self.fragment_size_bytes: Optional[int] = None
         self.fragment_generator = None
         self.sent_future: Optional[Future] = None
 
@@ -218,7 +218,7 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
             self.fragment_generator = data_to_fragments_if_required(
                 self.data,
                 self.metadata,
-                self.fragment_size
+                self.fragment_size_bytes
             )
 
         try:
