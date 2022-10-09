@@ -725,21 +725,26 @@ def test_parse_broken_frame_raises_exception():
         parse_or_ignore(broken_frame_data)
 
 
+@pytest.mark.skip(reason='Not yet implemented')
 def test_equality():
     frame = RequestResponseFrame()
     frame.data = b'123'
     frame.metadata = b'abc'
 
-    other_frame = RequestResponseFrame()
-    other_frame.data = b'123'
-    other_frame.metadata = b'abc'
+    similar_frame = RequestResponseFrame()
+    similar_frame.data = b'123'
+    similar_frame.metadata = b'abc'
 
-    assert frame == other_frame
+    other_frame_different_data = RequestResponseFrame()
+    other_frame_different_data.data = b'456'
+    other_frame_different_data.metadata = b'abc'
 
     unequal_frame = RequestStreamFrame()
     unequal_frame.data = b'123'
     unequal_frame.metadata = b'abc'
 
+    assert frame == similar_frame
+    assert frame != other_frame_different_data
     assert frame != unequal_frame
 
 

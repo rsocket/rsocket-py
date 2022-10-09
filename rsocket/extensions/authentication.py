@@ -46,6 +46,13 @@ class AuthenticationSimple(Authentication):
     def type(self) -> bytes:
         return WellKnownAuthenticationTypes.SIMPLE.value.name
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return (self.username == other.username
+                    and self.password == other.password)
+
+        return False
+
 
 class AuthenticationBearer(Authentication):
     __slots__ = 'token'
@@ -62,3 +69,9 @@ class AuthenticationBearer(Authentication):
     @property
     def type(self) -> bytes:
         return WellKnownAuthenticationTypes.BEARER.value.name
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.token == other.token
+
+        return False

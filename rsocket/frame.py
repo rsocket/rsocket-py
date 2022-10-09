@@ -1,5 +1,4 @@
 import abc
-import operator
 import struct
 from abc import ABCMeta
 from asyncio import Future
@@ -202,14 +201,6 @@ class Frame(Header, metaclass=ABCMeta):
 
     def __str__(self):
         return str(f'({FrameType(self.frame_type).name},{self.data},{self.metadata},{self.flags_complete})')
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            if self.__slots__ == other.__slots__:
-                attr_getters = [operator.attrgetter(attr) for attr in self.__slots__]
-                return all(getter(self) == getter(other) for getter in attr_getters)
-
-        return False
 
 
 class FrameFragmentMixin(metaclass=abc.ABCMeta):
