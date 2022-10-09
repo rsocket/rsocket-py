@@ -616,6 +616,7 @@ def test_parse_broken_frame_raises_exception():
     with pytest.raises(RSocketProtocolError):
         parse_or_ignore(broken_frame_data)
 
+
 def test_equality():
     frame = RequestResponseFrame()
     frame.data = b'123'
@@ -628,5 +629,7 @@ def test_equality():
     assert frame == other_frame
 
     unequal_frame = RequestStreamFrame()
+    unequal_frame.data = b'123'
+    unequal_frame.metadata = b'abc'
 
     assert frame != unequal_frame

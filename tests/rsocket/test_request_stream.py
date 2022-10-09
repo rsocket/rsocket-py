@@ -289,12 +289,17 @@ async def test_request_stream_fragmented(lazy_pipe):
     class Handler(BaseRequestHandler):
 
         async def request_stream(self, payload: Payload) -> Publisher:
+            if payload.data != b'dog-dog-dog-dog-dog-dog-dog-dog-dog' * 10:
+                raise Exception()
+
             return StreamFromAsyncGenerator(generator)
 
     async with lazy_pipe(
             server_arguments={'handler_factory': Handler},
             client_arguments={'fragment_size': 64}) as (server, client):
+        data = b'dog-dog-dog-dog-dog-dog-dog-dog-dog' * 10
+
         response = await AwaitableRSocket(client).request_stream(
-            Payload(b'dog-dog-dog-dog-dog-dog-dog-dog-dog', b'cat'))
+            Payload(data, b'cat'))
 
         assert response[0].data == b'Feed Item: 1'
