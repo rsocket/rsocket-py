@@ -64,7 +64,7 @@ class Header:
     )
 
 
-def is_blank(value):
+def is_blank(value: Optional[bytes]) -> bool:
     return value is None or len(value) == 0
 
 
@@ -205,7 +205,7 @@ class Frame(Header, metaclass=ABCMeta):
 
 class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
-    def get_next_fragment(self, requires_length_header:bool=True) -> Optional['Frame']:
+    def get_next_fragment(self, requires_length_header: bool = True) -> Optional['Frame']:
         if self.fragment_generator is None:
             self.fragment_generator = data_to_fragments_if_required(
                 self.data,

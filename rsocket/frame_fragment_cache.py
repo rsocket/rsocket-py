@@ -1,7 +1,7 @@
 from typing import Optional, Dict
 
 from rsocket.exceptions import RSocketFrameFragmentDifferentType
-from rsocket.frame import FragmentableFrame, PayloadFrame
+from rsocket.frame import FragmentableFrame, PayloadFrame, is_blank
 
 
 class FrameFragmentCache:
@@ -43,14 +43,14 @@ class FrameFragmentCache:
     def _merge_frame_content_inplace(self,
                                      current_frame_from_fragments: FragmentableFrame,
                                      next_fragment: FragmentableFrame):
-        if next_fragment.data is not None:
-            if current_frame_from_fragments.data is None:
+        if not is_blank(next_fragment.data):
+            if is_blank(current_frame_from_fragments.data):
                 current_frame_from_fragments.data = b''
 
             current_frame_from_fragments.data += next_fragment.data
 
-        if next_fragment.metadata is not None:
-            if current_frame_from_fragments.metadata is None:
+        if not is_blank(next_fragment.metadata):
+            if is_blank(current_frame_from_fragments.metadata):
                 current_frame_from_fragments.metadata = b''
 
             current_frame_from_fragments.metadata += next_fragment.metadata
