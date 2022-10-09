@@ -481,17 +481,13 @@ async def test_metadata_push_frame(frame_parser):
     assert serialize_with_frame_size_header(frame) == data
 
 
-@pytest.mark.parametrize('follows, complete, next', (
-        (0, 1, 0),
-        (1, 1, 0),
-        (0, 0, 0),
-        (1, 0, 0),
+@pytest.mark.parametrize('follows, complete, is_next', (
         (0, 1, 1),
         (1, 1, 1),
         (0, 0, 1),
         (1, 0, 1)
 ))
-async def test_payload_frame(frame_parser, follows, complete, next):
+async def test_payload_frame(frame_parser, follows, complete, is_next):
     data = build_frame(
         bits(24, 28, 'Frame size'),
         bits(1, 0, 'Padding'),
@@ -502,7 +498,7 @@ async def test_payload_frame(frame_parser, follows, complete, next):
         bits(1, 1, 'Metadata'),
         bits(1, follows, 'Follows'),
         bits(1, complete, 'Complete'),
-        bits(1, next, 'Next'),
+        bits(1, is_next, 'Next'),
         bits(5, 0, 'Padding flags'),
         bits(24, 8, 'Metadata length'),
         data_bits(b'metadata'),

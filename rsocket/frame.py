@@ -64,6 +64,10 @@ class Header:
     )
 
 
+def is_blank(value):
+    return value is None or len(value) == 0
+
+
 def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
     frame.length = len(buffer)
     frame.stream_id, frame.frame_type, flags = struct.unpack_from('>IBB', buffer, offset)
@@ -230,7 +234,10 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
             frame = self.__class__()
         else:
             frame = PayloadFrame()
-            frame.flags_next = True
+
+        if isinstance(frame, PayloadFrame):
+            if not is_blank(frame.data) or not is_blank(frame.metadata):
+                frame.flags_next = True
 
         frame.stream_id = self.stream_id
 
@@ -240,9 +247,6 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
         if hasattr(self, 'initial_request_n'):
             frame.initial_request_n = self.initial_request_n
-
-        if hasattr(self, 'flags_next'):
-            frame.flags_next = self.flags_next
 
         frame.data = fragment.data
         frame.metadata = fragment.metadata
@@ -553,12 +557,19 @@ class PayloadFrame(Frame, FrameFragmentMixin):
     def serialize(self, middle=b'', flags=0):
         flags &= ~(_FLAG_FOLLOWS_BIT | _FLAG_COMPLETE_BIT |
                    _FLAG_NEXT_BIT)
+
         if self.flags_follows:
             flags |= _FLAG_FOLLOWS_BIT
+
         if self.flags_complete:
             flags |= _FLAG_COMPLETE_BIT
+
+        if not is_blank(self.data) or not is_blank(self.metadata):
+            self.flags_next = True
+
         if self.flags_next:
             flags |= _FLAG_NEXT_BIT
+
         return Frame.serialize(self, flags=flags)
 
 
