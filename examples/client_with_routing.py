@@ -5,6 +5,7 @@ from asyncio import Event
 from typing import AsyncGenerator, Tuple
 
 from examples.example_fixtures import large_data1
+from examples.shared_tests import assert_result_data
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
@@ -65,6 +66,7 @@ class StreamSubscriber(Subscriber):
                  wait_for_complete: Event,
                  request_n_size=0):
         self._request_n_size = request_n_size
+        self.error = None
         self._wait_for_complete = wait_for_complete
 
     def on_next(self, value, is_complete=False):
@@ -81,6 +83,7 @@ class StreamSubscriber(Subscriber):
 
     def on_error(self, exception):
         logging.info('RS: error: {}'.format(exception))
+        self.error = exception
         self._wait_for_complete.set()
 
     def on_subscribe(self, subscription):
@@ -94,7 +97,9 @@ async def request_response(client: RSocketClient):
         authenticate_simple('user', '12345')
     ))
 
-    await client.request_response(payload)
+    result = await client.request_response(payload)
+
+    assert_result_data(result, b'single_response')
 
 
 async def request_large_response(client: RSocketClient):
@@ -105,8 +110,7 @@ async def request_large_response(client: RSocketClient):
 
     result = await client.request_response(payload)
 
-    if result.data != large_data1:
-        raise Exception
+    assert_result_data(result, large_data1)
 
 
 async def request_large_request(client: RSocketClient):
@@ -117,8 +121,7 @@ async def request_large_request(client: RSocketClient):
 
     result = await client.request_response(payload)
 
-    if result.data != large_data1:
-        raise Exception
+    assert_result_data(result, large_data1)
 
 
 async def request_channel(client: RSocketClient):

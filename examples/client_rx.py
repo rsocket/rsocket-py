@@ -5,7 +5,9 @@ from asyncio import Event
 from typing import AsyncGenerator, Tuple
 
 from rx import operators
+from rx.core.operators.map import _map
 
+from examples.shared_tests import assert_result_data
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.extensions.helpers import route, composite, authenticate_simple, metadata_item
@@ -95,7 +97,9 @@ async def request_response(client: RxRSocket):
         authenticate_simple('user', '12345')
     ))
 
-    await client.request_response(payload).pipe()
+    result = await client.request_response(payload).pipe()
+
+    assert_result_data(result, b'single_response')
 
 
 async def request_last_metadata(client: RxRSocket):
@@ -106,7 +110,7 @@ async def request_last_metadata(client: RxRSocket):
 
     result = await client.request_response(payload).pipe()
 
-    assert result.data == b'audit info'
+    assert_result_data(result, b'audit info')
 
 
 async def request_last_fnf(client: RxRSocket):
@@ -117,11 +121,10 @@ async def request_last_fnf(client: RxRSocket):
 
     result = await client.request_response(payload).pipe()
 
-    assert result.data == b'aux data'
+    assert_result_data(result, b'aux data')
 
 
 async def metadata_push(client: RxRSocket, metadata: bytes):
-
     await client.metadata_push(composite(
         route('metadata_push'),
         authenticate_simple('user', '12345'),
@@ -172,8 +175,12 @@ async def request_stream(client: RxRSocket):
         route('stream'),
         authenticate_simple('user', '12345')
     ))
-    result = await client.request_stream(payload).pipe(operators.to_list())
-    print(result)
+    result = await client.request_stream(payload).pipe(_map(lambda p: p.data), operators.to_list())
+
+    if result != [b'Item on channel: 0',
+                  b'Item on channel: 1',
+                  b'Item on channel: 2']:
+        raise Exception(result)
 
 
 async def request_slow_stream(client: RxRSocket):

@@ -49,6 +49,20 @@ def test_client_server_with_routing(unused_tcp_port):
 
 
 @pytest.mark.timeout(30)
+def test_client_java_server_with_routing_and_fragmentation(unused_tcp_port):
+    pid = run_java_class('io.rsocket.pythontest.ServerWithFragmentation', unused_tcp_port)
+
+    try:
+        sleep(2)
+        client = subprocess.Popen(['python3', './client_with_routing.py', str(unused_tcp_port)])
+        client.wait(timeout=20)
+
+        assert client.returncode == 0
+    finally:
+        os.kill(pid, signal.SIGTERM)
+
+
+@pytest.mark.timeout(30)
 def test_rx_client_server_with_routing(unused_tcp_port):
     pid = os.spawnlp(os.P_NOWAIT, 'python3', 'python3', './server_with_routing.py', str(unused_tcp_port))
 
@@ -89,9 +103,7 @@ def test_client_server_over_websocket_quart(unused_tcp_port):
 
 
 def test_client_java_server(unused_tcp_port):
-    pid = os.spawnlp(os.P_NOWAIT, 'java', 'java',
-                     '-cp', 'java/target/rsocket-examples-1.jar', 'io.rsocket.pythontest.Server',
-                     '%d' % unused_tcp_port)
+    pid = run_java_class('io.rsocket.pythontest.Server', unused_tcp_port)
 
     try:
         sleep(2)
@@ -101,6 +113,12 @@ def test_client_java_server(unused_tcp_port):
         assert client.returncode == 0
     finally:
         os.kill(pid, signal.SIGTERM)
+
+
+def run_java_class(java_class: str, unused_tcp_port: int):
+    return os.spawnlp(os.P_NOWAIT, 'java', 'java',
+                      '-cp', 'java/target/rsocket-examples-1.jar', java_class,
+                      '%d' % unused_tcp_port)
 
 
 def test_java_client_server(unused_tcp_port):
