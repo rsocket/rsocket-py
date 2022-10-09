@@ -24,7 +24,7 @@ class Authentication(metaclass=abc.ABCMeta):
 class AuthenticationSimple(Authentication):
     __slots__ = 'username', 'password'
 
-    def __init__(self, username: Optional[str] = None, password: Optional[str] = None):
+    def __init__(self, username: Optional[Union[str, bytes]] = None, password: Optional[Union[str, bytes]] = None):
         self.username = ensure_bytes(username)
         self.password = ensure_bytes(password)
 

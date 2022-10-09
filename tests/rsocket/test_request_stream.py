@@ -17,6 +17,7 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
+from tests.rsocket.helpers import get_components
 
 
 @pytest.mark.parametrize('complete_inline', (
@@ -24,7 +25,7 @@ from rsocket.streams.stream_from_generator import StreamFromGenerator
         False,
 ))
 async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient], complete_inline):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     class Handler(BaseRequestHandler):
 
@@ -55,14 +56,14 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
 ))
 async def test_request_stream_prevent_negative_initial_request_n(pipe: Tuple[RSocketServer, RSocketClient],
                                                                  initial_request_n):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     with pytest.raises(RSocketValueError):
         client.request_stream(Payload()).initial_request_n(initial_request_n)
 
 
 async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     stream_finished = asyncio.Event()
 
     class Handler(BaseRequestHandler, DefaultPublisherSubscription):
@@ -103,7 +104,7 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
 
 
 async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     stream_canceled = asyncio.Event()
 
     async def feed():
@@ -140,7 +141,7 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
 
 async def test_request_stream_immediately_completed_by_server_without_payloads(
         pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     stream_done = asyncio.Event()
 
     class Handler(BaseRequestHandler, DefaultPublisherSubscription):
@@ -176,7 +177,7 @@ async def test_request_stream_immediately_completed_by_server_without_payloads(
 
 
 async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     requests_received = 0
 
     class Handler(BaseRequestHandler, DefaultPublisherSubscription):
@@ -243,7 +244,7 @@ async def test_fragmented_stream(lazy_pipe):
 
 @pytest.mark.timeout(15)
 async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         item_count = 10

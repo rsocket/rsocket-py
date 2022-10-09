@@ -11,10 +11,11 @@ from rsocket.request_handler import BaseRequestHandler, RequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_generator import StreamFromGenerator
+from tests.rsocket.helpers import get_components
 
 
 async def test_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     def feed():
         for x in range(3):
@@ -35,7 +36,7 @@ async def test_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSoc
 
 
 async def test_request_channel_immediately_finished_without_payloads(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     handler: Optional[RequestHandler] = None
     response_stream_finished = asyncio.Event()
 

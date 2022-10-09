@@ -1,5 +1,11 @@
+"""
+Low level helpers. Other than Exception classes must not import anything else from rsocket package
+to avoid circular dependencies.
+"""
+
+
 import struct
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 from rsocket.exceptions import RSocketMimetypeTooLong
 
@@ -48,7 +54,7 @@ def str_to_bytes(route_path: str) -> bytes:
     return route_path.encode('utf-8')
 
 
-def ensure_bytes(item: Union[bytes, str]) -> bytes:
+def ensure_bytes(item: Optional[Union[bytes, str]]) -> Optional[bytes]:
     if isinstance(item, str):
         return str_to_bytes(item)
 
@@ -58,8 +64,10 @@ def ensure_bytes(item: Union[bytes, str]) -> bytes:
 def serialize_128max_value(encoding: bytes) -> bytes:
     encoding_length = len(encoding)
     encoded_encoding_length = encoding_length - 1  # mime length cannot be 0
+
     if encoded_encoding_length > 0b1111111:
         raise RSocketMimetypeTooLong(encoding)
+
     serialized = ((0 << 7) | encoded_encoding_length & 0b1111111).to_bytes(1, 'big')
     serialized += encoding
     return serialized

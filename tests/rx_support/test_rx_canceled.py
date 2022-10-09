@@ -15,6 +15,7 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.rx_support.rx_rsocket import RxRSocket
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
+from tests.rsocket.helpers import get_components
 
 
 @pytest.mark.parametrize('take_only_n', (
@@ -24,7 +25,7 @@ from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 ))
 async def test_rx_support_request_stream_take_only_n(pipe: Tuple[RSocketServer, RSocketClient],
                                                      take_only_n):
-    server, client = pipe
+    server, client = get_components(pipe)
     maximum_message_count = 4
     wait_for_server_finish = asyncio.Event()
     items_generated = 0
@@ -65,14 +66,14 @@ async def test_rx_support_request_stream_take_only_n(pipe: Tuple[RSocketServer, 
 
 
 @pytest.mark.parametrize('take_only_n', (
-        # 0,
+        # 0,  # fixme: broken. doesn't send cancel to server
         1,
         2,
         6,
 ))
 async def test_rx_support_request_channel_response_take_only_n(pipe: Tuple[RSocketServer, RSocketClient],
                                                                take_only_n):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     maximum_message_count = 4
     wait_for_server_finish = asyncio.Event()
@@ -124,7 +125,7 @@ async def test_rx_support_request_channel_response_take_only_n(pipe: Tuple[RSock
 ))
 async def test_rx_support_request_channel_server_take_only_n(pipe: Tuple[RSocketServer, RSocketClient],
                                                              take_only_n):
-    server, client = pipe
+    server, client = get_components(pipe)
     received_messages = []
     items_generated = 0
     maximum_message_count = 3
