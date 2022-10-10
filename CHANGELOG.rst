@@ -12,6 +12,7 @@ v0.4.0
     - Breaking change: init parameter change: fragment_size -> fragment_size_bytes. No need to modify existin values.
     - Added checking fragment size limit (minimum 64) as in java implementation
     - Updated examples
+- Added reactivex (RxPy version 4) wrapper client
 
 v0.3.0
 ======
