@@ -1,13 +1,15 @@
 import abc
 import struct
 from abc import ABCMeta
+from asyncio import Future
 from enum import IntEnum, unique
 from typing import Tuple, Optional
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
-    ensure_bytes
+    ensure_bytes, pack_string, unpack_string
+from rsocket.logger import logger
 
 PROTOCOL_MAJOR_VERSION = 1
 PROTOCOL_MINOR_VERSION = 0
@@ -63,7 +65,12 @@ def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
     frame.stream_id, frame.frame_type, flags = struct.unpack_from('>IBB', buffer, offset)
     flags |= (frame.frame_type & 3) << 8
     frame_type_id = frame.frame_type >> 2
-    frame.frame_type = FrameType(frame_type_id)
+
+    try:
+        frame.frame_type = FrameType(frame_type_id)
+    except ValueError as exception:
+        raise RSocketUnknownFrameType(frame_type_id) from exception
+
     frame.flags_ignore = is_flag_set(flags, _FLAG_IGNORE_BIT)
     frame.flags_metadata = is_flag_set(flags, _FLAG_METADATA_BIT)
     return flags
@@ -86,7 +93,8 @@ class Frame(Header, metaclass=ABCMeta):
         'data',
         'flags_follows',
         'flags_complete',
-        'metadata_only'
+        'metadata_only',
+        'sent_future'
     )
 
     def __init__(self, frame_type: FrameType):
@@ -100,8 +108,9 @@ class Frame(Header, metaclass=ABCMeta):
         self.flags_metadata = False
         self.flags_follows = False
         self.flags_complete = False
-
         self.metadata_only = False
+
+        self.sent_future: Optional[Future] = None
 
     def parse_metadata(self, buffer: bytes, offset: int) -> int:
         if not self.flags_metadata:
@@ -121,10 +130,6 @@ class Frame(Header, metaclass=ABCMeta):
         length = self.length - offset + 3
         self.data = buffer[offset:offset + length]
         return length
-
-    @staticmethod
-    def pack_string(buffer):
-        return struct.pack('b', len(buffer)) + buffer
 
     @abc.abstractmethod
     def parse(self, buffer: bytes, offset: int):
@@ -224,15 +229,10 @@ class SetupFrame(Frame):
                 buffer[offset:offset + self.token_length])
             offset += self.token_length
 
-        def unpack_string():
-            nonlocal offset
-            length = struct.unpack_from('b', buffer, offset)[0]
-            result = buffer[offset + 1:offset + length + 1]
-            offset += length + 1
-            return result
-
-        self.metadata_encoding = unpack_string()
-        self.data_encoding = unpack_string()
+        length, self.metadata_encoding = unpack_string(buffer, offset)
+        offset += length + 1
+        length, self.data_encoding = unpack_string(buffer, offset)
+        offset += length + 1
 
         offset += self.parse_metadata(buffer, offset)
         offset += self.parse_data(buffer, offset)
@@ -251,8 +251,8 @@ class SetupFrame(Frame):
             # assert len(self.resume_identification_token) == self.token_length
             # assert isinstance(self.resume_identification_token, bytes)
             middle += self.resume_identification_token
-        middle += self.pack_string(self.metadata_encoding)
-        middle += self.pack_string(self.data_encoding)
+        middle += pack_string(self.metadata_encoding)
+        middle += pack_string(self.data_encoding)
         return Frame.serialize(self, middle, flags)
 
 
@@ -618,17 +618,25 @@ def parse_or_ignore(buffer: bytes) -> Optional[Frame]:
     header = Header()
     parse_header(header, buffer, 0)
 
-    try:
-        frame = _frame_class_by_id[header.frame_type]()
-    except KeyError as exception:
-        raise RSocketUnknownFrameType(header.frame_type) from exception
+    frame = _frame_class_by_id[header.frame_type]()
 
     try:
         frame.parse(buffer, 0)
-        return frame
+
+        if not is_frame_to_ignore(frame):
+            return frame
+
     except Exception as exception:
         if not header.flags_ignore:
             raise RSocketProtocolError(ErrorCode.CONNECTION_ERROR, str(exception)) from exception
+
+
+def is_frame_to_ignore(frame: Frame) -> bool:
+    if isinstance(frame, MetadataPushFrame) and frame.stream_id != CONNECTION_STREAM_ID:
+        logger().error('Invalid metadata frame')
+        return True
+
+    return False
 
 
 def is_fragmentable_frame(frame: Frame) -> bool:

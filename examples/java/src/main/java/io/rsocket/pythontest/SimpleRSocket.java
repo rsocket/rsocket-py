@@ -28,12 +28,16 @@ public class SimpleRSocket implements RSocket {
         var metadata = Unpooled.wrappedBuffer(payload.getMetadata());
 
         var route = new ArrayList<String>();
-        new CompositeMetadata(metadata, true).forEach(entry -> {
-            route.add(entry.getContent().toString(CharsetUtil.US_ASCII));
-        });
+
+        new CompositeMetadata(metadata, true).forEach(entry ->
+                route.add(entry.getContent().toString(CharsetUtil.US_ASCII))
+        );
 
         var data = payload.getDataUtf8();
-        return Flux.concat(Flux.fromStream(route.stream()), Flux.just(data))
+
+        return Flux.concat(Flux.fromStream(route.stream()), Flux.range(1, 10)
+                        .map(index -> data + "-" + index)
+                )
                 .map(DefaultPayload::create);
     }
 }

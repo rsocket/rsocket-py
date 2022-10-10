@@ -1,6 +1,6 @@
 import abc
 import asyncio
-from asyncio import Future, Task
+from asyncio import Task
 from datetime import timedelta
 from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type, cast, TypeVar
 
@@ -29,8 +29,9 @@ from rsocket.handlers.request_response_requester import RequestResponseRequester
 from rsocket.handlers.request_response_responder import RequestResponseResponder
 from rsocket.handlers.request_stream_requester import RequestStreamRequester
 from rsocket.handlers.request_stream_responder import RequestStreamResponder
-from rsocket.helpers import payload_from_frame, async_noop
+from rsocket.helpers import payload_from_frame, async_noop, cancel_if_task_exists
 from rsocket.lease import DefinedLease, NullLease, Lease
+from rsocket.local_typing import Awaitable
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
@@ -39,6 +40,7 @@ from rsocket.rsocket_internal import RSocketInternal
 from rsocket.stream_control import StreamControl
 from rsocket.streams.backpressureapi import BackpressureApi
 from rsocket.streams.stream_handler import StreamHandler
+from rsocket.transports.transport import Transport
 
 T = TypeVar('T')
 
@@ -75,10 +77,11 @@ class RSocketBase(RSocket, RSocketInternal):
         self._lease_publisher = lease_publisher
         self._sender_task = None
         self._receiver_task = None
-        self._handler = None
+        self._handler = self._handler_factory(self)
         self._responder_lease = None
         self._requester_lease = None
         self._is_closing = False
+        self._connecting = True
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -99,7 +102,7 @@ class RSocketBase(RSocket, RSocketInternal):
         pass
 
     @abc.abstractmethod
-    def _current_transport(self) -> Future:
+    def _current_transport(self) -> Awaitable[Transport]:
         ...
 
     def _reset_internals(self):
@@ -114,7 +117,6 @@ class RSocketBase(RSocket, RSocketInternal):
 
         self._responder_lease = NullLease()
         self._stream_control = StreamControl(self._get_first_stream_id())
-        self._handler = self._handler_factory(self)
         self._is_closing = False
 
     def stop_all_streams(self, error_code=ErrorCode.CANCELED, data=b''):
@@ -137,9 +139,6 @@ class RSocketBase(RSocket, RSocketInternal):
     def _start_task_if_not_closing(self, task_factory: Callable[[], Coroutine]) -> Optional[Task]:
         if not self._is_closing:
             return asyncio.create_task(task_factory())
-
-    def set_handler_factory(self, handler_factory):
-        self._handler_factory = handler_factory
 
     def set_handler_using_factory(self, handler_factory) -> RequestHandler:
         self._handler = handler_factory(self)
@@ -332,7 +331,7 @@ class RSocketBase(RSocket, RSocketInternal):
 
         transport = await self._current_transport()
         while self.is_server_alive():
-            next_frame_generator = await transport.next_frame_generator(self.is_server_alive())
+            next_frame_generator = await transport.next_frame_generator()
             if next_frame_generator is None:
                 break
             async for frame in next_frame_generator:
@@ -393,6 +392,9 @@ class RSocketBase(RSocket, RSocketInternal):
                     log_frame(frame, self._log_identifier(), 'Sent')
                     self._send_queue.task_done()
 
+                    if frame.sent_future is not None:
+                        frame.sent_future.set_result(None)
+
                     if self._send_queue.empty():
                         await transport.on_send_queue_empty()
             except RSocketTransportError as exception:
@@ -412,32 +414,24 @@ class RSocketBase(RSocket, RSocketInternal):
         logger().debug('%s: Closing', self._log_identifier())
 
         self._is_closing = True
-        await self._cancel_if_task_exists(self._sender_task)
-        await self._cancel_if_task_exists(self._receiver_task)
+        await cancel_if_task_exists(self._sender_task)
+        await cancel_if_task_exists(self._receiver_task)
 
         await self._close_transport()
 
     async def _close_transport(self):
         if self._current_transport().done():
             logger().debug('%s: Closing transport', self._log_identifier())
-            transport = self._current_transport().result()
+            try:
+                transport = await self._current_transport()
+            except asyncio.CancelledError:
+                raise RSocketTransportError()
 
             if transport is not None:
                 try:
                     await transport.close()
-                except Exception as exception:
-                    logger().debug('Transport already closed or failed to close: %s', str(exception))
-                    pass
-
-    async def _cancel_if_task_exists(self, task):
-        if task is not None:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                logger().debug('%s: Asyncio task cancellation error: %s', self._log_identifier(), str(task))
-            except RuntimeError:
-                logger().error('Runtime error', exc_info=True)
+                except Exception:
+                    logger().debug('Transport already closed or failed to close', exc_info=True)
 
     async def __aenter__(self) -> 'RSocketBase':
         return self
@@ -445,19 +439,21 @@ class RSocketBase(RSocket, RSocketInternal):
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
 
-    def request_response(self, payload: Payload) -> Future:
+    def request_response(self, payload: Payload) -> Awaitable[Payload]:
         logger().debug('%s: request-response: %s', self._log_identifier(), payload)
 
         requester = RequestResponseRequester(self, payload)
         self.register_new_stream(requester).setup()
         return requester.run()
 
-    def fire_and_forget(self, payload: Payload):
+    def fire_and_forget(self, payload: Payload) -> Awaitable[None]:
         logger().debug('%s: fire-and-forget: %s', self._log_identifier(), payload)
 
         stream_id = self._allocate_stream()
-        self.send_request(to_fire_and_forget_frame(stream_id, payload))
+        frame = to_fire_and_forget_frame(stream_id, payload)
+        self.send_request(frame)
         self.finish_stream(stream_id)
+        return frame.sent_future
 
     def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:
         logger().debug('%s: request-stream: %s', self._log_identifier(), payload)
@@ -474,10 +470,12 @@ class RSocketBase(RSocket, RSocketInternal):
         requester = RequestChannelRequester(self, payload, local_publisher)
         return self.register_new_stream(requester)
 
-    def metadata_push(self, metadata: bytes):
+    def metadata_push(self, metadata: bytes) -> Awaitable[None]:
         logger().debug('%s: metadata-push: %s', self._log_identifier(), metadata)
 
-        self.send_frame(to_metadata_push_frame(metadata))
+        frame = to_metadata_push_frame(metadata)
+        self.send_frame(frame)
+        return frame.sent_future
 
     def _is_frame_allowed_to_send(self, frame: Frame) -> bool:
         if isinstance(frame, initiate_request_frame_types):

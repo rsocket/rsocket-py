@@ -1,5 +1,5 @@
 import asyncio
-from asyncio import Future, Event
+from asyncio import Event
 from typing import Optional
 
 import pytest
@@ -9,11 +9,12 @@ from rsocket.exceptions import RSocketApplicationError
 from rsocket.extensions.authentication import AuthenticationSimple
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.extensions.helpers import composite, authenticate_simple, authenticate_bearer
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import create_future
+from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from rsocket.extensions.helpers import composite, authenticate_simple, authenticate_bearer
 from tests.rsocket.helpers import bits, data_bits, build_frame
 
 
@@ -79,7 +80,7 @@ async def test_authentication_success_on_setup(lazy_pipe):
 
             self._authenticated = True
 
-        async def request_response(self, payload: Payload) -> Future:
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
             if not self._authenticated:
                 raise RSocketApplicationError("Not authenticated")
 
@@ -114,7 +115,7 @@ async def test_authentication_failure_on_setup(lazy_pipe):
 
             self._authenticated = True
 
-        async def request_response(self, payload: Payload) -> Future:
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
             if not self._authenticated:
                 raise Exception("Not authenticated")
 

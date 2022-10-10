@@ -17,7 +17,7 @@ class Transport(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    async def next_frame_generator(self, is_server_alive: bool):
+    async def next_frame_generator(self):
         ...
 
     @abc.abstractmethod

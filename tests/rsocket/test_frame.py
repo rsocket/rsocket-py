@@ -82,6 +82,8 @@ async def test_setup_readable(frame_parser, metadata_flag, metadata, lease, data
     assert frame.flags_ignore is False
     assert frame.flags_follows is False
     assert frame.frame_type is FrameType.SETUP
+    assert frame.major_version == 1
+    assert frame.minor_version == 0
 
 
 @pytest.mark.parametrize('lease', (

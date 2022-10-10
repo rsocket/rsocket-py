@@ -1,13 +1,16 @@
 import asyncio
+from dataclasses import dataclass
 from datetime import timedelta
 from math import ceil
-from typing import Type
+from typing import Type, Callable
 
-from rsocket.helpers import create_future
+from rsocket.helpers import create_future, noop
 from rsocket.logger import logger
 from rsocket.payload import Payload
-from rsocket.request_handler import BaseRequestHandler
+from rsocket.request_handler import BaseRequestHandler, RequestHandler
 from rsocket.rsocket_base import RSocketBase
+from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.transport import Transport
 
 
 def data_bits(data: bytes, name: str = None):
@@ -60,15 +63,25 @@ class IdentifiedHandlerFactory:
     def __init__(self,
                  server_id: int,
                  handler_factory: Type[IdentifiedHandler],
-                 delay=timedelta(0)):
+                 delay=timedelta(0),
+                 on_handler_create: Callable[[RequestHandler], None] = noop):
+        self._on_handler_create = on_handler_create
         self._delay = delay
         self._server_id = server_id
         self._handler_factory = handler_factory
 
     def factory(self, socket) -> BaseRequestHandler:
-        return self._handler_factory(socket, self._server_id, self._delay)
+        handler = self._handler_factory(socket, self._server_id, self._delay)
+        self._on_handler_create(handler)
+        return handler
 
 
-async def force_closing_connection(current_connection, delay=timedelta(0)):
+async def force_closing_connection(transport, delay=timedelta(0)):
     await asyncio.sleep(delay.total_seconds())
-    current_connection[1].close()
+    await transport.close()
+
+
+@dataclass
+class ServerContainer:
+    server: RSocketServer = None
+    transport: Transport = None

@@ -3,7 +3,7 @@ from typing import Union
 from rsocket.extensions.authentication import AuthenticationBearer, AuthenticationSimple
 from rsocket.extensions.authentication_content import AuthenticationContent
 from rsocket.extensions.composite_metadata import CompositeMetadata, CompositeMetadataItem
-from rsocket.extensions.mimetypes import WellKnownMimeType
+from rsocket.extensions.mimetypes import WellKnownMimeType, WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
 from rsocket.extensions.stream_data_mimetype import StreamDataMimetype, StreamDataMimetypes
 
@@ -12,6 +12,10 @@ def composite(*items) -> bytes:
     metadata = CompositeMetadata()
     metadata.extend(*items)
     return metadata.serialize()
+
+
+def metadata_item(data: bytes, encoding: Union[bytes, WellKnownMimeTypes]) -> CompositeMetadataItem:
+    return CompositeMetadataItem(encoding, data)
 
 
 def authenticate_simple(username: str, password: str) -> CompositeMetadataItem:

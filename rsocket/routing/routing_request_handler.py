@@ -6,14 +6,15 @@ from reactivestreams.subscriber import Subscriber
 from rsocket.extensions.authentication import Authentication
 from rsocket.extensions.authentication_content import AuthenticationContent
 from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.extensions.helpers import require_route
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import FrameType
 from rsocket.helpers import create_error_future
+from rsocket.local_typing import Awaitable
 from rsocket.logger import logger
 from rsocket.payload import Payload
-from rsocket.extensions.helpers import require_route
-from rsocket.routing.request_router import RequestRouter
 from rsocket.request_handler import BaseRequestHandler
+from rsocket.routing.request_router import RequestRouter
 from rsocket.streams.error_stream import ErrorStream
 from rsocket.streams.null_subscrier import NullSubscriber
 
@@ -61,7 +62,7 @@ class RoutingRequestHandler(BaseRequestHandler):
         except Exception:
             logger().error('Fire and forget error: %s', payload, exc_info=True)
 
-    async def request_response(self, payload: Payload) -> Future:
+    async def request_response(self, payload: Payload) -> Awaitable[Payload]:
         try:
             return await self._parse_and_route(FrameType.REQUEST_RESPONSE, payload)
         except Exception as exception:

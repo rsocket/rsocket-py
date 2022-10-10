@@ -1,10 +1,10 @@
 import logging
 import sys
-from asyncio import Future
 
 from quart import Quart
 
 from rsocket.helpers import create_future
+from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.transports.quart_websocket import websocket_handler
@@ -14,7 +14,7 @@ app = Quart(__name__)
 
 class Handler(BaseRequestHandler):
 
-    async def request_response(self, payload: Payload) -> Future:
+    async def request_response(self, payload: Payload) -> Awaitable[Payload]:
         return create_future(Payload(b'pong'))
 
 

@@ -1,12 +1,14 @@
 import asyncio
 import logging
 import sys
+from dataclasses import dataclass
 from datetime import timedelta
-
-from response_stream import response_stream_2
+from typing import Optional
 
 from examples.response_channel import response_stream_1, LoggingSubscriber
+from response_stream import response_stream_2
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
+from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
@@ -17,10 +19,31 @@ from rsocket.transports.tcp import TransportTCP
 router = RequestRouter()
 
 
+@dataclass
+class Storage:
+    last_metadata_push: Optional[bytes] = None
+    last_fire_and_forget: Optional[bytes] = None
+
+
+storage = Storage()
+
+
 @router.response('single_request')
 async def single_request_response(payload, composite_metadata):
     logging.info('Got single request')
     return create_future(Payload(b'single_response'))
+
+
+@router.response('last_fnf')
+async def get_last_fnf():
+    logging.info('Got single request')
+    return create_future(Payload(storage.last_fire_and_forget))
+
+
+@router.response('last_metadata_push')
+async def get_last_metadata_push():
+    logging.info('Got single request')
+    return create_future(Payload(storage.last_metadata_push))
 
 
 @router.stream('stream')
@@ -36,8 +59,16 @@ async def fragmented_stream(payload, composite_metadata):
 
 
 @router.fire_and_forget('no_response')
-async def no_response(payload, composite_metadata):
+async def no_response(payload: Payload, composite_metadata):
+    storage.last_fire_and_forget = payload.data
     logging.info('No response sent to client')
+
+
+@router.metadata_push('metadata_push')
+async def metadata_push(payload: Payload, composite_metadata: CompositeMetadata):
+    for item in composite_metadata.items:
+        if item.encoding == b'text/plain':
+            storage.last_metadata_push = item.content
 
 
 @router.channel('channel')

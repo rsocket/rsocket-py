@@ -4,21 +4,23 @@ import sys
 from asyncio import Event
 from typing import AsyncGenerator, Tuple
 
-from reactivestreams.publisher import Publisher
+from rx import operators
+
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
-from rsocket.extensions.helpers import route, composite, authenticate_simple
+from rsocket.extensions.helpers import route, composite, authenticate_simple, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.fragment import Fragment
 from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
+from rsocket.rx_support.rx_rsocket import RxRSocket
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.transports.tcp import TransportTCP
 
 
 def sample_publisher(wait_for_requester_complete: Event,
-                     response_count: int = 3) -> Publisher:
+                     response_count: int = 3):
     async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
         current_response = 0
         for i in range(response_count):
@@ -88,70 +90,109 @@ class StreamSubscriber(Subscriber):
         self.subscription = subscription
 
 
-async def request_response(client: RSocketClient):
+async def request_response(client: RxRSocket):
     payload = Payload(b'The quick brown fox', composite(
         route('single_request'),
         authenticate_simple('user', '12345')
     ))
 
-    await client.request_response(payload)
+    await client.request_response(payload).pipe()
 
 
-async def request_channel(client: RSocketClient):
-    channel_completion_event = Event()
-    requester_completion_event = Event()
+async def request_last_metadata(client: RxRSocket):
+    payload = Payload(metadata=composite(
+        route('last_metadata_push'),
+        authenticate_simple('user', '12345')
+    ))
+
+    result = await client.request_response(payload).pipe()
+
+    assert result.data == b'audit info'
+
+
+async def request_last_fnf(client: RxRSocket):
+    payload = Payload(metadata=composite(
+        route('last_fnf'),
+        authenticate_simple('user', '12345')
+    ))
+
+    result = await client.request_response(payload).pipe()
+
+    assert result.data == b'aux data'
+
+
+async def metadata_push(client: RxRSocket, metadata: bytes):
+
+    await client.metadata_push(composite(
+        route('metadata_push'),
+        authenticate_simple('user', '12345'),
+        metadata_item(metadata, WellKnownMimeTypes.TEXT_PLAIN.value.name)
+    )).pipe()
+
+
+async def fire_and_forget(client: RxRSocket, data: bytes):
+    payload = Payload(data, composite(
+        route('no_response'),
+        authenticate_simple('user', '12345')
+    ))
+
+    await client.fire_and_forget(payload).pipe()
+
+
+async def request_channel(client: RxRSocket):
+    # channel_completion_event = Event()
+    # requester_completion_event = Event()
     payload = Payload(b'The quick brown fox', composite(
         route('channel'),
         authenticate_simple('user', '12345')
     ))
-    publisher = sample_publisher(requester_completion_event)
+    # publisher = from_rsocket_publisher(sample_publisher(requester_completion_event))
 
-    requested = client.request_channel(payload, publisher)
+    result = await client.request_channel(payload, 5).pipe(operators.to_list())
 
-    requested.initial_request_n(5).subscribe(ChannelSubscriber(channel_completion_event))
+    # requested.initial_request_n(5).subscribe(ChannelSubscriber(channel_completion_event))
 
-    await channel_completion_event.wait()
-    await requester_completion_event.wait()
+    # await channel_completion_event.wait()
+    # await requester_completion_event.wait()
 
 
-async def request_stream_invalid_login(client: RSocketClient):
+async def request_stream_invalid_login(client: RxRSocket):
     payload = Payload(b'The quick brown fox', composite(
         route('stream'),
         authenticate_simple('user', 'wrong_password')
     ))
-    completion_event = Event()
-    client.request_stream(payload).initial_request_n(1).subscribe(StreamSubscriber(completion_event))
-    await completion_event.wait()
+
+    try:
+        await client.request_stream(payload, request_limit=1).pipe()
+    except RuntimeError as exception:
+        assert str(exception) == 'Authentication error'
 
 
-async def request_stream(client: RSocketClient):
+async def request_stream(client: RxRSocket):
     payload = Payload(b'The quick brown fox', composite(
         route('stream'),
         authenticate_simple('user', '12345')
     ))
-    completion_event = Event()
-    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
-    await completion_event.wait()
+    result = await client.request_stream(payload).pipe(operators.to_list())
+    print(result)
 
 
-async def request_slow_stream(client: RSocketClient):
+async def request_slow_stream(client: RxRSocket):
     payload = Payload(b'The quick brown fox', composite(
         route('slow_stream'),
         authenticate_simple('user', '12345')
     ))
-    completion_event = Event()
-    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
-    await completion_event.wait()
+    result = await client.request_stream(payload).pipe(operators.to_list())
+    print(result)
 
 
-async def request_fragmented_stream(client: RSocketClient):
+async def request_fragmented_stream(client: RxRSocket):
     payload = Payload(b'The quick brown fox', composite(
         route('fragmented_stream'),
         authenticate_simple('user', '12345')
     ))
-    completion_event = Event()
-    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
-    await completion_event.wait()
+    result = await client.request_stream(payload).pipe(operators.to_list())
+    print(result)
 
 
 async def main(server_port):
@@ -161,12 +202,19 @@ async def main(server_port):
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
-        await request_response(client)
-        await request_stream(client)
-        await request_slow_stream(client)
-        await request_channel(client)
-        await request_stream_invalid_login(client)
-        await request_fragmented_stream(client)
+        rx_client = RxRSocket(client)
+        await request_response(rx_client)
+        await request_stream(rx_client)
+        await request_slow_stream(rx_client)
+        await request_channel(rx_client)
+        await request_stream_invalid_login(rx_client)
+        await request_fragmented_stream(rx_client)
+
+        await metadata_push(rx_client, b'audit info')
+        await request_last_metadata(rx_client)
+
+        await fire_and_forget(rx_client, b'aux data')
+        await request_last_fnf(rx_client)
 
 
 if __name__ == '__main__':

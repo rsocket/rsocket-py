@@ -6,6 +6,7 @@ from rsocket.frame import (PayloadFrame, RequestNFrame,
                            RequestFireAndForgetFrame, SetupFrame,
                            MetadataPushFrame, KeepAliveFrame,
                            MAX_REQUEST_N)
+from rsocket.helpers import create_future
 from rsocket.payload import Payload
 
 
@@ -69,11 +70,13 @@ def to_request_response_frame(stream_id: int, payload: Payload):
     return request
 
 
-def to_fire_and_forget_frame(stream_id: int, payload: Payload):
+def to_fire_and_forget_frame(stream_id: int, payload: Payload) -> RequestFireAndForgetFrame:
     frame = RequestFireAndForgetFrame()
     frame.stream_id = stream_id
     frame.data = payload.data
     frame.metadata = payload.metadata
+    frame.sent_future = create_future()
+
     return frame
 
 
@@ -95,9 +98,11 @@ def to_setup_frame(payload,
     return setup
 
 
-def to_metadata_push_frame(metadata: bytes):
+def to_metadata_push_frame(metadata: bytes) -> MetadataPushFrame:
     frame = MetadataPushFrame()
     frame.metadata = metadata
+    frame.sent_future = create_future()
+
     return frame
 
 

@@ -27,12 +27,12 @@ async def main(server_port):
 
         def on_next(self, value, is_complete=False):
             self.values.append(value)
-            self.subscription.request(1)
 
         def on_complete(self):
             completion_event.set()
 
         def on_error(self, exception: Exception):
+            logging.error('Error', exc_info=exception)
             completion_event.set()
 
     connection = await asyncio.open_connection('localhost', server_port)
@@ -53,7 +53,7 @@ async def main(server_port):
 
         await asyncio.sleep(4)  # Used to show keepalive is working
 
-        assert len(subscriber.values) == 2
+        assert len(subscriber.values) == 11
 
 
 if __name__ == '__main__':

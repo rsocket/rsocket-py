@@ -2,9 +2,9 @@ import pytest
 
 from rsocket.exceptions import RSocketError
 from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.extensions.helpers import composite, data_mime_type, data_mime_types
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
-from rsocket.extensions.helpers import composite, data_mime_type, data_mime_types
 
 
 def test_tag_composite_metadata_too_long():

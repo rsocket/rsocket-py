@@ -7,10 +7,10 @@ from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
 from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
-from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rx_support.rx_rsocket import RxRSocket
@@ -203,7 +203,7 @@ async def test_routed_push_metadata(lazy_pipe):
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
             server_arguments={'handler_factory': handler_factory}) as (server, client):
         metadata = composite(route('test.path'))
-        client.metadata_push(metadata)
+        await client.metadata_push(metadata)
 
         await received.wait()
         assert received_metadata == metadata

@@ -30,10 +30,7 @@ def metadata_item_factory(metadata_encoding: bytes) -> Type[CompositeMetadataIte
 
 
 class CompositeMetadata:
-    __slots__ = (
-        'items',
-        'metadata_item_factory_by_type'
-    )
+    __slots__ = 'items'
 
     def __init__(self, items: List[CompositeMetadataItem] = _default):
 

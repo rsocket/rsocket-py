@@ -1,5 +1,5 @@
 import asyncio
-from asyncio import Future, CancelledError
+from asyncio import CancelledError
 from datetime import timedelta, datetime
 from typing import Optional, Callable, AsyncGenerator, Any
 from typing import Union
@@ -7,7 +7,8 @@ from typing import Union
 from reactivestreams.publisher import Publisher
 from rsocket.exceptions import RSocketNoAvailableTransport
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.helpers import create_future
+from rsocket.helpers import create_future, cancel_if_task_exists
+from rsocket.local_typing import Awaitable
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -37,6 +38,7 @@ class RSocketClient(RSocketBase):
         self._transport: Optional[Transport] = None
         self._next_transport = asyncio.Future()
         self._reconnect_task = asyncio.create_task(self._reconnect_listener())
+        self._keepalive_task = None
 
         super().__init__(handler_factory=handler_factory,
                          honor_lease=honor_lease,
@@ -48,7 +50,7 @@ class RSocketClient(RSocketBase):
                          max_lifetime_period=max_lifetime_period,
                          setup_payload=setup_payload)
 
-    def _current_transport(self) -> Future:
+    def _current_transport(self) -> Awaitable[Transport]:
         return self._next_transport
 
     def _log_identifier(self) -> str:
@@ -70,14 +72,17 @@ class RSocketClient(RSocketBase):
         return await super().connect()
 
     async def _connect_new_transport(self):
-        new_transport = await self._get_new_transport()
+        try:
+            new_transport = await self._get_new_transport()
 
-        if new_transport is None:
-            raise RSocketNoAvailableTransport()
+            if new_transport is None:
+                raise RSocketNoAvailableTransport()
 
-        self._next_transport.set_result(new_transport)
-        transport = await self._current_transport()
-        await transport.connect()
+            self._next_transport.set_result(new_transport)
+            transport = await self._current_transport()
+            await transport.connect()
+        finally:
+            self._connecting = False
 
     async def _get_new_transport(self):
         try:
@@ -90,7 +95,7 @@ class RSocketClient(RSocketBase):
 
     async def _close(self, reconnect=False):
         if not reconnect:
-            await self._cancel_if_task_exists(self._reconnect_task)
+            await cancel_if_task_exists(self._reconnect_task)
         else:
             logger().debug('%s: Closing before reconnect', self._log_identifier())
 
@@ -110,6 +115,13 @@ class RSocketClient(RSocketBase):
         try:
             while True:
                 await self._connect_request_event.wait()
+
+                logger().debug('%s: Got reconnect request', self._log_identifier())
+
+                if self._connecting:
+                    continue
+
+                self._connecting = True
                 self._connect_request_event.clear()
                 await self._close(reconnect=True)
                 self._next_transport = create_future()
@@ -118,6 +130,8 @@ class RSocketClient(RSocketBase):
             logger().debug('%s: Asyncio task canceled: reconnect_listener', self._log_identifier())
         except Exception:
             logger().error('%s: Reconnect listener', self._log_identifier(), exc_info=True)
+        finally:
+            self.stop_all_streams()
 
     async def _keepalive_send_task(self):
         try:
@@ -131,7 +145,7 @@ class RSocketClient(RSocketBase):
         self._keepalive_task = self._start_task_if_not_closing(self._keepalive_send_task)
 
     async def _finally_sender(self):
-        await self._cancel_if_task_exists(self._keepalive_task)
+        await cancel_if_task_exists(self._keepalive_task)
 
     def _update_last_keepalive(self):
         self._last_server_keepalive = datetime.now()
@@ -161,4 +175,4 @@ class RSocketClient(RSocketBase):
         try:
             await super()._receiver_listen()
         finally:
-            await self._cancel_if_task_exists(keepalive_timeout_task)
+            await cancel_if_task_exists(keepalive_timeout_task)

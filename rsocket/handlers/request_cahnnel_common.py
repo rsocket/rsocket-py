@@ -7,6 +7,7 @@ from reactivestreams.subscription import Subscription
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     PayloadFrame, Frame, error_frame_to_exception
 from rsocket.helpers import payload_from_frame
+from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
@@ -57,7 +58,10 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
             self.subscriber.subscription.cancel()
             self._finish_stream()
         elif isinstance(frame, RequestNFrame):
-            self.subscriber.subscription.request(frame.request_n)
+            if self.subscriber.subscription is not None:
+                self.subscriber.subscription.request(frame.request_n)
+            else:
+                logger().warning('%s: Received request_n but no publisher provided', self.__class__.__name__)
 
         elif isinstance(frame, PayloadFrame):
             if frame.flags_next:

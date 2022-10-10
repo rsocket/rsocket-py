@@ -31,12 +31,27 @@ async def test_metadata_push(pipe):
     client: RSocketClient = pipe[1]
     server.set_handler_using_factory(handler_factory)
 
-    client.metadata_push(b'cat')
+    await client.metadata_push(b'cat')
 
     await handler.received.wait()
 
     assert handler.received_payload.data is None
     assert handler.received_payload.metadata == b'cat'
+
+
+async def test_metadata_push_await(pipe):
+    handler: Optional[MetadataPushHandler] = None
+
+    def handler_factory(socket):
+        nonlocal handler
+        handler = MetadataPushHandler(socket)
+        return handler
+
+    server: RSocketServer = pipe[0]
+    client: RSocketClient = pipe[1]
+    server.set_handler_using_factory(handler_factory)
+
+    await client.metadata_push(b'cat')
 
 
 async def test_metadata_push_awaitable_client(pipe):
@@ -51,7 +66,7 @@ async def test_metadata_push_awaitable_client(pipe):
     client = AwaitableRSocket(pipe[1])
     server.set_handler_using_factory(handler_factory)
 
-    client.metadata_push(b'cat')
+    await client.metadata_push(b'cat')
 
     await handler.received.wait()
 

@@ -1,7 +1,7 @@
 import asyncio
-import logging
-import sys
 from datetime import datetime
+
+from aiohttp import web
 
 from rsocket.helpers import create_future
 from rsocket.local_typing import Awaitable
@@ -20,18 +20,26 @@ class Handler(BaseRequestHandler):
 
 
 async def run_server(server_port):
-    logging.info('Starting server at localhost:%s', server_port)
-
     def session(*connection):
         RSocketServer(TransportTCP(*connection), handler_factory=Handler)
 
+    print('Listening for rsocket on {}'.format(server_port))
     server = await asyncio.start_server(session, 'localhost', server_port)
 
     async with server:
         await server.serve_forever()
 
 
-if __name__ == '__main__':
-    port = sys.argv[1] if len(sys.argv) > 1 else 6565
-    logging.basicConfig(level=logging.DEBUG)
-    asyncio.run(run_server(port))
+async def start_background_tasks(app):
+    app['rsocket'] = asyncio.create_task(run_server(6565))
+
+
+async def cleanup_background_tasks(app):
+    app['rsocket'].cancel()
+    await app['rsocket']
+
+
+app = web.Application()
+app.on_startup.append(start_background_tasks)
+app.on_cleanup.append(cleanup_background_tasks)
+web.run_app(app)

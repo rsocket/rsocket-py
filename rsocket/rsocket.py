@@ -1,8 +1,8 @@
 import abc
-from asyncio import Future
 from typing import Union, Optional, Any
 
 from reactivestreams.publisher import Publisher
+from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.streams.backpressureapi import BackpressureApi
 
@@ -17,11 +17,11 @@ class RSocket(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def request_response(self, payload: Payload) -> Future:
+    def request_response(self, payload: Payload) -> Awaitable[Payload]:
         ...
 
     @abc.abstractmethod
-    def fire_and_forget(self, payload: Payload):
+    def fire_and_forget(self, payload: Payload) -> Awaitable[None]:
         ...
 
     @abc.abstractmethod
@@ -29,7 +29,7 @@ class RSocket(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def metadata_push(self, metadata: bytes):
+    def metadata_push(self, metadata: bytes) -> Awaitable[None]:
         ...
 
     @abc.abstractmethod
