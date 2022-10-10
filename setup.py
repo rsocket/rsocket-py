@@ -18,6 +18,7 @@ setup(
     python_requires='>=3.8',
     extras_require={
         'rx': {'Rx >= 3.0.0'},
+        'reactivex': {'reactivex >= 4.0.0'},
         'aiohttp': {'aiohttp >= 3.0.0'},
         'quart': {'quart >= 0.15.0'},
         'quic': {'aioquic >= 0.9.0'}
