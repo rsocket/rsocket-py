@@ -7,9 +7,8 @@ v0.4.0
 - Breaking change: Added ability to await fire_and_forget and push_metadata:
     - Both now return a future which resolves when the frame (or all fragments) finished sending.
 - Fixed fragmentation implementation (misunderstood spec):
-    - fragments after first now correctly PayloadFrame
-    - fragment size now includes header and frame length.
-    - Breaking change: init parameter change: fragment_size -> fragment_size_bytes. No need to modify existin values.
+    - fragments after first one are now correctly of type PayloadFrame
+    - fragment size now includes frame header and length.
     - Added checking fragment size limit (minimum 64) as in java implementation
     - Updated examples
 
