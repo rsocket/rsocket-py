@@ -12,7 +12,8 @@ pip install rsocket
 
 or install any of the extras:
 
-* rx
+* rx (RxPy3)
+* reactivex (RxPy4)
 * aiohttp
 * quart
 * uic
@@ -20,7 +21,7 @@ or install any of the extras:
 Example:
 
 ```shell
-pip install --pre rsocket[rx]
+pip install --pre rsocket[reactivex]
 ```
 
 Alternatively, download the source code, build a package:

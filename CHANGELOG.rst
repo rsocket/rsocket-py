@@ -11,6 +11,7 @@ v0.4.0
     - fragment size now includes frame header and length.
     - Added checking fragment size limit (minimum 64) as in java implementation
     - Updated examples
+- Added reactivex (RxPy version 4) wrapper client
 
 v0.3.0
 ======
