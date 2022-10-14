@@ -28,3 +28,9 @@ class CompositeMetadataItem:
 
     def serialize(self) -> bytes:
         return self.content
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.content == other.content and self.encoding == other.encoding
+
+        return False

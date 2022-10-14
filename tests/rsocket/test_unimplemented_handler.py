@@ -6,11 +6,12 @@ from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from tests.rsocket.helpers import get_components
 
 
 async def test_request_response_not_implemented_by_server_by_default(pipe: Tuple[RSocketServer, RSocketClient]):
     payload = Payload(b'abc', b'def')
-    server, client = pipe
+    server, client = get_components(pipe)
 
     with pytest.raises(RuntimeError) as exc_info:
         await client.request_response(payload)
@@ -20,7 +21,7 @@ async def test_request_response_not_implemented_by_server_by_default(pipe: Tuple
 
 async def test_request_stream_not_implemented_by_server_by_default(pipe: Tuple[RSocketServer, RSocketClient]):
     payload = Payload(b'abc', b'def')
-    server, client = pipe
+    server, client = get_components(pipe)
 
     with pytest.raises(RuntimeError) as exc_info:
         await AwaitableRSocket(client).request_stream(payload)
@@ -30,7 +31,7 @@ async def test_request_stream_not_implemented_by_server_by_default(pipe: Tuple[R
 
 async def test_request_channel_not_implemented_by_server_by_default(pipe: Tuple[RSocketServer, RSocketClient]):
     payload = Payload(b'abc', b'def')
-    server, client = pipe
+    server, client = get_components(pipe)
 
     with pytest.raises(RuntimeError) as exc_info:
         await AwaitableRSocket(client).request_channel(payload)

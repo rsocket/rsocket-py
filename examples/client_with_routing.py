@@ -4,12 +4,13 @@ import sys
 from asyncio import Event
 from typing import AsyncGenerator, Tuple
 
+from examples.example_fixtures import large_data1
+from examples.shared_tests import assert_result_data
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.fragment import Fragment
 from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
@@ -19,13 +20,13 @@ from rsocket.transports.tcp import TransportTCP
 
 def sample_publisher(wait_for_requester_complete: Event,
                      response_count: int = 3) -> Publisher:
-    async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         current_response = 0
         for i in range(response_count):
             is_complete = (current_response + 1) == response_count
 
             message = 'Item to server from client on channel: %s' % current_response
-            yield Fragment(message.encode('utf-8')), is_complete
+            yield Payload(message.encode('utf-8')), is_complete
 
             if is_complete:
                 wait_for_requester_complete.set()
@@ -41,12 +42,14 @@ class ChannelSubscriber(Subscriber):
     def __init__(self, wait_for_responder_complete: Event) -> None:
         super().__init__()
         self._wait_for_responder_complete = wait_for_responder_complete
+        self.values = []
 
     def on_subscribe(self, subscription: Subscription):
         self.subscription = subscription
 
     def on_next(self, value: Payload, is_complete=False):
         logging.info('From server on channel: ' + value.data.decode('utf-8'))
+        self.values.append(value.data)
         if is_complete:
             self._wait_for_responder_complete.set()
 
@@ -65,6 +68,7 @@ class StreamSubscriber(Subscriber):
                  wait_for_complete: Event,
                  request_n_size=0):
         self._request_n_size = request_n_size
+        self.error = None
         self._wait_for_complete = wait_for_complete
 
     def on_next(self, value, is_complete=False):
@@ -81,6 +85,7 @@ class StreamSubscriber(Subscriber):
 
     def on_error(self, exception):
         logging.info('RS: error: {}'.format(exception))
+        self.error = exception
         self._wait_for_complete.set()
 
     def on_subscribe(self, subscription):
@@ -94,7 +99,31 @@ async def request_response(client: RSocketClient):
         authenticate_simple('user', '12345')
     ))
 
-    await client.request_response(payload)
+    result = await client.request_response(payload)
+
+    assert_result_data(result, b'single_response')
+
+
+async def request_large_response(client: RSocketClient):
+    payload = Payload(b'The quick brown fox', composite(
+        route('large_data'),
+        authenticate_simple('user', '12345')
+    ))
+
+    result = await client.request_response(payload)
+
+    assert_result_data(result, large_data1)
+
+
+async def request_large_request(client: RSocketClient):
+    payload = Payload(large_data1, composite(
+        route('large_request'),
+        authenticate_simple('user', '12345')
+    ))
+
+    result = await client.request_response(payload)
+
+    assert_result_data(result, large_data1)
 
 
 async def request_channel(client: RSocketClient):
@@ -108,10 +137,18 @@ async def request_channel(client: RSocketClient):
 
     requested = client.request_channel(payload, publisher)
 
-    requested.initial_request_n(5).subscribe(ChannelSubscriber(channel_completion_event))
+    subscriber = ChannelSubscriber(channel_completion_event)
+    requested.initial_request_n(5).subscribe(subscriber)
 
     await channel_completion_event.wait()
     await requester_completion_event.wait()
+
+    if subscriber.values != [
+        b'Item on channel: 0',
+        b'Item on channel: 1',
+        b'Item on channel: 2',
+    ]:
+        raise Exception()
 
 
 async def request_stream_invalid_login(client: RSocketClient):
@@ -119,8 +156,10 @@ async def request_stream_invalid_login(client: RSocketClient):
         route('stream'),
         authenticate_simple('user', 'wrong_password')
     ))
+
     completion_event = Event()
-    client.request_stream(payload).initial_request_n(1).subscribe(StreamSubscriber(completion_event))
+    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
+
     await completion_event.wait()
 
 
@@ -144,29 +183,21 @@ async def request_slow_stream(client: RSocketClient):
     await completion_event.wait()
 
 
-async def request_fragmented_stream(client: RSocketClient):
-    payload = Payload(b'The quick brown fox', composite(
-        route('fragmented_stream'),
-        authenticate_simple('user', '12345')
-    ))
-    completion_event = Event()
-    client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
-    await completion_event.wait()
-
-
 async def main(server_port):
     logging.info('Connecting to server at localhost:%s', server_port)
 
     connection = await asyncio.open_connection('localhost', server_port)
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
-                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
+                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
+                             fragment_size_bytes=64) as client:
+        await request_large_response(client)
+        await request_large_request(client)
         await request_response(client)
         await request_stream(client)
         await request_slow_stream(client)
         await request_channel(client)
-        await request_stream_invalid_login(client)
-        await request_fragmented_stream(client)
+        # await request_stream_invalid_login(client)
 
 
 if __name__ == '__main__':

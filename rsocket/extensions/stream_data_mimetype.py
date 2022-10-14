@@ -59,3 +59,11 @@ class StreamDataMimetypes(CompositeMetadataItem):
             serialized += serialize_well_known_encoding(data_encoding, WellKnownMimeTypes.get_by_name)
 
         return serialized
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return (self.content == other.content
+                    and self.encoding == other.encoding
+                    and self.data_encodings == other.data_encodings)
+
+        return False

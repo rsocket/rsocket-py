@@ -7,6 +7,8 @@ from typing import Tuple, Optional
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
+from rsocket.fragment import Fragment
+from rsocket.frame_fragmenter import data_to_fragments_if_required
 from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
     ensure_bytes, pack_string, unpack_string
 from rsocket.logger import logger
@@ -26,6 +28,8 @@ _FLAG_LEASE_BIT = 0x40
 _FLAG_RESUME_BIT = 0x80
 _FLAG_RESPOND_BIT = 0x80
 _FLAG_NEXT_BIT = 0x20
+
+MINIMUM_FRAGMENT_SIZE_BYTES = 64
 
 
 @unique
@@ -58,6 +62,10 @@ class Header:
         'flags_ignore',
         'flags_metadata'
     )
+
+
+def is_blank(value: Optional[bytes]) -> bool:
+    return value is None or len(value) == 0
 
 
 def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
@@ -94,7 +102,9 @@ class Frame(Header, metaclass=ABCMeta):
         'flags_follows',
         'flags_complete',
         'metadata_only',
-        'sent_future'
+        'sent_future',
+        'fragment_size_bytes',
+        'fragment_generator'
     )
 
     def __init__(self, frame_type: FrameType):
@@ -110,6 +120,8 @@ class Frame(Header, metaclass=ABCMeta):
         self.flags_complete = False
         self.metadata_only = False
 
+        self.fragment_size_bytes: Optional[int] = None
+        self.fragment_generator = None
         self.sent_future: Optional[Future] = None
 
     def parse_metadata(self, buffer: bytes, offset: int) -> int:
@@ -186,6 +198,59 @@ class Frame(Header, metaclass=ABCMeta):
             length += len(self.data)
 
         return length
+
+    def __str__(self):
+        return str(f'({FrameType(self.frame_type).name},{self.data},{self.metadata},{self.flags_complete})')
+
+
+class FrameFragmentMixin(metaclass=abc.ABCMeta):
+
+    def get_next_fragment(self, requires_length_header: bool = True) -> Optional['Frame']:
+        if self.fragment_generator is None:
+            self.fragment_generator = data_to_fragments_if_required(
+                self.data,
+                self.metadata,
+                get_header_length(self),
+                self.fragment_size_bytes,
+                requires_length_header
+            )
+
+        try:
+            fragment = self.fragment_generator.__next__()
+            return self._new_frame_fragment(fragment)
+        except GeneratorExit:
+            return None
+        except StopIteration:
+            return None
+
+    def _new_frame_fragment(self, fragment: Fragment) -> 'Frame':
+        if fragment.is_first:
+            frame = self.__class__()
+        else:
+            frame = PayloadFrame()
+
+        if isinstance(frame, PayloadFrame):
+            if not is_blank(frame.data) or not is_blank(frame.metadata):
+                frame.flags_next = True
+
+        frame.stream_id = self.stream_id
+
+        frame.flags_ignore = self.flags_ignore
+        frame.flags_metadata = self.flags_metadata
+        frame.metadata_only = self.metadata_only
+
+        if hasattr(self, 'initial_request_n'):
+            frame.initial_request_n = self.initial_request_n
+
+        frame.data = fragment.data
+        frame.metadata = fragment.metadata
+        frame.flags_follows = fragment.is_last is False
+
+        if fragment.is_last is None or fragment.is_last:
+            frame.sent_future = self.sent_future
+            frame.flags_complete = self.flags_complete
+
+        return frame
 
 
 class SetupFrame(Frame):
@@ -360,20 +425,19 @@ class RequestFrame(Frame):
         offset += self.parse_data(buffer, offset)
 
 
-class RequestResponseFrame(RequestFrame):
+class RequestResponseFrame(RequestFrame, FrameFragmentMixin):
     __slots__ = ()
 
     def __init__(self):
         super().__init__(FrameType.REQUEST_RESPONSE)
 
-    # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
         header = RequestFrame.parse(self, buffer, offset)
         offset += header[0]
         self._parse_payload(buffer, offset)
 
 
-class RequestFireAndForgetFrame(RequestFrame):
+class RequestFireAndForgetFrame(RequestFrame, FrameFragmentMixin):
     __slots__ = ()
 
     def __init__(self):
@@ -385,7 +449,7 @@ class RequestFireAndForgetFrame(RequestFrame):
         self._parse_payload(buffer, offset)
 
 
-class RequestStreamFrame(RequestFrame):
+class RequestStreamFrame(RequestFrame, FrameFragmentMixin):
     __slots__ = 'initial_request_n'
 
     def __init__(self):
@@ -404,7 +468,7 @@ class RequestStreamFrame(RequestFrame):
         return RequestFrame.serialize(self, middle)
 
 
-class RequestChannelFrame(RequestFrame):
+class RequestChannelFrame(RequestFrame, FrameFragmentMixin):
     __slots__ = (
         'initial_request_n',
         'flags_complete',
@@ -462,7 +526,7 @@ class CancelFrame(Frame):
         parse_header(self, buffer, offset)
 
 
-class PayloadFrame(Frame):
+class PayloadFrame(Frame, FrameFragmentMixin):
     __slots__ = (
         'flags_follows',
         'flags_complete',
@@ -487,12 +551,19 @@ class PayloadFrame(Frame):
     def serialize(self, middle=b'', flags=0):
         flags &= ~(_FLAG_FOLLOWS_BIT | _FLAG_COMPLETE_BIT |
                    _FLAG_NEXT_BIT)
+
         if self.flags_follows:
             flags |= _FLAG_FOLLOWS_BIT
+
         if self.flags_complete:
             flags |= _FLAG_COMPLETE_BIT
+
+        if not is_blank(self.data) or not is_blank(self.metadata):
+            self.flags_next = True
+
         if self.flags_next:
             flags |= _FLAG_NEXT_BIT
+
         return Frame.serialize(self, flags=flags)
 
 
@@ -682,3 +753,15 @@ initiate_request_frame_types = (RequestResponseFrame,
                                 RequestChannelFrame,
                                 RequestFireAndForgetFrame
                                 )
+
+frame_header_length = {
+    PayloadFrame: 6,
+    RequestResponseFrame: 6,
+    RequestFireAndForgetFrame: 6,
+    RequestStreamFrame: 10,
+    RequestChannelFrame: 10,
+}
+
+
+def get_header_length(frame: Frame) -> int:
+    return frame_header_length[frame.__class__]

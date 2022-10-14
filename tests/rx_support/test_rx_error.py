@@ -16,6 +16,7 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.rx_support.rx_rsocket import RxRSocket
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
+from tests.rsocket.helpers import get_components
 
 
 @pytest.mark.parametrize('success_count, request_limit', (
@@ -26,7 +27,7 @@ from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 async def test_rx_support_request_stream_with_error(pipe: Tuple[RSocketServer, RSocketClient],
                                                     success_count,
                                                     request_limit):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         for x in range(success_count):
@@ -61,7 +62,7 @@ async def test_rx_support_request_channel_with_error_from_requester(
         pipe: Tuple[RSocketServer, RSocketClient],
         success_count,
         request_limit):
-    server, client = pipe
+    server, client = get_components(pipe)
     responder_received_error = asyncio.Event()
     server_received_messages = []
     received_error = None

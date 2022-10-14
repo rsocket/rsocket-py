@@ -10,12 +10,13 @@ from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from tests.rsocket.helpers import get_components
 from tests.rsocket.misbehaving_rsocket import MisbehavingRSocket
 
 
 @pytest.mark.allow_error_log(regex_filter='Protocol error')
 async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSocketServer, RSocketClient]):
-    _, client = pipe_tcp_without_auto_connect
+    _, client = get_components(pipe_tcp_without_auto_connect)
     received_error_code = None
     error_received = asyncio.Event()
 
@@ -50,7 +51,7 @@ async def test_setup_resume_unsupported(pipe_tcp_without_auto_connect: Tuple[RSo
 
 @pytest.mark.allow_error_log(regex_filter='Protocol error')
 async def test_resume_request_unsupported(pipe_tcp: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe_tcp
+    server, client = get_components(pipe_tcp)
 
     received_error_code = None
     error_received = asyncio.Event()

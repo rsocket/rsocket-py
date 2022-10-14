@@ -42,7 +42,8 @@ class RequestStreamRequester(StreamHandler, DefaultPublisherSubscription):
 
     def _send_stream_request(self, payload: Payload):
         self.socket.send_request(to_request_stream_frame(
-            self.stream_id,
-            payload,
-            self._initial_request_n
+            stream_id=self.stream_id,
+            payload=payload,
+            initial_request_n=self._initial_request_n,
+            fragment_size_bytes=self.socket.get_fragment_size_bytes()
         ))

@@ -4,6 +4,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
+import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.core.RSocketConnector;
 import io.rsocket.metadata.AuthMetadataCodec;
@@ -20,6 +21,7 @@ public class Client {
 
     public static void main(String[] args) {
         final var rSocket = RSocketConnector.create()
+                .fragment(64)
                 .dataMimeType(WellKnownMimeType.TEXT_PLAIN.getString())
                 .metadataMimeType(WellKnownMimeType.MESSAGE_RSOCKET_COMPOSITE_METADATA.getString())
                 .connect(TcpClientTransport.create("localhost", getPort(args)))
@@ -27,6 +29,8 @@ public class Client {
 
         assert rSocket != null;
 
+        testLargeRequest(rSocket);
+        testLargeData(rSocket);
         testSingleRequest(rSocket);
         testStream(rSocket);
         testStreamWithLimit(rSocket);
@@ -87,6 +91,22 @@ public class Client {
                 .block(Duration.ofMinutes(5));
     }
 
+    private static void testLargeData(RSocket rSocket) {
+        rSocket.requestResponse(DefaultPayload.create(getPayload("simple stream"),
+                        composite(route("large_data"), authenticate("simple", "12345"))))
+                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
+                .block(Duration.ofMinutes(10));
+    }
+
+    private static void testLargeRequest(RSocket rSocket) {
+        final Payload payload = DefaultPayload.create(getPayload(Fixtures.largeData()),
+                composite(route("large_request"), authenticate("simple", "12345")
+                ));
+        rSocket.requestResponse(payload)
+                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
+                .block(Duration.ofMinutes(10));
+    }
+
     private static CompositeByteBuf composite(CompositeItem... parts) {
         final var metadata = ByteBufAllocator.DEFAULT.compositeBuffer();
         for (CompositeItem part : parts) {
@@ -102,8 +122,8 @@ public class Client {
 
     private static CompositeItem route(String route) {
         final var routes = List.of(route);
-        final var routingMetadata = TaggingMetadataCodec.createRoutingMetadata(ByteBufAllocator.DEFAULT, routes);
-        return new CompositeItem(routingMetadata.getContent(), WellKnownMimeType.MESSAGE_RSOCKET_ROUTING);
+        final var routingMetadata = TaggingMetadataCodec.createTaggingContent(ByteBufAllocator.DEFAULT, routes);
+        return new CompositeItem(routingMetadata, WellKnownMimeType.MESSAGE_RSOCKET_ROUTING);
 
     }
 

@@ -1,13 +1,11 @@
 from datetime import timedelta
-from typing import Optional
 
 from rsocket.payload import Payload
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
 def response_stream_2(response_count: int = 3,
-                      delay_between_messages=timedelta(0),
-                      fragment_size: Optional[int] = None):
+                      delay_between_messages=timedelta(0)):
     def generator():
         current_response = 0
         for i in range(response_count):
@@ -26,4 +24,4 @@ def response_stream_2(response_count: int = 3,
 
             current_response += 1
 
-    return StreamFromGenerator(generator, delay_between_messages, fragment_size)
+    return StreamFromGenerator(generator, delay_between_messages)

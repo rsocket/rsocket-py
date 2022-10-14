@@ -5,8 +5,8 @@ from pathlib import Path
 
 from aioquic.quic.configuration import QuicConfiguration
 
+from examples.shared_tests import simple_client_server_test
 from rsocket.helpers import single_transport_provider
-from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.aioquic_transport import rsocket_connect
 
@@ -23,22 +23,7 @@ async def main(server_port):
     async with rsocket_connect('localhost', server_port,
                                configuration=client_configuration) as transport:
         async with RSocketClient(single_transport_provider(transport)) as client:
-            payload = Payload(b'%Y-%m-%d %H:%M:%S')
-
-            async def run_request_response():
-                try:
-                    while True:
-                        result = await client.request_response(payload)
-                        logging.info('Response: {}'.format(result.data))
-                        await asyncio.sleep(1)
-                except asyncio.CancelledError:
-                    pass
-
-            task = asyncio.create_task(run_request_response())
-
-            await asyncio.sleep(5)
-            task.cancel()
-            await task
+            await simple_client_server_test(client)
 
 
 if __name__ == '__main__':
