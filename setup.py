@@ -11,7 +11,7 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/rsocket/rsocket-py',
     author='Gabriel Shaar',
-    author_email='gabis@precog.co',
+    author_email='workofishi@pm.me',
     license='MIT',
     packages=find_packages(exclude=['examples', 'tests', 'tests.*', 'docs']),
     zip_safe=True,
