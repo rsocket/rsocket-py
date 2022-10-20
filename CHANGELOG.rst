@@ -5,13 +5,15 @@ v0.4.0
 ======
 
 - Breaking change: Added ability to await fire_and_forget and push_metadata:
-    - Both now return a future which resolves when the frame (or all fragments) finished sending.
+    - Both now return a future which resolves when the payload was sent completely (including fragmentation for fnf)
 - Fixed fragmentation implementation (misunderstood spec):
     - fragments after first one are now correctly of type PayloadFrame
-    - fragment size now includes frame header and length.
+    - fragment size now includes frame header and length
     - Added checking fragment size limit (minimum 64) as in java implementation
     - Updated examples
 - Added reactivex (RxPy version 4) wrapper client
+- Added Initial support for http3 (wss)
+- Better type hint for return value of request_response
 
 v0.3.0
 ======
