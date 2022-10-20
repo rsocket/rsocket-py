@@ -24,7 +24,7 @@ from aioquic.quic.events import DatagramFrameReceived, ProtocolNegotiated, QuicE
 from aioquic.tls import SessionTicket
 
 from rsocket.helpers import noop
-from tests.tools.demo import ApplicationFactory
+from tests.tools.http_app import ApplicationFactory
 
 uvloop = None
 
