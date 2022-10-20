@@ -16,7 +16,7 @@ or install any of the extras:
 * reactivex (RxPy4)
 * aiohttp
 * quart
-* uic
+* quic
 
 Example:
 
