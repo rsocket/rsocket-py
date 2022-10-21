@@ -12,10 +12,11 @@ from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.rx_support.rx_rsocket import RxRSocket
+from tests.rsocket.helpers import get_components
 
 
 async def test_rx_support_request_stream_cancel_on_timeout(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     cancel_done = asyncio.Event()
     stream_messages_sent_count = 0
 
@@ -56,7 +57,7 @@ async def test_rx_support_request_stream_cancel_on_timeout(pipe: Tuple[RSocketSe
 
 
 async def test_rx_support_request_response_cancel_on_timeout(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     response_sent = False
 
     class Handler(BaseRequestHandler):

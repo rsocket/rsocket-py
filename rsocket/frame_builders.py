@@ -1,5 +1,6 @@
+from typing import Optional
+
 from rsocket.datetime_helpers import to_milliseconds
-from rsocket.fragment import Fragment
 from rsocket.frame import (PayloadFrame, RequestNFrame,
                            CancelFrame, RequestChannelFrame,
                            RequestStreamFrame, RequestResponseFrame,
@@ -13,14 +14,13 @@ from rsocket.payload import Payload
 def to_payload_frame(stream_id: int,
                      payload: Payload,
                      complete: bool = False,
-                     is_next: bool = True) -> PayloadFrame:
+                     is_next: bool = True,
+                     fragment_size_bytes: Optional[int] = None) -> PayloadFrame:
     frame = PayloadFrame()
     frame.stream_id = stream_id
     frame.flags_complete = complete
     frame.flags_next = is_next
-
-    if isinstance(payload, Fragment):
-        frame.flags_follows = not payload.is_last
+    frame.fragment_size_bytes = fragment_size_bytes
 
     frame.data = payload.data
     frame.metadata = payload.metadata
@@ -41,7 +41,9 @@ def to_cancel_frame(stream_id: int):
     return frame
 
 
-def to_request_channel_frame(stream_id: int, payload: Payload,
+def to_request_channel_frame(stream_id: int,
+                             payload: Payload,
+                             fragment_size_bytes: Optional[int] = None,
                              initial_request_n: int = MAX_REQUEST_N,
                              complete: bool = False):
     request = RequestChannelFrame()
@@ -50,31 +52,40 @@ def to_request_channel_frame(stream_id: int, payload: Payload,
     request.data = payload.data
     request.metadata = payload.metadata
     request.flags_complete = complete
+    request.fragment_size_bytes = fragment_size_bytes
     return request
 
 
-def to_request_stream_frame(stream_id: int, payload: Payload, initial_request_n: int = MAX_REQUEST_N):
+def to_request_stream_frame(stream_id: int,
+                            payload: Payload,
+                            fragment_size_bytes: Optional[int] = None,
+                            initial_request_n: int = MAX_REQUEST_N):
     request = RequestStreamFrame()
     request.initial_request_n = initial_request_n
     request.stream_id = stream_id
     request.data = payload.data
     request.metadata = payload.metadata
+    request.fragment_size_bytes = fragment_size_bytes
     return request
 
 
-def to_request_response_frame(stream_id: int, payload: Payload):
+def to_request_response_frame(stream_id: int, payload: Payload,
+                              fragment_size_bytes: Optional[int] = None):
     request = RequestResponseFrame()
     request.stream_id = stream_id
     request.data = payload.data
     request.metadata = payload.metadata
+    request.fragment_size_bytes = fragment_size_bytes
     return request
 
 
-def to_fire_and_forget_frame(stream_id: int, payload: Payload) -> RequestFireAndForgetFrame:
+def to_fire_and_forget_frame(stream_id: int, payload: Payload,
+                             fragment_size_bytes: Optional[int] = None) -> RequestFireAndForgetFrame:
     frame = RequestFireAndForgetFrame()
     frame.stream_id = stream_id
     frame.data = payload.data
     frame.metadata = payload.metadata
+    frame.fragment_size_bytes = fragment_size_bytes
     frame.sent_future = create_future()
 
     return frame

@@ -3,20 +3,19 @@ from typing import AsyncGenerator, Tuple, Optional
 
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
-from rsocket.fragment import Fragment
 from rsocket.payload import Payload
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 
 
 def response_stream_1(response_count: int = 3, local_subscriber: Optional[Subscriber] = None):
-    async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         current_response = 0
 
         for i in range(response_count):
             is_complete = (current_response + 1) == response_count
 
             message = 'Item on channel: %s' % current_response
-            yield Fragment(message.encode('utf-8')), is_complete
+            yield Payload(message.encode('utf-8')), is_complete
 
             if local_subscriber is not None:
                 local_subscriber.subscription.request(2)

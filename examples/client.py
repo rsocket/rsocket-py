@@ -2,9 +2,9 @@ import asyncio
 import logging
 import sys
 
+from examples.shared_tests import simple_client_server_test
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.helpers import single_transport_provider
-from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
@@ -22,22 +22,7 @@ async def main(server_port):
     connection = await asyncio.open_connection('localhost', server_port)
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection))) as client:
-        payload = Payload(b'%Y-%m-%d %H:%M:%S')
-
-        async def run_request_response():
-            try:
-                while True:
-                    result = await client.request_response(payload)
-                    logging.info('Response: {}'.format(result.data))
-                    await asyncio.sleep(1)
-            except asyncio.CancelledError:
-                pass
-
-        task = asyncio.create_task(run_request_response())
-
-        await asyncio.sleep(5)
-        task.cancel()
-        await task
+        await simple_client_server_test(client)
 
 
 if __name__ == '__main__':

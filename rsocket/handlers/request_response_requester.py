@@ -19,7 +19,9 @@ class RequestResponseRequester(StreamHandler):
         self._future.add_done_callback(self._on_future_complete)
 
     def run(self) -> Awaitable[Payload]:
-        request = to_request_response_frame(self.stream_id, self._payload)
+        request = to_request_response_frame(self.stream_id,
+                                            self._payload,
+                                            self.socket.get_fragment_size_bytes())
         self.socket.send_request(request)
         return self._future
 

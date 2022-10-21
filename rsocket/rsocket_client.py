@@ -30,6 +30,7 @@ class RSocketClient(RSocketBase):
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  setup_payload: Optional[Payload] = None,
+                 fragment_size_bytes: Optional[int] = None
                  ):
         self._transport_provider = transport_provider.__aiter__()
         self._is_server_alive = True
@@ -48,7 +49,8 @@ class RSocketClient(RSocketBase):
                          metadata_encoding=metadata_encoding,
                          keep_alive_period=keep_alive_period,
                          max_lifetime_period=max_lifetime_period,
-                         setup_payload=setup_payload)
+                         setup_payload=setup_payload,
+                         fragment_size_bytes=fragment_size_bytes)
 
     def _current_transport(self) -> Awaitable[Transport]:
         return self._next_transport

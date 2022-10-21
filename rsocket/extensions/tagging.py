@@ -42,3 +42,10 @@ class TaggingMetadata(CompositeMetadataItem):
             offset += 1
             self.tags.append(buffer[offset:offset + tag_length])
             offset += tag_length
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.tags == other.tags and self.encoding == other.encoding
+
+        return False
+

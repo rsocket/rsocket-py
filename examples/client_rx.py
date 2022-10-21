@@ -5,12 +5,13 @@ from asyncio import Event
 from typing import AsyncGenerator, Tuple
 
 from rx import operators
+from rx.core.operators.map import _map
 
+from examples.shared_tests import assert_result_data
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.extensions.helpers import route, composite, authenticate_simple, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.fragment import Fragment
 from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
@@ -21,13 +22,13 @@ from rsocket.transports.tcp import TransportTCP
 
 def sample_publisher(wait_for_requester_complete: Event,
                      response_count: int = 3):
-    async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         current_response = 0
         for i in range(response_count):
             is_complete = (current_response + 1) == response_count
 
             message = 'Item to server from client on channel: %s' % current_response
-            yield Fragment(message.encode('utf-8')), is_complete
+            yield Payload(message.encode('utf-8')), is_complete
 
             if is_complete:
                 wait_for_requester_complete.set()
@@ -96,7 +97,9 @@ async def request_response(client: RxRSocket):
         authenticate_simple('user', '12345')
     ))
 
-    await client.request_response(payload).pipe()
+    result = await client.request_response(payload).pipe()
+
+    assert_result_data(result, b'single_response')
 
 
 async def request_last_metadata(client: RxRSocket):
@@ -107,7 +110,7 @@ async def request_last_metadata(client: RxRSocket):
 
     result = await client.request_response(payload).pipe()
 
-    assert result.data == b'audit info'
+    assert_result_data(result, b'audit info')
 
 
 async def request_last_fnf(client: RxRSocket):
@@ -118,11 +121,10 @@ async def request_last_fnf(client: RxRSocket):
 
     result = await client.request_response(payload).pipe()
 
-    assert result.data == b'aux data'
+    assert_result_data(result, b'aux data')
 
 
 async def metadata_push(client: RxRSocket, metadata: bytes):
-
     await client.metadata_push(composite(
         route('metadata_push'),
         authenticate_simple('user', '12345'),
@@ -173,22 +175,17 @@ async def request_stream(client: RxRSocket):
         route('stream'),
         authenticate_simple('user', '12345')
     ))
-    result = await client.request_stream(payload).pipe(operators.to_list())
-    print(result)
+    result = await client.request_stream(payload).pipe(_map(lambda p: p.data), operators.to_list())
+
+    if result != [b'Item on channel: 0',
+                  b'Item on channel: 1',
+                  b'Item on channel: 2']:
+        raise Exception(result)
 
 
 async def request_slow_stream(client: RxRSocket):
     payload = Payload(b'The quick brown fox', composite(
         route('slow_stream'),
-        authenticate_simple('user', '12345')
-    ))
-    result = await client.request_stream(payload).pipe(operators.to_list())
-    print(result)
-
-
-async def request_fragmented_stream(client: RxRSocket):
-    payload = Payload(b'The quick brown fox', composite(
-        route('fragmented_stream'),
         authenticate_simple('user', '12345')
     ))
     result = await client.request_stream(payload).pipe(operators.to_list())
@@ -208,7 +205,6 @@ async def main(server_port):
         await request_slow_stream(rx_client)
         await request_channel(rx_client)
         await request_stream_invalid_login(rx_client)
-        await request_fragmented_stream(rx_client)
 
         await metadata_push(rx_client, b'audit info')
         await request_last_metadata(rx_client)

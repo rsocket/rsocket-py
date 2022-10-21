@@ -17,12 +17,15 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
+from tests.rsocket.helpers import get_components
 
 
-@pytest.mark.parametrize('complete_inline',
-                         (True, False))
+@pytest.mark.parametrize('complete_inline', (
+        True,
+        False,
+))
 async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient], complete_inline):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     class Handler(BaseRequestHandler):
 
@@ -47,17 +50,20 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
     assert result[2].data == b'Feed Item: 2'
 
 
-@pytest.mark.parametrize('initial_request_n', (0, -1))
+@pytest.mark.parametrize('initial_request_n', (
+        0,
+        -1,
+))
 async def test_request_stream_prevent_negative_initial_request_n(pipe: Tuple[RSocketServer, RSocketClient],
                                                                  initial_request_n):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     with pytest.raises(RSocketValueError):
         client.request_stream(Payload()).initial_request_n(initial_request_n)
 
 
 async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     stream_finished = asyncio.Event()
 
     class Handler(BaseRequestHandler, DefaultPublisherSubscription):
@@ -98,7 +104,7 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
 
 
 async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     stream_canceled = asyncio.Event()
 
     async def feed():
@@ -135,7 +141,7 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
 
 async def test_request_stream_immediately_completed_by_server_without_payloads(
         pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     stream_done = asyncio.Event()
 
     class Handler(BaseRequestHandler, DefaultPublisherSubscription):
@@ -171,7 +177,7 @@ async def test_request_stream_immediately_completed_by_server_without_payloads(
 
 
 async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     requests_received = 0
 
     class Handler(BaseRequestHandler, DefaultPublisherSubscription):
@@ -216,39 +222,29 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
     assert requests_received == 3
 
 
-async def test_fragmented_stream(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
-    fragments_sent = 0
-
+async def test_fragmented_stream(lazy_pipe):
     def generator() -> Generator[Tuple[Payload, bool], None, None]:
         for i in range(3):
-            yield Payload(ensure_bytes('some long data which should be fragmented %s' % i)), i == 2
-
-    class StreamFragmentedCounter(StreamFromGenerator):
-        def _send_to_subscriber(self, payload: Payload, is_complete=False):
-            nonlocal fragments_sent
-            fragments_sent += 1
-            return super()._send_to_subscriber(payload, is_complete)
+            yield Payload(ensure_bytes('%s some long data which should be fragmented %s' % (i, i))), i == 2
 
     class Handler(BaseRequestHandler):
 
         async def request_stream(self, payload: Payload) -> Publisher:
-            return StreamFragmentedCounter(generator, fragment_size=6)
+            return StreamFromGenerator(generator)
 
-    server.set_handler_using_factory(Handler)
-    received_messages = await AwaitableRSocket(client).request_stream(Payload())
+    async with lazy_pipe(
+            server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 64}) as (server, client):
+        received_messages = await AwaitableRSocket(client).request_stream(Payload())
 
-    assert len(received_messages) == 3
-    assert received_messages[0].data == b'some long data which should be fragmented 0'
-    assert received_messages[1].data == b'some long data which should be fragmented 1'
-    assert received_messages[2].data == b'some long data which should be fragmented 2'
-
-    assert fragments_sent == 24
+        assert len(received_messages) == 3
+        assert received_messages[0].data == b'0 some long data which should be fragmented 0'
+        assert received_messages[1].data == b'1 some long data which should be fragmented 1'
+        assert received_messages[2].data == b'2 some long data which should be fragmented 2'
 
 
 @pytest.mark.timeout(15)
 async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         item_count = 10
@@ -285,3 +281,26 @@ async def test_request_stream_concurrent_request_n(pipe: Tuple[RSocketServer, RS
 
     for i in range(10):
         assert received_messages[i].data == 'Feed Item: {}'.format(i).encode()
+
+
+async def test_request_stream_fragmented(lazy_pipe):
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        yield Payload(ensure_bytes('Feed Item: 1')), True
+
+    class Handler(BaseRequestHandler):
+
+        async def request_stream(self, payload: Payload) -> Publisher:
+            if payload.data != b'dog-dog-dog-dog-dog-dog-dog-dog-dog' * 10:
+                raise Exception()
+
+            return StreamFromAsyncGenerator(generator)
+
+    async with lazy_pipe(
+            server_arguments={'handler_factory': Handler},
+            client_arguments={'fragment_size_bytes': 64}) as (server, client):
+        data = b'dog-dog-dog-dog-dog-dog-dog-dog-dog' * 10
+
+        response = await AwaitableRSocket(client).request_stream(
+            Payload(data, b'cat'))
+
+        assert response[0].data == b'Feed Item: 1'

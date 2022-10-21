@@ -24,7 +24,7 @@ class Authentication(metaclass=abc.ABCMeta):
 class AuthenticationSimple(Authentication):
     __slots__ = 'username', 'password'
 
-    def __init__(self, username: Optional[str] = None, password: Optional[str] = None):
+    def __init__(self, username: Optional[Union[str, bytes]] = None, password: Optional[Union[str, bytes]] = None):
         self.username = ensure_bytes(username)
         self.password = ensure_bytes(password)
 
@@ -46,6 +46,13 @@ class AuthenticationSimple(Authentication):
     def type(self) -> bytes:
         return WellKnownAuthenticationTypes.SIMPLE.value.name
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return (self.username == other.username
+                    and self.password == other.password)
+
+        return False
+
 
 class AuthenticationBearer(Authentication):
     __slots__ = 'token'
@@ -62,3 +69,9 @@ class AuthenticationBearer(Authentication):
     @property
     def type(self) -> bytes:
         return WellKnownAuthenticationTypes.BEARER.value.name
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.token == other.token
+
+        return False

@@ -24,5 +24,8 @@ class Transport(metaclass=abc.ABCMeta):
     async def close(self):
         ...
 
+    def requires_length_header(self) -> bool:
+        return False
+
     async def on_send_queue_empty(self):
         pass
