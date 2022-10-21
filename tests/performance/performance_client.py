@@ -14,6 +14,7 @@ from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.transports.tcp import TransportTCP
+from tests.rsocket.helpers import to_json_bytes
 
 
 def sample_publisher(wait_for_requester_complete: Event,
@@ -67,7 +68,7 @@ class StreamSubscriber(Subscriber):
         self._wait_for_complete = wait_for_complete
 
     def on_next(self, value, is_complete=False):
-        logging.info('RS: {}'.format(value))
+        logging.info(f'Performance Client: value_length {len(value.data)}')
         if is_complete:
             self._wait_for_complete.set()
         else:
@@ -75,11 +76,11 @@ class StreamSubscriber(Subscriber):
                 self.subscription.request(self._request_n_size)
 
     def on_complete(self):
-        logging.info('RS: Complete')
+        logging.info('Performance Client: Complete')
         self._wait_for_complete.set()
 
     def on_error(self, exception):
-        logging.info('RS: error: {}'.format(exception))
+        logging.error('Performance Client: {}'.format(exception))
         self._wait_for_complete.set()
 
     def on_subscribe(self, subscription):
@@ -124,11 +125,13 @@ class PerformanceClient:
         self._client.request_stream(payload).initial_request_n(1).subscribe(StreamSubscriber(completion_event))
         await completion_event.wait()
 
-    async def request_stream(self):
-        payload = Payload(b'The quick brown fox', composite(
-            route('stream'),
-            authenticate_simple('user', '12345')
-        ))
+    async def request_stream(self, response_count: int = 3, response_size=100):
+        payload = Payload(to_json_bytes({'response_count': response_count,
+                                         'response_size': response_size}),
+                          composite(
+                              route('stream'),
+                              authenticate_simple('user', '12345')
+                          ))
         completion_event = Event()
         self._client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
         await completion_event.wait()

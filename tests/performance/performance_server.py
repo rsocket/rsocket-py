@@ -1,10 +1,10 @@
 import asyncio
+import json
 import logging
 import sys
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
-
 
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
 from rsocket.extensions.composite_metadata import CompositeMetadata
@@ -47,9 +47,12 @@ async def get_last_metadata_push():
 
 
 @router.stream('stream')
-async def stream_response(payload, composite_metadata):
+async def stream_response(payload: Payload, composite_metadata):
+    data = json.loads(payload.data)
+
     logging.info('Got stream request')
-    return response_stream_1()
+
+    return response_stream_1(**data)
 
 
 @router.stream('fragmented_stream')
@@ -98,7 +101,10 @@ def handler_factory(socket):
 
 
 def handle_client(reader, writer):
-    RSocketServer(TransportTCP(reader, writer), handler_factory=handler_factory)
+    RSocketServer(TransportTCP(reader, writer),
+                  handler_factory=handler_factory,
+                  fragment_size_bytes=64_000
+                  )
 
 
 async def run_server(server_port):
@@ -112,5 +118,5 @@ async def run_server(server_port):
 
 if __name__ == '__main__':
     port = sys.argv[1] if len(sys.argv) > 1 else 6565
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.ERROR)
     asyncio.run(run_server(port))

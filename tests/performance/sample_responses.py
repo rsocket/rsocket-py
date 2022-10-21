@@ -34,16 +34,17 @@ def response_stream_2(response_count: int = 3,
     return StreamFromGenerator(generator, delay_between_messages, fragment_size)
 
 
-
-def response_stream_1(response_count: int = 3, local_subscriber: Optional[Subscriber] = None):
+def response_stream_1(response_count: int = 3,
+                      local_subscriber: Optional[Subscriber] = None,
+                      response_size: int = 10):
     async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
         current_response = 0
+        message = b'a' * response_size
 
         for i in range(response_count):
             is_complete = (current_response + 1) == response_count
 
-            message = 'Item on channel: %s' % current_response
-            yield Fragment(message.encode('utf-8')), is_complete
+            yield Fragment(message), is_complete
 
             if local_subscriber is not None:
                 local_subscriber.subscription.request(2)
