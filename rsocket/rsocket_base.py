@@ -1,13 +1,14 @@
 import abc
 import asyncio
 from asyncio import Task
+from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type, cast, TypeVar
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketProtocolError, RSocketTransportError
+from rsocket.exceptions import RSocketProtocolError, RSocketTransportError, RSocketError
 from rsocket.extensions.mimetypes import WellKnownMimeTypes, ensure_encoding_name
 from rsocket.frame import (KeepAliveFrame,
                            MetadataPushFrame, RequestFireAndForgetFrame,
@@ -15,7 +16,7 @@ from rsocket.frame import (KeepAliveFrame,
                            exception_to_error_frame,
                            LeaseFrame, ErrorFrame, RequestFrame,
                            initiate_request_frame_types, InvalidFrame,
-                           FragmentableFrame)
+                           FragmentableFrame, FrameFragmentMixin, MINIMUM_FRAGMENT_SIZE_BYTES)
 from rsocket.frame import (RequestChannelFrame, ResumeFrame,
                            is_fragmentable_frame, CONNECTION_STREAM_ID)
 from rsocket.frame import SetupFrame
@@ -34,6 +35,7 @@ from rsocket.lease import DefinedLease, NullLease, Lease
 from rsocket.local_typing import Awaitable
 from rsocket.logger import logger
 from rsocket.payload import Payload
+from rsocket.queue_peekable import QueuePeekable
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
 from rsocket.rsocket import RSocket
 from rsocket.rsocket_internal import RSocketInternal
@@ -63,8 +65,11 @@ class RSocketBase(RSocket, RSocketInternal):
                  metadata_encoding: Union[str, bytes, WellKnownMimeTypes] = WellKnownMimeTypes.APPLICATION_JSON,
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
-                 setup_payload: Optional[Payload] = None
+                 setup_payload: Optional[Payload] = None,
+                 fragment_size_bytes: Optional[int] = None
                  ):
+
+        self._assert_valid_fragment_size(fragment_size_bytes)
 
         self._handler_factory = handler_factory
         self._request_queue_size = request_queue_size
@@ -82,6 +87,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._requester_lease = None
         self._is_closing = False
         self._connecting = True
+        self._fragment_size_bytes = fragment_size_bytes
 
         self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
             RequestResponseFrame: self.handle_request_response,
@@ -98,6 +104,9 @@ class RSocketBase(RSocket, RSocketInternal):
 
         self._setup_internals()
 
+    def get_fragment_size_bytes(self) -> Optional[int]:
+        return self._fragment_size_bytes
+
     def _setup_internals(self):
         pass
 
@@ -107,7 +116,7 @@ class RSocketBase(RSocket, RSocketInternal):
 
     def _reset_internals(self):
         self._frame_fragment_cache = FrameFragmentCache()
-        self._send_queue = asyncio.Queue()
+        self._send_queue = QueuePeekable()
         self._request_queue = asyncio.Queue(self._request_queue_size)
 
         if self._honor_lease:
@@ -184,7 +193,8 @@ class RSocketBase(RSocket, RSocketInternal):
         self.send_frame(exception_to_error_frame(stream_id, exception))
 
     def send_payload(self, stream_id: int, payload: Payload, complete=False, is_next=True):
-        self.send_frame(to_payload_frame(stream_id, payload, complete, is_next=is_next))
+        self.send_frame(to_payload_frame(stream_id, payload, complete, is_next=is_next,
+                                         fragment_size_bytes=self.get_fragment_size_bytes()))
 
     def _update_last_keepalive(self):
         pass
@@ -354,18 +364,20 @@ class RSocketBase(RSocket, RSocketInternal):
             return
 
         if is_fragmentable_frame(frame):
-            frame = self._frame_fragment_cache.append(cast(FragmentableFrame, frame))
-            if frame is None:
+            complete_frame = self._frame_fragment_cache.append(cast(FragmentableFrame, frame))
+            if complete_frame is None:
                 return
+        else:
+            complete_frame = frame
 
-        stream_id = frame.stream_id
-
-        if stream_id == CONNECTION_STREAM_ID or isinstance(frame, initiate_request_frame_types):
-            await self._handle_frame_by_type(frame)
-        elif self._stream_control.handle_stream(stream_id, frame):
+        if (complete_frame.stream_id == CONNECTION_STREAM_ID or
+                isinstance(complete_frame, initiate_request_frame_types)):
+            await self._handle_frame_by_type(complete_frame)
+        elif self._stream_control.handle_stream(complete_frame):
             return
         else:
-            logger().debug('%s: Dropping frame from unknown stream %d', self._log_identifier(), frame.stream_id)
+            logger().debug('%s: Dropping frame from unknown stream %d', self._log_identifier(),
+                           complete_frame.stream_id)
 
     async def _handle_frame_by_type(self, frame: Frame):
         frame_handler = self._async_frame_handler_by_type.get(type(frame), async_noop)
@@ -380,6 +392,24 @@ class RSocketBase(RSocket, RSocketInternal):
     async def _finally_sender(self):
         pass
 
+    @asynccontextmanager
+    async def _get_next_frame_to_send(self, transport: Transport) -> Frame:
+        next_frame_source = await self._send_queue.peek()
+
+        if isinstance(next_frame_source, FrameFragmentMixin):
+            next_fragment = next_frame_source.get_next_fragment(transport.requires_length_header())
+
+            if not next_fragment.flags_follows:
+                next_frame_source.get_next_fragment(
+                    transport.requires_length_header())  # workaround to clean-up generator.
+                self._send_queue.get_nowait()
+
+            yield next_fragment
+
+        else:
+            self._send_queue.get_nowait()
+            yield next_frame_source
+
     async def _sender(self):
         try:
             try:
@@ -387,13 +417,12 @@ class RSocketBase(RSocket, RSocketInternal):
 
                 self._before_sender()
                 while self.is_server_alive():
-                    frame = await self._send_queue.get()
-                    await transport.send_frame(frame)
-                    log_frame(frame, self._log_identifier(), 'Sent')
-                    self._send_queue.task_done()
+                    async with self._get_next_frame_to_send(transport) as frame:
+                        await transport.send_frame(frame)
+                        log_frame(frame, self._log_identifier(), 'Sent')
 
-                    if frame.sent_future is not None:
-                        frame.sent_future.set_result(None)
+                        if frame.sent_future is not None:
+                            frame.sent_future.set_result(None)
 
                     if self._send_queue.empty():
                         await transport.on_send_queue_empty()
@@ -497,3 +526,7 @@ class RSocketBase(RSocket, RSocketInternal):
     @abc.abstractmethod
     def _log_identifier(self) -> str:
         ...
+
+    def _assert_valid_fragment_size(self, fragment_size_bytes: Optional[int]):
+        if fragment_size_bytes is not None and fragment_size_bytes < MINIMUM_FRAGMENT_SIZE_BYTES:
+            raise RSocketError("Invalid fragment size specified. bytes: %s" % fragment_size_bytes)

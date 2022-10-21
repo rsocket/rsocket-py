@@ -1,11 +1,9 @@
 import abc
 import asyncio
 from datetime import timedelta
-from io import BytesIO
 from typing import AsyncGenerator, Tuple, Optional
 
 from reactivestreams.subscriber import Subscriber
-from rsocket.frame_helpers import payload_to_n_size_fragments
 from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -22,12 +20,10 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
     def __init__(self,
                  generator,
                  delay_between_messages=timedelta(0),
-                 fragment_size: Optional[int] = None,
                  on_cancel=None,
                  on_complete=None):
         self._generator = generator
         self._queue = asyncio.Queue()
-        self._fragment_size = fragment_size
         self._delay_between_messages = delay_between_messages
         self._subscriber: Optional[Subscriber] = None
         self._payload_feeder = None
@@ -105,13 +101,7 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
             while True:
                 payload, is_complete = await self._queue.get()
 
-                if self._fragment_size is None:
-                    self._send_to_subscriber(payload, is_complete)
-                else:
-                    async for fragment in payload_to_n_size_fragments(BytesIO(payload.data),
-                                                                      BytesIO(payload.metadata),
-                                                                      self._fragment_size):
-                        self._send_to_subscriber(fragment, is_complete and fragment.is_last)
+                self._send_to_subscriber(payload, is_complete)
 
                 await asyncio.sleep(self._delay_between_messages.total_seconds())
 

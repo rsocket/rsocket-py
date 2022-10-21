@@ -11,6 +11,7 @@ from tests.tools.fixtures_aiohttp import pipe_factory_aiohttp_websocket, aiohttp
 from tests.tools.fixtures_aioquic import pipe_factory_quic, generate_test_certificates  # noqa: F401
 from tests.tools.fixtures_quart import pipe_factory_quart_websocket
 from tests.tools.fixtures_tcp import pipe_factory_tcp
+from tests.tools.fixtures_http3 import pipe_factory_http3  # noqa: F401
 
 
 def setup_logging():
@@ -34,7 +35,8 @@ tested_transports = [
     'tcp',
     'aiohttp',
     'quart',
-    'quic'
+    'quic',
+    'http3'
 ]
 
 
@@ -111,7 +113,8 @@ def get_pipe_factory_by_id(aiohttp_raw_server,
         return functools.partial(pipe_factory_aiohttp_websocket, aiohttp_raw_server)
     if transport_id == 'quic':
         return functools.partial(pipe_factory_quic, generate_test_certificates)
-
+    if transport_id == 'http3':
+        return functools.partial(pipe_factory_http3, generate_test_certificates)
 
 @pytest.fixture
 async def pipe_tcp_without_auto_connect(unused_tcp_port):

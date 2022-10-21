@@ -1,5 +1,7 @@
 from typing import Union, Optional
 
+from rsocket.frame_helpers import ensure_bytes
+
 ByteTypes = Union[bytes, bytearray]
 
 
@@ -25,13 +27,3 @@ class Payload:
 
     def __repr__(self):
         return "Payload({}, {})".format(self.data, self.metadata)
-
-
-def ensure_bytes(data: Optional[ByteTypes]) -> Optional[bytes]:
-    if data is None:
-        return data
-
-    if isinstance(data, bytes):
-        return data
-
-    return bytes(data)

@@ -15,10 +15,11 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.rx_support.rx_rsocket import RxRSocket
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
+from tests.rsocket.helpers import get_components
 
 
 async def test_rx_support_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         for x in range(3):
@@ -44,7 +45,7 @@ async def test_rx_support_request_stream_properly_finished(pipe: Tuple[RSocketSe
 
 
 async def test_rx_support_request_stream_immediate_complete(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     class SimpleCompleted(DefaultPublisherSubscription):
 
@@ -71,7 +72,7 @@ async def test_rx_support_request_stream_immediate_complete(pipe: Tuple[RSocketS
 
 
 async def test_rx_support_request_response_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     class Handler(BaseRequestHandler):
         async def request_response(self, payload: Payload) -> Future:
@@ -89,7 +90,7 @@ async def test_rx_support_request_response_properly_finished(pipe: Tuple[RSocket
 
 
 async def test_rx_support_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     server_received_messages = []
 
     responder_received_all = asyncio.Event()
@@ -141,7 +142,7 @@ async def test_rx_support_request_channel_properly_finished(pipe: Tuple[RSocketS
 
 
 async def test_rx_support_request_channel_response_only_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
 
     async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
         for x in range(3):
@@ -187,7 +188,7 @@ async def test_rx_rsocket_context_manager(pipe_tcp_without_auto_connect):
 
 
 async def test_rx_support_metadata_push(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     received_item_event = asyncio.Event()
     received_item = None
 
@@ -208,7 +209,7 @@ async def test_rx_support_metadata_push(pipe: Tuple[RSocketServer, RSocketClient
 
 
 async def test_rx_support_fire_and_forget(pipe: Tuple[RSocketServer, RSocketClient]):
-    server, client = pipe
+    server, client = get_components(pipe)
     received_item_event = asyncio.Event()
     received_item = None
 

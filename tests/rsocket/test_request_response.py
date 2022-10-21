@@ -7,7 +7,7 @@ from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from tests.rsocket.helpers import future_from_payload
+from tests.rsocket.helpers import future_from_payload, get_components
 
 
 @pytest.mark.timeout(4)
@@ -16,7 +16,7 @@ async def test_request_response_awaitable_wrapper(pipe):
         async def request_response(self, request: Payload):
             return future_from_payload(request)
 
-    server, client = pipe
+    server, client = get_components(pipe)
     server._handler = Handler(server)
 
     response = await AwaitableRSocket(client).request_response(Payload(b'dog', b'cat'))
@@ -28,7 +28,7 @@ async def test_request_response_repeated(pipe):
         async def request_response(self, request: Payload):
             return future_from_payload(request)
 
-    server, client = pipe
+    server, client = get_components(pipe)
     server._handler = Handler(server)
 
     for x in range(2):
@@ -42,7 +42,7 @@ async def test_request_response_failure(pipe):
             self.set_exception(RuntimeError(''))
             return self
 
-    server, client = pipe
+    server, client = get_components(pipe)
     server._handler = Handler(server)
 
     with pytest.raises(RuntimeError):
@@ -57,7 +57,7 @@ async def test_request_response_cancellation(pipe):
             # return a future that will never complete.
             return server_future
 
-    server, client = pipe
+    server, client = get_components(pipe)
     server._handler = Handler(server)
 
     future = client.request_response(Payload())
@@ -101,7 +101,7 @@ async def test_request_response_bidirectional(pipe):
             return create_future(Payload(b'(client ' + payload.data + b')',
                                          b'(client ' + payload.metadata + b')'))
 
-    server, client = pipe
+    server, client = get_components(pipe)
     server._handler = ServerHandler(server)
     client._handler = ClientHandler(client)
 
@@ -109,3 +109,17 @@ async def test_request_response_bidirectional(pipe):
 
     assert response.data == b'(server (client data))'
     assert response.metadata == b'(server (client metadata))'
+
+
+async def test_request_response_fragmented(lazy_pipe):
+    class Handler(BaseRequestHandler):
+        async def request_response(self, request: Payload):
+            return future_from_payload(request)
+
+    async with lazy_pipe(
+            server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 64},
+            client_arguments={'fragment_size_bytes': 64}) as (server, client):
+        data = b'dog-dog-dog-dog-dog-dog-dog-dog-dog' * 10
+        response = await client.request_response(Payload(data, b'cat'))
+
+        assert response.data == b'data: ' + data

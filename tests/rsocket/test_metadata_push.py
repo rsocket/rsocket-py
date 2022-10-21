@@ -4,8 +4,8 @@ from typing import Optional
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from tests.rsocket.helpers import get_components
 
 
 class MetadataPushHandler(BaseRequestHandler):
@@ -27,8 +27,7 @@ async def test_metadata_push(pipe):
         handler = MetadataPushHandler(socket)
         return handler
 
-    server: RSocketServer = pipe[0]
-    client: RSocketClient = pipe[1]
+    server, client = get_components(pipe)
     server.set_handler_using_factory(handler_factory)
 
     await client.metadata_push(b'cat')
@@ -47,8 +46,7 @@ async def test_metadata_push_await(pipe):
         handler = MetadataPushHandler(socket)
         return handler
 
-    server: RSocketServer = pipe[0]
-    client: RSocketClient = pipe[1]
+    server, client = get_components(pipe)
     server.set_handler_using_factory(handler_factory)
 
     await client.metadata_push(b'cat')

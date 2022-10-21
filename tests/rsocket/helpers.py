@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import timedelta
 from math import ceil
+from typing import Tuple
 from typing import Type, Callable
 
 from rsocket.helpers import create_future, noop
@@ -9,6 +10,7 @@ from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
 from rsocket.rsocket_base import RSocketBase
+from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.transport import Transport
 
@@ -85,3 +87,7 @@ async def force_closing_connection(transport, delay=timedelta(0)):
 class ServerContainer:
     server: RSocketServer = None
     transport: Transport = None
+
+
+def get_components(pipe) -> Tuple[RSocketServer, RSocketClient]:
+    return pipe
