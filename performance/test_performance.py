@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from tests.performance.performance_client import PerformanceClient
+from performance.performance_client import PerformanceClient
 
 
 @pytest.mark.timeout(5)
@@ -28,7 +28,7 @@ async def test_request_stream(unused_tcp_port):
 
 @asynccontextmanager
 async def run_against_server(unused_tcp_port: int) -> PerformanceClient:
-    pid = os.spawnlp(os.P_NOWAIT, 'python3', 'python3', './performance_server.py', str(unused_tcp_port))
+    pid = os.spawnlp(os.P_NOWAIT, 'python3', 'python3', 'performance_server.py', str(unused_tcp_port))
     await asyncio.sleep(2)  # todo: replace with wait for server
     try:
         async with run_with_client(unused_tcp_port) as client:

@@ -14,7 +14,7 @@ from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
-from tests.performance.sample_responses import response_stream_2, response_stream_1, LoggingSubscriber
+from performance.sample_responses import response_stream_2, response_stream_1, LoggingSubscriber
 
 router = RequestRouter()
 
