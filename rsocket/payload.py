@@ -1,6 +1,6 @@
 from typing import Union, Optional
 
-from rsocket.frame_helpers import ensure_bytes
+from rsocket.frame_helpers import ensure_bytes, safe_len
 
 ByteTypes = Union[bytes, bytearray]
 
@@ -20,10 +20,10 @@ class Payload:
         self.metadata = ensure_bytes(metadata)
 
     def __str__(self):
-        return "<payload: {}, {}>".format(self.data, self.metadata)
+        return f"<payload: data_length {safe_len(self.data)}, metadata_length {safe_len(self.metadata)}>"
 
     def __eq__(self, other):
         return self.data == other.data and self.metadata == other.metadata
 
     def __repr__(self):
-        return "Payload({}, {})".format(self.data, self.metadata)
+        return f"Payload(b'{self.data}', b'{self.metadata}')"
