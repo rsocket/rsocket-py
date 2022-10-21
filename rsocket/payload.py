@@ -26,4 +26,4 @@ class Payload:
         return self.data == other.data and self.metadata == other.metadata
 
     def __repr__(self):
-        return f"Payload(b'{self.data}', b'{self.metadata}')"
+        return f"Payload({repr(self.data)}, {repr(self.metadata)})"
