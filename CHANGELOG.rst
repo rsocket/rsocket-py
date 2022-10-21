@@ -1,6 +1,12 @@
 Changelog
 ---------
 
+
+v0.4.1
+======
+- Removed data and metadata content from logs. Replaced with data and metadata sizes
+- Performance test examples available in *performance* folder
+
 v0.4.0
 ======
 
