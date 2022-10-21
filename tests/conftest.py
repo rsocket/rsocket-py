@@ -14,19 +14,22 @@ from tests.tools.fixtures_tcp import pipe_factory_tcp
 from tests.tools.fixtures_http3 import pipe_factory_http3  # noqa: F401
 
 
-def setup_logging():
-    file_handler = logging.FileHandler('tests.log')
-    console_handler = logging.StreamHandler()
-
+def setup_logging(level=logging.DEBUG, use_file: bool = False):
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
+    console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
-    console_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(level)
 
-    handlers = [console_handler, file_handler]
-    logging.basicConfig(level=logging.DEBUG, handlers=handlers)
+    handlers = [console_handler]
+
+    if use_file:
+        file_handler = logging.FileHandler('tests.log')
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(level)
+        handlers.append(file_handler)
+
+    logging.basicConfig(level=level, handlers=handlers)
 
 
 setup_logging()
@@ -115,6 +118,7 @@ def get_pipe_factory_by_id(aiohttp_raw_server,
         return functools.partial(pipe_factory_quic, generate_test_certificates)
     if transport_id == 'http3':
         return functools.partial(pipe_factory_http3, generate_test_certificates)
+
 
 @pytest.fixture
 async def pipe_tcp_without_auto_connect(unused_tcp_port):
