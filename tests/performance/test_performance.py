@@ -10,13 +10,15 @@ from tests.performance.performance_client import PerformanceClient
 
 
 @pytest.mark.timeout(5)
-async def test_request_response(unused_tcp_port, benchmark):
+@pytest.mark.performance
+async def test_request_response(unused_tcp_port):
     async with run_against_server(unused_tcp_port) as client:
         await record_runtime('request_response', client.request_response)
 
 
 @pytest.mark.timeout(300)
-async def test_request_stream(unused_tcp_port, benchmark):
+@pytest.mark.performance
+async def test_request_stream(unused_tcp_port):
     async with run_against_server(unused_tcp_port) as client:
         arguments = dict(response_count=1,
                          response_size=1_000_000)
