@@ -96,7 +96,7 @@ class BaseRequestHandler(RequestHandler):
         raise RuntimeError('Not implemented')
 
     async def on_error(self, error_code: ErrorCode, payload: Payload):
-        logger().error('Error handler: %s, %s', error_code, payload)
+        logger().error('Error handler: %s, %s', error_code.name, payload)
 
     async def on_connection_lost(self, rsocket, exception: Exception):
         await rsocket.close()
