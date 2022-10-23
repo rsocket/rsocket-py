@@ -22,7 +22,7 @@ setup(
         'aiohttp': {'aiohttp >= 3.0.0'},
         'quart': {'quart >= 0.15.0'},
         'quic': {'aioquic >= 0.9.0'},
-        'cli': {'asyncclick >= 8.0.0', 'reactivex >= 4.0.0'}
+        'cli': {'asyncclick >= 8.0.0'}
     },
     classifiers=[
         'Development Status :: 3 - Alpha',

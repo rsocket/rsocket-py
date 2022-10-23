@@ -200,15 +200,9 @@ async def test_request_stream_with_back_pressure(pipe: Tuple[RSocketServer, RSoc
         async def request_stream(self, payload: Payload) -> Publisher:
             return self
 
-    class StreamSubscriber(CollectorSubscriber):
-
-        def on_next(self, value, is_complete=False):
-            super().on_next(value, is_complete)
-            self.subscription.request(1)
-
     server.set_handler_using_factory(Handler)
 
-    stream_subscriber = StreamSubscriber()
+    stream_subscriber = CollectorSubscriber(limit_rate=1)
 
     client.request_stream(Payload()).initial_request_n(1).subscribe(stream_subscriber)
 

@@ -4,20 +4,19 @@ from dataclasses import dataclass
 from typing import Optional, Type, Collection
 
 import asyncclick as click
-from reactivex import operators
 
+from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import route, composite, authenticate_simple, authenticate_bearer
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import MAX_REQUEST_N
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
-from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 from rsocket.transports.aiohttp_websocket import TransportAioHttpClient
 from rsocket.transports.tcp import TransportTCP
-
+from importlib.metadata import version as get_version
 
 @dataclass(frozen=True)
 class RSocketUri:
@@ -75,7 +74,7 @@ def build_composite_metadata(auth_simple: str,
 @click.option('-m', '--metadata', is_flag=False, default=None)
 @click.option('-r', '--route', 'route_value', is_flag=False, default=None)
 @click.option('--limitRate', 'limit_rate', is_flag=False, default=None)
-@click.option('--take', is_flag=False, default=None)
+# @click.option('--take', is_flag=False, default=None)
 @click.option('-u', '--as', '--authSimple', 'auth_simple', is_flag=False, default=None)
 @click.option('--ab', '--authBearer', 'auth_bearer', is_flag=False, default=None)
 @click.option('--dataMimeType', '--dmt', 'data_mime_type', is_flag=False, default='application/json')
@@ -91,12 +90,12 @@ def build_composite_metadata(auth_simple: str,
 async def command(data, load,
                   metadata, route_value, auth_simple, auth_bearer,
                   limit_rate,
-                  take,
+                  # take,
                   data_mime_type, metadata_mime_type,
                   request, stream, channel, fnf,
                   uri, debug, version, quiet):
     if version:
-        print('v0.4')
+        print(get_version('rsocket'))
         return
 
     if quiet:
@@ -105,13 +104,11 @@ async def command(data, load,
     if debug:
         logging.basicConfig(level=logging.DEBUG)
 
-    take_n = None
-
-    if take is not None:
-        take_n = int(take)
-
-        if take_n == 0:
-            return
+    # if take is not None:
+    #     take_n = int(take)
+    #
+    #     if take_n == 0:
+    #         return
 
     if limit_rate is not None:
         limit_rate = int(limit_rate)
@@ -136,7 +133,7 @@ async def command(data, load,
         client_arguments['metadata_encoding'] = WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA
 
     async with RSocketClient(single_transport_provider(transport), **client_arguments) as client:
-        awaitable_client = ReactiveXClient(client)
+        awaitable_client = AwaitableRSocket(client)
 
         if len(composite_items) > 0:
             metadata_value = composite(*composite_items)
@@ -152,31 +149,13 @@ async def command(data, load,
         result = None
 
         if request:
-            result = await awaitable_client.request_response(payload).pipe(operators.single())
+            result = await awaitable_client.request_response(payload)
         elif stream:
-            operations = [operators.to_list()]
-
-            if take_n is not None:
-                operations.append(operators.take(take))
-
-            result = await awaitable_client.request_stream(payload, request_limit=limit_rate).pipe(
-                *operations
-            )
+            result = await awaitable_client.request_stream(payload, limit_rate=limit_rate)
         elif channel:
-            operations = [operators.to_list()]
-
-            if take is not None:
-                take_n = int(take)
-
-                if take_n == 0:
-                    return
-
-                operations.append(operators.take(take))
-            result = await awaitable_client.request_channel(payload, request_limit=limit_rate).pipe(
-                *operations
-            )
+            result = await awaitable_client.request_channel(payload, limit_rate=limit_rate)
         elif fnf:
-            await awaitable_client.fire_and_forget(payload).pipe(operators.single())
+            await awaitable_client.fire_and_forget(payload)
 
         if isinstance(result, Payload):
             print(result.data.decode('utf-8'))
