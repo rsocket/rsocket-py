@@ -49,7 +49,9 @@ async def transport_from_uri(uri: RSocketUri) -> Type[AbstractMessagingTransport
     raise Exception('Unsupported schema in CLI')
 
 
-def build_composite_metadata(auth_simple: str, route_value: str, auth_bearer: str):
+def build_composite_metadata(auth_simple: str,
+                             route_value: str,
+                             auth_bearer: str):
     composite_items = []
 
     if route_value is not None:
