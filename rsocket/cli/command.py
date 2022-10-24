@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Optional, Type, Collection
 
@@ -69,6 +70,17 @@ def build_composite_metadata(auth_simple: str,
     return composite_items
 
 
+@asynccontextmanager
+async def create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_payload):
+    transport = await transport_from_uri(parsed_uri)
+
+    async with RSocketClient(single_transport_provider(transport),
+                             data_encoding=data_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
+                             metadata_encoding=metadata_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
+                             setup_payload=setup_payload) as client:
+        yield AwaitableRSocket(client)
+
+
 @click.command()
 @click.option('-d', '--data', is_flag=False, help='Data. Use "-" to read data from standard input. (default: )')
 @click.option('-l', '--load', is_flag=False, help='Load a file as Data. (e.g. ./foo.txt, /tmp/foo.txt)')
@@ -125,24 +137,18 @@ async def command(data, load,
 
     data = normalize_data(data, load)
 
-    transport = await transport_from_uri(parsed_uri)
-
     if len(composite_items) > 0:
         metadata_mime_type = WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA
 
     setup_payload = create_setup_payload(setup_data, setup_metadata)
 
-    async with RSocketClient(single_transport_provider(transport),
-                             data_encoding=data_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
-                             metadata_encoding=metadata_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
-                             setup_payload=setup_payload) as client:
-        awaitable_client = AwaitableRSocket(client)
+    async with create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_payload) as client:
 
         metadata_value = get_metadata_value(composite_items, metadata)
 
         payload = Payload(ensure_bytes(data), metadata_value)
 
-        result = await execute_request(awaitable_client,
+        result = await execute_request(client,
                                        channel,
                                        fnf,
                                        limit_rate,
