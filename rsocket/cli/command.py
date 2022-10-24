@@ -81,7 +81,7 @@ async def create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_pa
         yield AwaitableRSocket(client)
 
 
-@click.command()
+@click.command(help='Supported connection strings: tcp/ws')
 @click.option('-d', '--data', is_flag=False,
               help='Data. Use "-" to read data from standard input. (default: )')
 @click.option('-l', '--load', is_flag=False,
@@ -116,7 +116,7 @@ async def create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_pa
               help='Disable the output on next')
 @click.option('--version', is_flag=True,
               help='Print version')
-@click.argument('uri', help='Connection URI. supported: tcp/ws')
+@click.argument('uri')
 async def command(data, load,
                   metadata, route_value, auth_simple, auth_bearer,
                   limit_rate, take_n,
