@@ -17,6 +17,7 @@ or install any of the extras:
 * aiohttp
 * quart
 * quic
+* cli
 
 Example:
 
