@@ -2,7 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Optional, Type, Collection
+from typing import Optional, Type, Collection, List
 
 import asyncclick as click
 
@@ -29,7 +29,7 @@ class RSocketUri:
     original_uri: Optional[str] = None
 
 
-def parse_uri(uri: str):
+def parse_uri(uri: str) -> RSocketUri:
     schema, rest = uri.split(':', 1)
     rest = rest.strip('/')
     host_port = rest.split('/', 1)
@@ -53,9 +53,9 @@ async def transport_from_uri(uri: RSocketUri) -> Type[AbstractMessagingTransport
     raise Exception('Unsupported schema in CLI')
 
 
-def build_composite_metadata(auth_simple: str,
-                             route_value: str,
-                             auth_bearer: str):
+def build_composite_metadata(auth_simple: Optional[str],
+                             route_value: Optional[str],
+                             auth_bearer: Optional[str]):
     composite_items = []
 
     if route_value is not None:
@@ -156,11 +156,13 @@ def normalize_metadata_mime_type(composite_items, metadata_mime_type):
     return metadata_mime_type
 
 
-def create_request_payload(data, load, metadata, composite_items) -> Payload:
+def create_request_payload(data: Optional[str],
+                           load: Optional[str],
+                           metadata: Optional[str],
+                           composite_items: List) -> Payload:
     data = normalize_data(data, load)
     metadata_value = get_metadata_value(composite_items, metadata)
-    payload = Payload(data, metadata_value)
-    return payload
+    return Payload(data, metadata_value)
 
 
 def output_result(result):
@@ -185,7 +187,7 @@ async def execute_request(awaitable_client, channel, fnf, limit_rate, payload, r
     return result
 
 
-def get_metadata_value(composite_items, metadata) -> bytes:
+def get_metadata_value(composite_items: List, metadata: Optional[str]) -> bytes:
     if len(composite_items) > 0:
         metadata_value = composite(*composite_items)
     else:
@@ -194,22 +196,24 @@ def get_metadata_value(composite_items, metadata) -> bytes:
     return ensure_bytes(metadata_value)
 
 
-def create_setup_payload(setup_data, setup_metadata) -> Optional[Payload]:
+def create_setup_payload(setup_data: Optional[str], setup_metadata: Optional[str]) -> Optional[Payload]:
     setup_payload = None
+
     if setup_data is not None or setup_metadata is not None:
         setup_payload = Payload(
             ensure_bytes(setup_data),
             ensure_bytes(setup_metadata)
         )
+
     return setup_payload
 
 
-def normalize_data(data: str, load: str) -> bytes:
+def normalize_data(data: Optional[str], load: Optional[str]) -> bytes:
     if data == '-':
         stdin_text = click.get_text_stream('stdin')
         data = stdin_text.read()
 
-    if load:
+    if load is not None:
         with open(load) as fd:
             data = fd.read()
 
@@ -221,6 +225,7 @@ def normalize_limit_rate(limit_rate):
         limit_rate = MAX_REQUEST_N
     else:
         limit_rate = MAX_REQUEST_N
+
     return limit_rate
 
 
