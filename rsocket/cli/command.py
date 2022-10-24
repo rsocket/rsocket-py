@@ -82,16 +82,24 @@ async def create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_pa
 
 
 @click.command()
-@click.option('-d', '--data', is_flag=False, help='Data. Use "-" to read data from standard input. (default: )')
-@click.option('-l', '--load', is_flag=False, help='Load a file as Data. (e.g. ./foo.txt, /tmp/foo.txt)')
-@click.option('-m', '--metadata', is_flag=False, default=None, help='Metadata (default: )')
-@click.option('-r', '--route', 'route_value', is_flag=False, default=None, help='Enable Routing Metadata Extension')
-@click.option('--limitRate', 'limit_rate', is_flag=False, default=None, type=int, help='Enable limitRate(rate)')
-@click.option('--take', 'take_n', is_flag=False, default=None, type=int)
+@click.option('-d', '--data', is_flag=False,
+              help='Data. Use "-" to read data from standard input. (default: )')
+@click.option('-l', '--load', is_flag=False,
+              help='Load a file as Data. (e.g. ./foo.txt, /tmp/foo.txt)')
+@click.option('-m', '--metadata', is_flag=False, default=None,
+              help='Metadata (default: )')
+@click.option('-r', '--route', 'route_value', is_flag=False, default=None,
+              help='Enable Routing Metadata Extension')
+@click.option('--limitRate', 'limit_rate', is_flag=False, default=None, type=int,
+              help='Enable limitRate(rate)')
+@click.option('--take', 'take_n', is_flag=False, default=None, type=int,
+              help='Enable take(n)')
 @click.option('-u', '--as', '--authSimple', 'auth_simple', is_flag=False, default=None,
               help='Enable Authentication Metadata Extension (Simple). The format must be "username: password"')
-@click.option('--sd', '--setupData', 'setup_data', is_flag=False, default=None)
-@click.option('--sm', '--setupMetadata', 'setup_metadata', is_flag=False, default=None)
+@click.option('--sd', '--setupData', 'setup_data', is_flag=False, default=None,
+              help='Data for Setup payload')
+@click.option('--sm', '--setupMetadata', 'setup_metadata', is_flag=False, default=None,
+              help='Metadata for Setup payload')
 @click.option('--ab', '--authBearer', 'auth_bearer', is_flag=False, default=None,
               help='Enable Authentication Metadata Extension (Bearer)')
 @click.option('--dataMimeType', '--dmt', 'data_mime_type', is_flag=False,
@@ -102,10 +110,13 @@ async def create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_pa
 @click.option('--stream', is_flag=True)
 @click.option('--channel', is_flag=True)
 @click.option('--fnf', is_flag=True)
-@click.option('--debug', is_flag=True, help='Show debug log')
-@click.option('--quiet', '-q', is_flag=True, help='Disable the output on next')
-@click.option('--version', is_flag=True, help='Print version')
-@click.argument('uri')
+@click.option('--debug', is_flag=True,
+              help='Show debug log')
+@click.option('--quiet', '-q', is_flag=True,
+              help='Disable the output on next')
+@click.option('--version', is_flag=True,
+              help='Print version')
+@click.argument('uri', help='Connection URI. supported: tcp/ws')
 async def command(data, load,
                   metadata, route_value, auth_simple, auth_bearer,
                   limit_rate, take_n,
