@@ -117,31 +117,20 @@ async def command(data, load,
     if take_n == 0:
         return
 
-    if limit_rate is not None and not limit_rate > 0:
-        limit_rate = MAX_REQUEST_N
-    else:
-        limit_rate = MAX_REQUEST_N
+    limit_rate = normalize_limit_rate(limit_rate)
 
     parsed_uri = parse_uri(uri)
 
     composite_items = build_composite_metadata(auth_simple, route_value, auth_bearer)
 
-    if data == '-':
-        stdin_text = click.get_text_stream('stdin')
-        data = stdin_text.read()
+    data = normalize_data(data, load)
 
     transport = await transport_from_uri(parsed_uri)
 
     if len(composite_items) > 0:
         metadata_mime_type = WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA
 
-    setup_payload = None
-
-    if setup_data is not None or setup_metadata is not None:
-        setup_payload = Payload(
-            ensure_bytes(setup_data),
-            ensure_bytes(setup_metadata)
-        )
+    setup_payload = create_setup_payload(setup_data, setup_metadata)
 
     async with RSocketClient(single_transport_provider(transport),
                              data_encoding=data_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
@@ -149,33 +138,81 @@ async def command(data, load,
                              setup_payload=setup_payload) as client:
         awaitable_client = AwaitableRSocket(client)
 
-        if len(composite_items) > 0:
-            metadata_value = composite(*composite_items)
-        else:
-            metadata_value = metadata
-
-        if load:
-            with open(load) as fd:
-                data = fd.read()
+        metadata_value = get_metadata_value(composite_items, metadata)
 
         payload = Payload(ensure_bytes(data), metadata_value)
 
-        result = None
-
-        if request:
-            result = await awaitable_client.request_response(payload)
-        elif stream:
-            result = await awaitable_client.request_stream(payload, limit_rate=limit_rate)
-        elif channel:
-            result = await awaitable_client.request_channel(payload, limit_rate=limit_rate)
-        elif fnf:
-            await awaitable_client.fire_and_forget(payload)
+        result = await execute_request(awaitable_client,
+                                       channel,
+                                       fnf,
+                                       limit_rate,
+                                       payload,
+                                       request,
+                                       stream)
 
         if not quiet:
-            if isinstance(result, Payload):
-                print(result.data.decode('utf-8'))
-            elif isinstance(result, Collection):
-                print([p.data.decode('utf-8') for p in result])
+            output_result(result)
+
+
+def output_result(result):
+    if isinstance(result, Payload):
+        print(result.data.decode('utf-8'))
+    elif isinstance(result, Collection):
+        print([p.data.decode('utf-8') for p in result])
+
+
+async def execute_request(awaitable_client, channel, fnf, limit_rate, payload, request, stream):
+    result = None
+
+    if request:
+        result = await awaitable_client.request_response(payload)
+    elif stream:
+        result = await awaitable_client.request_stream(payload, limit_rate=limit_rate)
+    elif channel:
+        result = await awaitable_client.request_channel(payload, limit_rate=limit_rate)
+    elif fnf:
+        await awaitable_client.fire_and_forget(payload)
+
+    return result
+
+
+def get_metadata_value(composite_items, metadata) -> bytes:
+    if len(composite_items) > 0:
+        metadata_value = composite(*composite_items)
+    else:
+        metadata_value = metadata
+
+    return ensure_bytes(metadata_value)
+
+
+def create_setup_payload(setup_data, setup_metadata) -> Optional[Payload]:
+    setup_payload = None
+    if setup_data is not None or setup_metadata is not None:
+        setup_payload = Payload(
+            ensure_bytes(setup_data),
+            ensure_bytes(setup_metadata)
+        )
+    return setup_payload
+
+
+def normalize_data(data: str, load: str) -> bytes:
+    if data == '-':
+        stdin_text = click.get_text_stream('stdin')
+        data = stdin_text.read()
+
+    if load:
+        with open(load) as fd:
+            data = fd.read()
+
+    return ensure_bytes(data)
+
+
+def normalize_limit_rate(limit_rate):
+    if limit_rate is not None and not limit_rate > 0:
+        limit_rate = MAX_REQUEST_N
+    else:
+        limit_rate = MAX_REQUEST_N
+    return limit_rate
 
 
 if __name__ == '__main__':
