@@ -122,3 +122,9 @@ async def cancel_if_task_exists(task: Optional[Task]):
             logger().debug('Asyncio task cancellation error: %s', task)
         except RuntimeError:
             logger().warning('Runtime error canceling task: %s', task, exc_info=True)
+
+
+def utf8_decode(data: bytes):
+    if data is not None:
+        return data.decode('utf-8')
+    return None
