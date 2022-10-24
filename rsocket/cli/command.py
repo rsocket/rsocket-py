@@ -146,7 +146,7 @@ async def command(data, load,
 
         metadata_value = get_metadata_value(composite_items, metadata)
 
-        payload = Payload(ensure_bytes(data), metadata_value)
+        payload = Payload(data, metadata_value)
 
         result = await execute_request(client,
                                        channel,
