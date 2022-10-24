@@ -129,35 +129,38 @@ async def command(data, load,
     if take_n == 0:
         return
 
-    limit_rate = normalize_limit_rate(limit_rate)
-
-    parsed_uri = parse_uri(uri)
-
     composite_items = build_composite_metadata(auth_simple, route_value, auth_bearer)
 
-    data = normalize_data(data, load)
-
-    if len(composite_items) > 0:
-        metadata_mime_type = WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA
-
-    setup_payload = create_setup_payload(setup_data, setup_metadata)
-
-    async with create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_payload) as client:
-
-        metadata_value = get_metadata_value(composite_items, metadata)
-
-        payload = Payload(data, metadata_value)
+    async with create_client(parse_uri(uri),
+                             data_mime_type,
+                             normalize_metadata_mime_type(composite_items, metadata_mime_type),
+                             create_setup_payload(setup_data, setup_metadata)
+                             ) as client:
 
         result = await execute_request(client,
                                        channel,
                                        fnf,
-                                       limit_rate,
-                                       payload,
+                                       normalize_limit_rate(limit_rate),
+                                       create_request_payload(data, load, metadata, composite_items),
                                        request,
                                        stream)
 
         if not quiet:
             output_result(result)
+
+
+def normalize_metadata_mime_type(composite_items, metadata_mime_type):
+    if len(composite_items) > 0:
+        metadata_mime_type = WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA
+
+    return metadata_mime_type
+
+
+def create_request_payload(data, load, metadata, composite_items) -> Payload:
+    data = normalize_data(data, load)
+    metadata_value = get_metadata_value(composite_items, metadata)
+    payload = Payload(data, metadata_value)
+    return payload
 
 
 def output_result(result):
