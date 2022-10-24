@@ -18,6 +18,7 @@ from rsocket.transports.aiohttp_websocket import TransportAioHttpClient
 from rsocket.transports.tcp import TransportTCP
 from importlib.metadata import version as get_version
 
+
 @dataclass(frozen=True)
 class RSocketUri:
     host: str
@@ -69,33 +70,42 @@ def build_composite_metadata(auth_simple: str,
 
 
 @click.command()
-@click.option('-d', '--data', is_flag=False)
-@click.option('-l', '--load', is_flag=False)
-@click.option('-m', '--metadata', is_flag=False, default=None)
-@click.option('-r', '--route', 'route_value', is_flag=False, default=None)
-@click.option('--limitRate', 'limit_rate', is_flag=False, default=None)
-# @click.option('--take', is_flag=False, default=None)
-@click.option('-u', '--as', '--authSimple', 'auth_simple', is_flag=False, default=None)
-@click.option('--ab', '--authBearer', 'auth_bearer', is_flag=False, default=None)
-@click.option('--dataMimeType', '--dmt', 'data_mime_type', is_flag=False, default='application/json')
-@click.option('--metadataMimeType', '--mmt', 'metadata_mime_type', is_flag=False, default='application/json')
+@click.option('-d', '--data', is_flag=False, help='Data. Use "-" to read data from standard input. (default: )')
+@click.option('-l', '--load', is_flag=False, help='Load a file as Data. (e.g. ./foo.txt, /tmp/foo.txt)')
+@click.option('-m', '--metadata', is_flag=False, default=None, help='Metadata (default: )')
+@click.option('-r', '--route', 'route_value', is_flag=False, default=None, help='Enable Routing Metadata Extension')
+@click.option('--limitRate', 'limit_rate', is_flag=False, default=None, type=int, help='Enable limitRate(rate)')
+@click.option('--take', 'take_n', is_flag=False, default=None, type=int)
+@click.option('-u', '--as', '--authSimple', 'auth_simple', is_flag=False, default=None,
+              help='Enable Authentication Metadata Extension (Simple). The format must be "username: password"')
+@click.option('--sd', '--setupData', 'setup_data', is_flag=False, default=None)
+@click.option('--sm', '--setupMetadata', 'setup_metadata', is_flag=False, default=None)
+@click.option('--ab', '--authBearer', 'auth_bearer', is_flag=False, default=None,
+              help='Enable Authentication Metadata Extension (Bearer)')
+@click.option('--dataMimeType', '--dmt', 'data_mime_type', is_flag=False,
+              help='MimeType for data (default: application/json)')
+@click.option('--metadataMimeType', '--mmt', 'metadata_mime_type', is_flag=False,
+              help='MimeType for metadata (default:application/json)')
 @click.option('--request', is_flag=True)
 @click.option('--stream', is_flag=True)
 @click.option('--channel', is_flag=True)
 @click.option('--fnf', is_flag=True)
-@click.option('--debug', is_flag=True)
-@click.option('--quiet', '-q', is_flag=True)
-@click.option('--version', is_flag=True)
+@click.option('--debug', is_flag=True, help='Show debug log')
+@click.option('--quiet', '-q', is_flag=True, help='Disable the output on next')
+@click.option('--version', is_flag=True, help='Print version')
 @click.argument('uri')
 async def command(data, load,
                   metadata, route_value, auth_simple, auth_bearer,
-                  limit_rate,
-                  # take,
+                  limit_rate, take_n,
+                  setup_data, setup_metadata,
                   data_mime_type, metadata_mime_type,
                   request, stream, channel, fnf,
                   uri, debug, version, quiet):
     if version:
-        print(get_version('rsocket'))
+        try:
+            print(get_version('rsocket'))
+        except Exception:
+            print('Failed to find version')
         return
 
     if quiet:
@@ -104,17 +114,11 @@ async def command(data, load,
     if debug:
         logging.basicConfig(level=logging.DEBUG)
 
-    # if take is not None:
-    #     take_n = int(take)
-    #
-    #     if take_n == 0:
-    #         return
+    if take_n == 0:
+        return
 
-    if limit_rate is not None:
-        limit_rate = int(limit_rate)
-
-        if not limit_rate > 0:
-            limit_rate = MAX_REQUEST_N
+    if limit_rate is not None and not limit_rate > 0:
+        limit_rate = MAX_REQUEST_N
     else:
         limit_rate = MAX_REQUEST_N
 
@@ -122,17 +126,27 @@ async def command(data, load,
 
     composite_items = build_composite_metadata(auth_simple, route_value, auth_bearer)
 
+    if data == '-':
+        stdin_text = click.get_text_stream('stdin')
+        data = stdin_text.read()
+
     transport = await transport_from_uri(parsed_uri)
 
-    client_arguments = {
-        'data_encoding': data_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
-        'metadata_encoding': metadata_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
-    }
-
     if len(composite_items) > 0:
-        client_arguments['metadata_encoding'] = WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA
+        metadata_mime_type = WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA
 
-    async with RSocketClient(single_transport_provider(transport), **client_arguments) as client:
+    setup_payload = None
+
+    if setup_data is not None or setup_metadata is not None:
+        setup_payload = Payload(
+            ensure_bytes(setup_data),
+            ensure_bytes(setup_metadata)
+        )
+
+    async with RSocketClient(single_transport_provider(transport),
+                             data_encoding=data_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
+                             metadata_encoding=metadata_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
+                             setup_payload=setup_payload) as client:
         awaitable_client = AwaitableRSocket(client)
 
         if len(composite_items) > 0:
@@ -157,10 +171,11 @@ async def command(data, load,
         elif fnf:
             await awaitable_client.fire_and_forget(payload)
 
-        if isinstance(result, Payload):
-            print(result.data.decode('utf-8'))
-        elif isinstance(result, Collection):
-            print([p.data.decode('utf-8') for p in result])
+        if not quiet:
+            if isinstance(result, Payload):
+                print(result.data.decode('utf-8'))
+            elif isinstance(result, Collection):
+                print([p.data.decode('utf-8') for p in result])
 
 
 if __name__ == '__main__':
