@@ -7,6 +7,8 @@ v0.4.1
 - Added running tests on python 3.11 and package classification
 - Removed data and metadata content from logs. Replaced with data and metadata sizes
 - Performance test examples available in *performance* folder
+- WSS (Secure websocket) example and support (aiohttp)
+    - Refactored Websocket transport to allow providing either url or an existing websocket
 
 v0.4.0
 ======

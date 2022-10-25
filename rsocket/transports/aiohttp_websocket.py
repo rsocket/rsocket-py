@@ -1,8 +1,9 @@
 import asyncio
 from contextlib import asynccontextmanager
+from typing import Optional
 
 import aiohttp
-from aiohttp import web
+from aiohttp import web, ClientWebSocketResponse
 
 from rsocket.exceptions import RSocketTransportError
 from rsocket.frame import Frame
@@ -14,8 +15,10 @@ from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 
 
 @asynccontextmanager
-async def websocket_client(url, **kwargs) -> RSocketClient:
-    async with RSocketClient(single_transport_provider(TransportAioHttpClient(url)),
+async def websocket_client(url: Optional[str] = None,
+                           websocket: Optional[ClientWebSocketResponse] = None,
+                           **kwargs) -> RSocketClient:
+    async with RSocketClient(single_transport_provider(TransportAioHttpClient(url, websocket)),
                              **kwargs) as client:
         yield client
 
@@ -38,19 +41,22 @@ def websocket_handler_factory(on_server_create=None, **kwargs):
 
 class TransportAioHttpClient(AbstractMessagingTransport):
 
-    def __init__(self, url):
+    def __init__(self, url: Optional[str] = None, websocket: Optional[ClientWebSocketResponse] = None):
         super().__init__()
         self._url = url
         self._session = None
         self._ws_context = None
-        self._ws = None
+        self._ws = websocket
+        self._ws_is_internal: bool = websocket is None
         self._message_handler = None
         self._connection_ready = asyncio.Event()
 
     async def connect(self):
-        self._session = aiohttp.ClientSession()
-        self._ws_context = self._session.ws_connect(self._url)
-        self._ws = await self._ws_context.__aenter__()
+        if self._ws_is_internal:
+            self._session = aiohttp.ClientSession()
+            self._ws_context = self._session.ws_connect(self._url)
+            self._ws = await self._ws_context.__aenter__()
+
         self._connection_ready.set()
         self._message_handler = asyncio.create_task(self.handle_incoming_ws_messages())
 
@@ -72,8 +78,10 @@ class TransportAioHttpClient(AbstractMessagingTransport):
             await self._ws.send_bytes(frame.serialize())
 
     async def close(self):
-        await self._ws_context.__aexit__(None, None, None)
-        await self._session.__aexit__(None, None, None)
+        if self._ws_is_internal:
+            await self._ws_context.__aexit__(None, None, None)
+            await self._session.__aexit__(None, None, None)
+
         self._message_handler.cancel()
         await self._message_handler
 
