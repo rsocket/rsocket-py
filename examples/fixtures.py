@@ -7,18 +7,19 @@ from OpenSSL import crypto
 
 
 @contextmanager
-def cert_gen(emailAddress="emailAddress",
-             commonName="localhost",
-             countryName="NT",
-             localityName="localityName",
-             stateOrProvinceName="stateOrProvinceName",
-             organizationName="organizationName",
-             organizationUnitName="organizationUnitName",
-             serialNumber=0,
-             validityStartInSeconds=0,
-             validityEndInSeconds=None) -> Tuple[str, str]:
-    if validityEndInSeconds is None:
-        validityEndInSeconds = int(timedelta(days=3650).total_seconds())
+def cert_gen(email_address="emailAddress",
+             common_name="localhost",
+             country_name="NT",
+             locality_name="localityName",
+             state_or_province_name="stateOrProvinceName",
+             organization_name="organizationName",
+             organization_unit_name="organizationUnitName",
+             serial_number=0,
+             validity_start_in_seconds=0,
+             validity_end_in_seconds=None) -> Tuple[str, str]:
+    if validity_end_in_seconds is None:
+        validity_end_in_seconds = int(timedelta(days=3650).total_seconds())
+
     # can look at generated file using openssl:
     # openssl x509 -inform pem -in selfsigned.crt -noout -text
     # create a key pair
@@ -27,16 +28,16 @@ def cert_gen(emailAddress="emailAddress",
 
     # create a self-signed cert
     cert = crypto.X509()
-    cert.get_subject().C = countryName
-    cert.get_subject().ST = stateOrProvinceName
-    cert.get_subject().L = localityName
-    cert.get_subject().O = organizationName
-    cert.get_subject().OU = organizationUnitName
-    cert.get_subject().CN = commonName
-    cert.get_subject().emailAddress = emailAddress
-    cert.set_serial_number(serialNumber)
+    cert.get_subject().C = country_name
+    cert.get_subject().ST = state_or_province_name
+    cert.get_subject().L = locality_name
+    cert.get_subject().O = organization_name
+    cert.get_subject().OU = organization_unit_name
+    cert.get_subject().CN = common_name
+    cert.get_subject().emailAddress = email_address
+    cert.set_serial_number(serial_number)
     cert.gmtime_adj_notBefore(0)
-    cert.gmtime_adj_notAfter(validityEndInSeconds)
+    cert.gmtime_adj_notAfter(validity_end_in_seconds)
     cert.set_issuer(cert.get_subject())
     cert.set_pubkey(k)
     cert.sign(k, 'sha512')
