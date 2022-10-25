@@ -95,6 +95,14 @@ async def create_client(parsed_uri,
 
 
 @click.command(help='Supported connection strings: tcp/ws/wss')
+@click.option('--request', is_flag=True,
+              help='Request response')
+@click.option('--stream', is_flag=True,
+              help='Request stream')
+@click.option('--channel', is_flag=True,
+              help='Request channel')
+@click.option('--fnf', is_flag=True,
+              help='Fire and Forget')
 @click.option('-d', '--data', is_flag=False,
               help='Data. Use "-" to read data from standard input. (default: )')
 @click.option('-l', '--load', is_flag=False,
@@ -121,21 +129,14 @@ async def create_client(parsed_uri,
               help='MimeType for metadata (default:application/json)')
 @click.option('--allowUntrustedSsl', 'allow_untrusted_ssl', is_flag=True, default=False,
               help='Do not verify SSL certificate (for wss:// urls)')
-@click.option('--request', is_flag=True,
-              help='Request response')
-@click.option('--stream', is_flag=True,
-              help='Request stream')
-@click.option('--channel', is_flag=True,
-              help='Request channel')
-@click.option('--fnf', is_flag=True,
-              help='Fire and Forget')
+@click.option('--httpHeader', 'http_header', multiple=True,
+              help='ws/wss headers')
 @click.option('--debug', is_flag=True,
               help='Show debug log')
 @click.option('--quiet', '-q', is_flag=True,
               help='Disable the output on next')
 @click.option('--version', is_flag=True,
               help='Print version')
-@click.option('--httpHeader', 'http_header', multiple=True, help='ws/wss headers')
 @click.argument('uri')
 async def command(data, load,
                   metadata, route_value, auth_simple, auth_bearer,
