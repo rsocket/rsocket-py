@@ -152,6 +152,8 @@ def get_request_type(request: bool,
     if metadata_push:
         return RequestType.metadata_push
 
+    raise click.UsageError('No interaction method specified (eg. --request)')
+
 
 @click.command(name='rsocket-py', help='Supported connection strings: tcp/ws/wss')
 @click.option('--im', '--interactionModel', 'interaction_model', is_flag=False,

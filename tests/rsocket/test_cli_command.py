@@ -108,13 +108,17 @@ def test_normalize_data_from_stdin_takes_precedence_over_load_from_file():
         assert data == fixture_data_stdin
 
 
-def test_normalize_limit_rate():
-    result = normalize_limit_rate(None)
+@pytest.mark.parametrize('limit_rate, expected', (
+        (None, MAX_REQUEST_N),
+))
+def test_normalize_limit_rate(limit_rate, expected):
+    result = normalize_limit_rate(limit_rate)
 
-    assert result == MAX_REQUEST_N
+    assert result == expected
 
 
 @pytest.mark.parametrize('is_request, stream, fnf, metadata_push, channel, interaction_model, expected', (
+        (None, None, None, None, None, None, Exception),
         (True, None, None, None, None, None, RequestType.response),
         (None, True, None, None, None, None, RequestType.stream),
         (None, None, True, None, None, None, RequestType.fnf),
