@@ -9,11 +9,20 @@ from tests.rsocket.helpers import create_data
 
 
 def test_parse_uri():
-    parsed = parse_uri('wss://localhost:6565')
+    parsed = parse_uri('tcp://localhost:6565')
+
+    assert parsed.schema == 'tcp'
+    assert parsed.port == 6565
+    assert parsed.host == 'localhost'
+
+
+def test_parse_uri_wss():
+    parsed = parse_uri('wss://localhost/path')
 
     assert parsed.schema == 'wss'
-    assert parsed.port == '6565'
+    assert parsed.port is None
     assert parsed.host == 'localhost'
+    assert parsed.path == 'path'
 
 
 def test_build_composite_metadata():

@@ -2,6 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from enum import Enum, unique
 from typing import Optional, Type, Collection, List
 
 import aiohttp
@@ -22,10 +23,22 @@ from rsocket.transports.tcp import TransportTCP
 from importlib.metadata import version as get_version
 
 
+@unique
+class RequestType(Enum):
+    response = 'REQUEST_RESPONSE'
+    stream = 'REQUEST_STREAM'
+    channel = 'REQUEST_CHANNEL'
+    fnf = 'FIRE_AND_FORGET'
+    metadata_push = 'METADATA_PUSH'
+
+
+interaction_models: List[str] = [str(e.value) for e in RequestType]
+
+
 @dataclass(frozen=True)
 class RSocketUri:
     host: str
-    port: str
+    port: int
     schema: str
     path: Optional[str] = None
     original_uri: Optional[str] = None
@@ -34,11 +47,17 @@ class RSocketUri:
 def parse_uri(uri: str) -> RSocketUri:
     schema, rest = uri.split(':', 1)
     rest = rest.strip('/')
-    host_port = rest.split('/', 1)
-    host, port = host_port[0].split(':')
+    host_port_path = rest.split('/', 1)
+    host_port = host_port_path[0].split(':')
+    host = host_port[0]
 
-    if len(host_port) > 1:
-        rest = host_port[1]
+    if len(host_port) == 1:
+        port = None
+    else:
+        port = int(host_port[1])
+
+    if len(host_port_path) > 1:
+        rest = host_port_path[1]
     else:
         rest = None
 
@@ -48,7 +67,8 @@ def parse_uri(uri: str) -> RSocketUri:
 @asynccontextmanager
 async def transport_from_uri(uri: RSocketUri,
                              verify_ssl=True,
-                             headers: Optional[Map] = None) -> Type[AbstractMessagingTransport]:
+                             headers: Optional[Map] = None,
+                             trust_cert: Optional[str] = None) -> Type[AbstractMessagingTransport]:
     if uri.schema == 'tcp':
         connection = await asyncio.open_connection(uri.host, uri.port)
         yield TransportTCP(*connection)
@@ -85,8 +105,12 @@ async def create_client(parsed_uri,
                         metadata_mime_type,
                         setup_payload,
                         allow_untrusted_ssl=False,
-                        http_headers=None):
-    async with transport_from_uri(parsed_uri, verify_ssl=not allow_untrusted_ssl, headers=http_headers) as transport:
+                        http_headers=None,
+                        trust_cert=None):
+    async with transport_from_uri(parsed_uri,
+                                  verify_ssl=not allow_untrusted_ssl,
+                                  headers=http_headers,
+                                  trust_cert=trust_cert) as transport:
         async with RSocketClient(single_transport_provider(transport),
                                  data_encoding=data_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
                                  metadata_encoding=metadata_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
@@ -94,7 +118,30 @@ async def create_client(parsed_uri,
             yield AwaitableRSocket(client)
 
 
+def get_request_type(request: bool,
+                     stream: bool,
+                     fnf: bool,
+                     metadata_push: bool,
+                     channel: bool,
+                     interaction_model: str) -> RequestType:
+    if interaction_model is not None:
+        return RequestType(interaction_model.upper())
+    if request:
+        return RequestType.response
+    if stream:
+        return RequestType.stream
+    if channel:
+        return RequestType.channel
+    if fnf:
+        return RequestType.fnf
+    if metadata_push:
+        return RequestType.metadata_push
+
+
 @click.command(name='rsocket-py', help='Supported connection strings: tcp/ws/wss')
+@click.option('--im', '--interactionModel', 'interaction_model', is_flag=False,
+              type=click.Choice(interaction_models, case_sensitive=False),
+              help='Interaction Model')
 @click.option('--request', is_flag=True,
               help='Request response')
 @click.option('--stream', is_flag=True,
@@ -103,6 +150,8 @@ async def create_client(parsed_uri,
               help='Request channel')
 @click.option('--fnf', is_flag=True,
               help='Fire and Forget')
+@click.option('--metadataPush', 'metadata_push', is_flag=True,
+              help='Metadata Push')
 @click.option('-d', '--data', is_flag=False,
               help='Data. Use "-" to read data from standard input. (default: )')
 @click.option('-l', '--load', is_flag=False,
@@ -131,6 +180,8 @@ async def create_client(parsed_uri,
               help='Do not verify SSL certificate (for wss:// urls)')
 @click.option('--httpHeader', 'http_header', multiple=True,
               help='ws/wss headers')
+@click.option('--trustCert', 'trust_cert', is_flag=False,
+              help='PEM file for a trusted certificate. (e.g. ./foo.crt, /tmp/foo.crt)')
 @click.option('--debug', is_flag=True,
               help='Show debug log')
 @click.option('--quiet', '-q', is_flag=True,
@@ -141,10 +192,10 @@ async def create_client(parsed_uri,
 async def command(data, load,
                   metadata, route_value, auth_simple, auth_bearer,
                   limit_rate, take_n, allow_untrusted_ssl,
-                  setup_data, setup_metadata,
-                  http_header,
+                  setup_data, setup_metadata, interaction_model,
+                  http_header, metadata_push,
                   data_mime_type, metadata_mime_type,
-                  request, stream, channel, fnf,
+                  request, stream, channel, fnf, trust_cert,
                   uri, debug, version, quiet):
     if version:
         try:
@@ -162,6 +213,8 @@ async def command(data, load,
     if take_n == 0:
         return
 
+    request_type = get_request_type(request, stream, fnf, metadata_push, channel, interaction_model)
+
     http_headers = parse_headers(http_header)
 
     composite_items = build_composite_metadata(auth_simple, route_value, auth_bearer)
@@ -171,16 +224,14 @@ async def command(data, load,
                              normalize_metadata_mime_type(composite_items, metadata_mime_type),
                              create_setup_payload(setup_data, setup_metadata),
                              allow_untrusted_ssl=allow_untrusted_ssl,
-                             http_headers=http_headers
+                             http_headers=http_headers,
+                             trust_cert=trust_cert
                              ) as client:
 
         result = await execute_request(client,
-                                       channel,
-                                       fnf,
+                                       request_type,
                                        normalize_limit_rate(limit_rate),
-                                       create_request_payload(data, load, metadata, composite_items),
-                                       request,
-                                       stream)
+                                       create_request_payload(data, load, metadata, composite_items))
 
         if not quiet:
             output_result(result)
@@ -222,17 +273,20 @@ def output_result(result):
         print([p.data.decode('utf-8') for p in result])
 
 
-async def execute_request(awaitable_client, channel, fnf, limit_rate, payload, request, stream):
+async def execute_request(awaitable_client: AwaitableRSocket, request_type: RequestType, limit_rate: int,
+                          payload: Payload):
     result = None
 
-    if request:
+    if request_type is RequestType.response:
         result = await awaitable_client.request_response(payload)
-    elif stream:
+    elif request_type is RequestType.stream:
         result = await awaitable_client.request_stream(payload, limit_rate=limit_rate)
-    elif channel:
+    elif request_type is RequestType.channel:
         result = await awaitable_client.request_channel(payload, limit_rate=limit_rate)
-    elif fnf:
+    elif request_type is RequestType.fnf:
         await awaitable_client.fire_and_forget(payload)
+    elif request_type is RequestType.metadata_push:
+        await awaitable_client.metadata_push(payload.metadata)
 
     return result
 
