@@ -50,18 +50,19 @@ The **examples/test_examples.py** shows which pairs of client/server work with e
 all the examples
 (except for the client_springboot.py which is set up to work against https://github.com/benwilcock/spring-rsocket-demo)
 
-| server (python)             | server (java)           | client (python)                    | client(java)    |
-|-----------------------------|-------------------------|------------------------------------|-----------------|
-| server.py                   |                         | client.py                          |                 |
-| server_quic.py              |                         | client_quic.py                     |                 |
-| server_with_lease.py        |                         |                                    | ClientWithLease |
-| server_with_routing.py      |                         | client_with_routing.py             | Client          |
-| server_with_routing.py      |                         | client_rx.py                       |                 |
-| server_with_routing.py      |                         | client_reconnect.py                |                 |
-|                             | Server                  | run_against_example_java_server.py |                 |
-|                             | ServerWithFragmentation | client_with_routing.py             |                 |
-| server_quart_websocket.py   |                         | client_websocket.py                |                 |
-| server_aiohttp_websocket.py |                         | client_websocket.py                |                 |
+| server (python)                    | server (java)           | client (python)                    | client(java)    |
+|------------------------------------|-------------------------|------------------------------------|-----------------|
+| server.py                          |                         | client.py                          |                 |
+| server_quic.py                     |                         | client_quic.py                     |                 |
+| server_with_lease.py               |                         |                                    | ClientWithLease |
+| server_with_routing.py             |                         | client_with_routing.py             | Client          |
+| server_with_routing.py             |                         | client_rx.py                       |                 |
+| server_with_routing.py             |                         | client_reconnect.py                |                 |
+|                                    | Server                  | run_against_example_java_server.py |                 |
+|                                    | ServerWithFragmentation | client_with_routing.py             |                 |
+| server_quart_websocket.py          |                         | client_websocket.py                |                 |
+| server_aiohttp_websocket.py        |                         | client_websocket.py                |                 |
+| server_aiohttp_websocket_secure.py |                         | client_wss.py                      |                 |
 
 # Build Status
 

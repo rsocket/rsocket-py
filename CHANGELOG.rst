@@ -6,6 +6,8 @@ v0.4.1
 ======
 - Removed data and metadata content from logs. Replaced with data and metadata sizes
 - Performance test examples available in *performance* folder
+- WSS (Secure websocket) example and support (aiohttp)
+    - Refactored Websocket transport to allow providing either url or an existing websocket
 
 v0.4.0
 ======
