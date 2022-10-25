@@ -97,6 +97,9 @@ def build_composite_metadata(auth_simple: Optional[str],
     if route_value is not None:
         composite_items.append(route(route_value))
 
+    if auth_simple is not None and auth_bearer is not None:
+        raise click.UsageError('Multiple authentication methods specified.')
+
     if auth_simple is not None:
         composite_items.append(authenticate_simple(*auth_simple.split(':')))
 
@@ -130,7 +133,12 @@ def get_request_type(request: bool,
                      fnf: bool,
                      metadata_push: bool,
                      channel: bool,
-                     interaction_model: str) -> RequestType:
+                     interaction_model: Optional[str]) -> RequestType:
+    interaction_options = list(filter(lambda _: _ is True, [request, stream, fnf, channel, metadata_push]))
+
+    if len(interaction_options) >= 2 or (len(interaction_options) >= 1 and interaction_model is not None):
+        raise click.UsageError('Multiple interaction methods specified.')
+
     if interaction_model is not None:
         return RequestType(interaction_model.upper())
     if request:
