@@ -8,10 +8,7 @@ from rsocket.frame_builders import to_request_response_frame, to_request_stream_
 from rsocket.frame_fragment_cache import FrameFragmentCache
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.payload import Payload
-
-
-def create_data(base: bytes, multiplier: int, limit: float = None):
-    return b''.join([ensure_bytes(str(i)) + base for i in range(multiplier)])[0:limit]
+from tests.rsocket.helpers import create_data
 
 
 def test_create_data():

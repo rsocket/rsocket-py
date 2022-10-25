@@ -24,20 +24,20 @@ class AwaitableRSocket:
 
     async def request_stream(self,
                              payload: Payload,
-                             initial_request_n=MAX_REQUEST_N) -> List[Payload]:
-        subscriber = CollectorSubscriber()
+                             limit_rate=MAX_REQUEST_N) -> List[Payload]:
+        subscriber = CollectorSubscriber(limit_rate)
 
-        self._rsocket.request_stream(payload).initial_request_n(initial_request_n).subscribe(subscriber)
+        self._rsocket.request_stream(payload).initial_request_n(limit_rate).subscribe(subscriber)
 
         return await subscriber.run()
 
     async def request_channel(self,
                               payload: Payload,
                               publisher: Optional[Publisher] = None,
-                              initial_request_n=MAX_REQUEST_N) -> List[Payload]:
-        subscriber = CollectorSubscriber()
+                              limit_rate=MAX_REQUEST_N) -> List[Payload]:
+        subscriber = CollectorSubscriber(limit_rate)
 
-        self._rsocket.request_channel(payload, publisher).initial_request_n(initial_request_n).subscribe(subscriber)
+        self._rsocket.request_channel(payload, publisher).initial_request_n(limit_rate).subscribe(subscriber)
 
         return await subscriber.run()
 

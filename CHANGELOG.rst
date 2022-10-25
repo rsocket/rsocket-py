@@ -9,6 +9,7 @@ v0.4.1
 - Performance test examples available in *performance* folder
 - WSS (Secure websocket) example and support (aiohttp)
     - Refactored Websocket transport to allow providing either url or an existing websocket
+- Added command line tool (rsocket-py)
 
 v0.4.0
 ======

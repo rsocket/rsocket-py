@@ -21,7 +21,13 @@ setup(
         'reactivex': {'reactivex >= 4.0.0'},
         'aiohttp': {'aiohttp >= 3.0.0'},
         'quart': {'quart >= 0.15.0'},
-        'quic': {'aioquic >= 0.9.0'}
+        'quic': {'aioquic >= 0.9.0'},
+        'cli': {'asyncclick >= 8.0.0'}
+    },
+    entry_points={
+        'console_scripts': [
+            'rsocket-py = rsocket.cli.command:command [cli]',
+        ],
     },
     classifiers=[
         'Development Status :: 3 - Alpha',
