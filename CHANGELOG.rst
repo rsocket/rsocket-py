@@ -1,9 +1,12 @@
 Changelog
 ---------
 
+
 v0.4.1
 ======
 - Added running tests on python 3.11 and package classification
+- Removed data and metadata content from logs. Replaced with data and metadata sizes
+- Performance test examples available in *performance* folder
 
 v0.4.0
 ======

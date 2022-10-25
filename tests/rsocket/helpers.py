@@ -1,10 +1,12 @@
 import asyncio
+import json
 from dataclasses import dataclass
 from datetime import timedelta
 from math import ceil
-from typing import Tuple
+from typing import Tuple, Any
 from typing import Type, Callable
 
+from rsocket.frame_helpers import str_to_bytes
 from rsocket.helpers import create_future, noop
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -91,3 +93,7 @@ class ServerContainer:
 
 def get_components(pipe) -> Tuple[RSocketServer, RSocketClient]:
     return pipe
+
+
+def to_json_bytes(item: Any) -> bytes:
+    return str_to_bytes(json.dumps(item))
