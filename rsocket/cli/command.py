@@ -4,7 +4,8 @@ import ssl
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import Enum, unique
-from typing import Optional, Type, Collection, List
+from importlib.metadata import version as get_version
+from typing import Optional, Type, Collection, List, Callable
 
 import aiohttp
 import asyncclick as click
@@ -21,7 +22,6 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 from rsocket.transports.aiohttp_websocket import TransportAioHttpClient
 from rsocket.transports.tcp import TransportTCP
-from importlib.metadata import version as get_version
 
 
 @unique
@@ -167,7 +167,7 @@ def get_request_type(request: bool,
               help='Fire and Forget')
 @click.option('--metadataPush', 'metadata_push', is_flag=True,
               help='Metadata Push')
-@click.option('-d', '--data', is_flag=False,
+@click.option('-d', '--data', '--input', 'data', is_flag=False,
               help='Data. Use "-" to read data from standard input. (default: )')
 @click.option('-l', '--load', is_flag=False,
               help='Load a file as Data. (e.g. ./foo.txt, /tmp/foo.txt)')
@@ -181,19 +181,19 @@ def get_request_type(request: bool,
               help='Enable take(n)')
 @click.option('-u', '--as', '--authSimple', 'auth_simple', is_flag=False, default=None,
               help='Enable Authentication Metadata Extension (Simple). The format must be "username: password"')
-@click.option('--sd', '--setupData', 'setup_data', is_flag=False, default=None,
+@click.option('--sd', '--setup', '--setupData', 'setup_data', is_flag=False, default=None,
               help='Data for Setup payload')
 @click.option('--sm', '--setupMetadata', 'setup_metadata', is_flag=False, default=None,
               help='Metadata for Setup payload')
 @click.option('--ab', '--authBearer', 'auth_bearer', is_flag=False, default=None,
               help='Enable Authentication Metadata Extension (Bearer)')
-@click.option('--dataMimeType', '--dmt', 'data_mime_type', is_flag=False,
+@click.option('--dataMimeType', '--dataFormat', '--dmt', 'data_mime_type', is_flag=False,
               help='MimeType for data (default: application/json)')
-@click.option('--metadataMimeType', '--mmt', 'metadata_mime_type', is_flag=False,
+@click.option('--metadataMimeType', '--metadataFormat', '--mmt', 'metadata_mime_type', is_flag=False,
               help='MimeType for metadata (default:application/json)')
 @click.option('--allowUntrustedSsl', 'allow_untrusted_ssl', is_flag=True, default=False,
               help='Do not verify SSL certificate (for wss:// urls)')
-@click.option('--httpHeader', 'http_header', multiple=True,
+@click.option('-H', '--header', '--httpHeader', 'http_header', multiple=True,
               help='ws/wss headers')
 @click.option('--trustCert', 'trust_cert', is_flag=False,
               help='PEM file for a trusted certificate. (e.g. ./foo.crt, /tmp/foo.crt)')
@@ -201,6 +201,8 @@ def get_request_type(request: bool,
               help='Show debug log')
 @click.option('--quiet', '-q', is_flag=True,
               help='Disable the output on next')
+@click.option('--timeout', 'timeout_seconds', is_flag=False, type=int,
+              help='Timeout in seconds')
 @click.option('--version', is_flag=True,
               help='Print version')
 @click.argument('uri', required=False)
@@ -209,7 +211,7 @@ async def command(context, data, load,
                   metadata, route_value, auth_simple, auth_bearer,
                   limit_rate, take_n, allow_untrusted_ssl,
                   setup_data, setup_metadata, interaction_model,
-                  http_header, metadata_push,
+                  http_header, metadata_push, timeout_seconds,
                   data_mime_type, metadata_mime_type,
                   request, stream, channel, fnf, trust_cert,
                   uri, debug, version, quiet):
@@ -233,27 +235,43 @@ async def command(context, data, load,
         return
 
     request_type = get_request_type(request, stream, fnf, metadata_push, channel, interaction_model)
-
     http_headers = parse_headers(http_header)
-
     composite_items = build_composite_metadata(auth_simple, route_value, auth_bearer)
+    setup_payload = create_setup_payload(setup_data, setup_metadata)
+    metadata_value = get_metadata_value(composite_items, metadata)
+    metadata_mime_type = normalize_metadata_mime_type(composite_items, metadata_mime_type)
+    parsed_uri = parse_uri(uri)
 
-    async with create_client(parse_uri(uri),
-                             data_mime_type,
-                             normalize_metadata_mime_type(composite_items, metadata_mime_type),
-                             create_setup_payload(setup_data, setup_metadata),
-                             allow_untrusted_ssl=allow_untrusted_ssl,
-                             http_headers=http_headers,
-                             trust_cert=trust_cert
-                             ) as client:
+    def payload_provider():
+        return create_request_payload(data, load, metadata_value)
 
-        result = await execute_request(client,
-                                       request_type,
-                                       normalize_limit_rate(limit_rate),
-                                       create_request_payload(data, load, metadata, composite_items))
+    future = run_request(request_type, limit_rate, payload_provider,
+                         http_headers=http_headers,
+                         allow_untrusted_ssl=allow_untrusted_ssl,
+                         metadata_mime_type=metadata_mime_type,
+                         data_mime_type=data_mime_type,
+                         setup_payload=setup_payload,
+                         trust_cert=trust_cert,
+                         parsed_uri=parsed_uri)
 
-        if not quiet:
-            output_result(result)
+    if timeout_seconds is not None:
+        result = await asyncio.wait_for(future, timeout_seconds)
+    else:
+        result = await future
+
+    if not quiet:
+        output_result(result)
+
+
+async def run_request(request_type: RequestType,
+                      limit_rate: Optional[int],
+                      payload_provider: Callable[[], Payload],
+                      **kwargs):
+    async with create_client(**kwargs) as client:
+        return await execute_request(client,
+                                     request_type,
+                                     normalize_limit_rate(limit_rate),
+                                     payload_provider())
 
 
 def parse_headers(http_headers):
@@ -278,11 +296,10 @@ def normalize_metadata_mime_type(composite_items, metadata_mime_type):
 
 def create_request_payload(data: Optional[str],
                            load: Optional[str],
-                           metadata: Optional[str],
-                           composite_items: List) -> Payload:
+                           metadata: Optional[bytes]) -> Payload:
     data = normalize_data(data, load)
-    metadata_value = get_metadata_value(composite_items, metadata)
-    return Payload(data, metadata_value)
+
+    return Payload(data, metadata)
 
 
 def output_result(result):
@@ -292,7 +309,9 @@ def output_result(result):
         print([p.data.decode('utf-8') for p in result])
 
 
-async def execute_request(awaitable_client: AwaitableRSocket, request_type: RequestType, limit_rate: int,
+async def execute_request(awaitable_client: AwaitableRSocket,
+                          request_type: RequestType,
+                          limit_rate: int,
                           payload: Payload):
     result = None
 

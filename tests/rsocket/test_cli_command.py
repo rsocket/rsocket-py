@@ -35,7 +35,7 @@ def test_build_composite_metadata():
 
 def test_create_request_payload():
     payload = create_request_payload(
-        None, None, None, []
+        None, None, None
     )
 
     assert payload.data is None
