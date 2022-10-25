@@ -10,6 +10,7 @@ from rsocket.cli.command import parse_uri, build_composite_metadata, create_requ
 from rsocket.extensions.helpers import route, authenticate_simple, authenticate_bearer
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import MAX_REQUEST_N
+from rsocket.payload import Payload
 from tests.rsocket.helpers import create_data
 
 
@@ -62,10 +63,16 @@ def test_get_metadata_value():
     assert result is None
 
 
-def test_create_setup_payload():
-    result = create_setup_payload(None, None)
+@pytest.mark.parametrize('data, metadata, expected', (
+        (None, None, None),
+        ('data', None, Payload(b'data')),
+        ('data', 'metadata', Payload(b'data', b'metadata')),
+        (None, 'metadata', Payload(None, b'metadata')),
+))
+def test_create_setup_payload(data, metadata, expected):
+    result = create_setup_payload(data, metadata)
 
-    assert result is None
+    assert result == expected
 
 
 def test_normalize_data():
