@@ -63,7 +63,6 @@ all the examples
 |                                    | ServerWithFragmentation | client_with_routing.py             |                 |
 | server_quart_websocket.py          |                         | client_websocket.py                |                 |
 | server_aiohttp_websocket.py        |                         | client_websocket.py                |                 |
-| server_aiohttp_websocket_secure.py |                         | client_wss.py                      |                 |
 
 # Build Status
 
