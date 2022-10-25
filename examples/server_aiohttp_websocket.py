@@ -9,13 +9,26 @@ from rsocket.helpers import create_future
 from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from rsocket.transports.aiohttp_websocket import websocket_handler_factory
+from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.aiohttp_websocket import TransportAioHttpWebsocket
 
 
 class Handler(BaseRequestHandler):
 
     async def request_response(self, payload: Payload) -> Awaitable[Payload]:
         return create_future(Payload(b'pong'))
+
+
+def websocket_handler_factory( **kwargs):
+    async def websocket_handler(request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        transport = TransportAioHttpWebsocket(ws)
+        RSocketServer(transport, **kwargs)
+        await transport.handle_incoming_ws_messages()
+        return ws
+
+    return websocket_handler
 
 
 @click.command()

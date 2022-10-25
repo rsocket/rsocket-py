@@ -4,13 +4,15 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Optional, Type, Collection, List
 
+import aiohttp
 import asyncclick as click
+from werkzeug.routing import Map
 
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import route, composite, authenticate_simple, authenticate_bearer
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import MAX_REQUEST_N
-from rsocket.frame_helpers import ensure_bytes
+from rsocket.frame_helpers import ensure_bytes, safe_len
 from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
@@ -43,14 +45,21 @@ def parse_uri(uri: str) -> RSocketUri:
     return RSocketUri(host, port, schema, rest, uri)
 
 
-async def transport_from_uri(uri: RSocketUri) -> Type[AbstractMessagingTransport]:
+@asynccontextmanager
+async def transport_from_uri(uri: RSocketUri,
+                             verify_ssl=True,
+                             headers: Optional[Map] = None) -> Type[AbstractMessagingTransport]:
     if uri.schema == 'tcp':
         connection = await asyncio.open_connection(uri.host, uri.port)
-        return TransportTCP(*connection)
-    elif uri.schema == 'ws':
-        return TransportAioHttpClient(uri.original_uri)
-
-    raise Exception('Unsupported schema in CLI')
+        yield TransportTCP(*connection)
+    elif uri.schema in ['wss', 'ws']:
+        async with aiohttp.ClientSession() as session:
+            async with session.ws_connect(uri.original_uri,
+                                          verify_ssl=verify_ssl,
+                                          headers=headers) as websocket:
+                yield TransportAioHttpClient(websocket=websocket)
+    else:
+        raise Exception('Unsupported schema in CLI')
 
 
 def build_composite_metadata(auth_simple: Optional[str],
@@ -71,17 +80,21 @@ def build_composite_metadata(auth_simple: Optional[str],
 
 
 @asynccontextmanager
-async def create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_payload):
-    transport = await transport_from_uri(parsed_uri)
+async def create_client(parsed_uri,
+                        data_mime_type,
+                        metadata_mime_type,
+                        setup_payload,
+                        allow_untrusted_ssl=False,
+                        http_headers=None):
+    async with transport_from_uri(parsed_uri, verify_ssl=not allow_untrusted_ssl, headers=http_headers) as transport:
+        async with RSocketClient(single_transport_provider(transport),
+                                 data_encoding=data_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
+                                 metadata_encoding=metadata_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
+                                 setup_payload=setup_payload) as client:
+            yield AwaitableRSocket(client)
 
-    async with RSocketClient(single_transport_provider(transport),
-                             data_encoding=data_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
-                             metadata_encoding=metadata_mime_type or WellKnownMimeTypes.APPLICATION_JSON,
-                             setup_payload=setup_payload) as client:
-        yield AwaitableRSocket(client)
 
-
-@click.command(help='Supported connection strings: tcp/ws')
+@click.command(help='Supported connection strings: tcp/ws/wss')
 @click.option('-d', '--data', is_flag=False,
               help='Data. Use "-" to read data from standard input. (default: )')
 @click.option('-l', '--load', is_flag=False,
@@ -106,6 +119,8 @@ async def create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_pa
               help='MimeType for data (default: application/json)')
 @click.option('--metadataMimeType', '--mmt', 'metadata_mime_type', is_flag=False,
               help='MimeType for metadata (default:application/json)')
+@click.option('--allowUntrustedSsl', 'allow_untrusted_ssl', is_flag=True, default=False,
+              help='Do not verify SSL certificate (for wss:// urls)')
 @click.option('--request', is_flag=True,
               help='Request response')
 @click.option('--stream', is_flag=True,
@@ -120,11 +135,13 @@ async def create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_pa
               help='Disable the output on next')
 @click.option('--version', is_flag=True,
               help='Print version')
+@click.option('--httpHeader', 'http_header', multiple=True, help='ws/wss headers')
 @click.argument('uri')
 async def command(data, load,
                   metadata, route_value, auth_simple, auth_bearer,
-                  limit_rate, take_n,
+                  limit_rate, take_n, allow_untrusted_ssl,
                   setup_data, setup_metadata,
+                  http_header,
                   data_mime_type, metadata_mime_type,
                   request, stream, channel, fnf,
                   uri, debug, version, quiet):
@@ -144,12 +161,16 @@ async def command(data, load,
     if take_n == 0:
         return
 
+    http_headers = parse_headers(http_header)
+
     composite_items = build_composite_metadata(auth_simple, route_value, auth_bearer)
 
     async with create_client(parse_uri(uri),
                              data_mime_type,
                              normalize_metadata_mime_type(composite_items, metadata_mime_type),
-                             create_setup_payload(setup_data, setup_metadata)
+                             create_setup_payload(setup_data, setup_metadata),
+                             allow_untrusted_ssl=allow_untrusted_ssl,
+                             http_headers=http_headers
                              ) as client:
 
         result = await execute_request(client,
@@ -162,6 +183,19 @@ async def command(data, load,
 
         if not quiet:
             output_result(result)
+
+
+def parse_headers(http_headers):
+    if safe_len(http_headers) > 0:
+        headers = dict()
+
+        for header in http_headers:
+            parts = header.split('=', 2)
+            headers[parts[0]] = parts[1]
+
+        return headers
+
+    return None
 
 
 def normalize_metadata_mime_type(composite_items, metadata_mime_type):
