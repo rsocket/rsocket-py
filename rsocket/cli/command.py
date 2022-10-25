@@ -188,8 +188,9 @@ def get_request_type(request: bool,
               help='Disable the output on next')
 @click.option('--version', is_flag=True,
               help='Print version')
-@click.argument('uri')
-async def command(data, load,
+@click.argument('uri', required=False)
+@click.pass_context
+async def command(context, data, load,
                   metadata, route_value, auth_simple, auth_bearer,
                   limit_rate, take_n, allow_untrusted_ssl,
                   setup_data, setup_metadata, interaction_model,
@@ -203,6 +204,9 @@ async def command(data, load,
         except Exception:
             print('Failed to find version')
         return
+
+    if uri is None:
+        raise click.MissingParameter(param=context.command.params[-1])
 
     if quiet:
         logging.basicConfig(handlers=[])
