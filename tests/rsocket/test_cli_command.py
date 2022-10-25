@@ -2,8 +2,11 @@ import io
 import sys
 import tempfile
 
+import pytest
+
 from rsocket.cli.command import parse_uri, build_composite_metadata, create_request_payload, get_metadata_value, \
-    create_setup_payload, normalize_data, normalize_limit_rate
+    create_setup_payload, normalize_data, normalize_limit_rate, RequestType, get_request_type, parse_headers
+from rsocket.extensions.helpers import route, authenticate_simple, authenticate_bearer
 from rsocket.frame import MAX_REQUEST_N
 from tests.rsocket.helpers import create_data
 
@@ -25,12 +28,21 @@ def test_parse_uri_wss():
     assert parsed.path == 'path'
 
 
-def test_build_composite_metadata():
-    composite = build_composite_metadata(
-        None, None, None
-    )
+@pytest.mark.parametrize('route_path, auth_simple, auth_bearer, expected', (
+        (None, None, None, []),
+        ('path1', None, None, [route('path1')]),
+        ('path1', 'user:pass', None, [route('path1'), authenticate_simple('user', 'pass')]),
+        ('path1', None, 'token', [route('path1'), authenticate_bearer('token')]),
+        ('path1', 'user:pass', 'token', Exception),
+))
+def test_build_composite_metadata(route_path, auth_simple, auth_bearer, expected):
+    if isinstance(expected, list):
+        actual = build_composite_metadata(auth_simple, route_path, auth_bearer)
 
-    assert len(composite) == 0
+        assert actual == expected
+    else:
+        with pytest.raises(expected):
+            build_composite_metadata(auth_simple, route_path, auth_bearer)
 
 
 def test_create_request_payload():
@@ -100,3 +112,34 @@ def test_normalize_limit_rate():
     result = normalize_limit_rate(None)
 
     assert result == MAX_REQUEST_N
+
+
+@pytest.mark.parametrize('is_request, stream, fnf, metadata_push, channel, interaction_model, expected', (
+        (True, None, None, None, None, None, RequestType.response),
+        (None, True, None, None, None, None, RequestType.stream),
+        (None, None, True, None, None, None, RequestType.fnf),
+        (None, None, None, True, None, None, RequestType.metadata_push),
+        (None, None, None, None, True, None, RequestType.channel),
+        (None, None, None, None, None, 'request_channel', RequestType.channel),
+        (None, None, None, None, True, RequestType.response, Exception),
+        (None, None, None, True, True, None, Exception),
+))
+def test_get_request_type(is_request, stream, fnf, metadata_push, channel, interaction_model, expected):
+    if isinstance(expected, RequestType):
+        actual = get_request_type(is_request, stream, fnf, metadata_push, channel, interaction_model)
+
+        assert actual == expected
+    else:
+        with pytest.raises(expected):
+            get_request_type(is_request, stream, fnf, metadata_push, channel, interaction_model)
+
+
+@pytest.mark.parametrize('headers, expected', (
+        (None, None),
+        (['a=b'], {'a': 'b'}),
+        ([], None),
+))
+def test_parse_headers(headers, expected):
+    actual = parse_headers(headers)
+
+    assert actual == expected
