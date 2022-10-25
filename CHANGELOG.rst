@@ -9,7 +9,6 @@ v0.4.2
     - Option --interactionModel to specify interaction (eg. request_response, request_stream)
     - Added Metadata Push support
 
-
 v0.4.1
 ======
 - Added running tests on python 3.11 and package classification
