@@ -4,7 +4,7 @@ import ssl
 import asyncclick as click
 from aiohttp import web
 
-from examples.fixtures import cert_gen
+from examples.fixtures import generate_certificate_and_key
 from rsocket.helpers import create_future
 from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
@@ -42,7 +42,7 @@ async def start_server(with_ssl: bool, port: int):
     if with_ssl:
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 
-        with cert_gen() as (certificate, key):
+        with generate_certificate_and_key() as (certificate, key):
             ssl_context.load_cert_chain(certificate, key)
     else:
         ssl_context = None
