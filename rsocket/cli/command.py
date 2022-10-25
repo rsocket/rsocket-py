@@ -91,7 +91,7 @@ async def transport_from_uri(uri: RSocketUri,
 
 def build_composite_metadata(auth_simple: Optional[str],
                              route_value: Optional[str],
-                             auth_bearer: Optional[str]):
+                             auth_bearer: Optional[str]) -> List:
     composite_items = []
 
     if route_value is not None:
@@ -289,7 +289,7 @@ def parse_headers(http_headers):
     return None
 
 
-def normalize_metadata_mime_type(composite_items, metadata_mime_type):
+def normalize_metadata_mime_type(composite_items: List, metadata_mime_type):
     if len(composite_items) > 0:
         metadata_mime_type = WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA
 

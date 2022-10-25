@@ -5,8 +5,10 @@ import tempfile
 import pytest
 
 from rsocket.cli.command import parse_uri, build_composite_metadata, create_request_payload, get_metadata_value, \
-    create_setup_payload, normalize_data, normalize_limit_rate, RequestType, get_request_type, parse_headers
+    create_setup_payload, normalize_data, normalize_limit_rate, RequestType, get_request_type, parse_headers, \
+    normalize_metadata_mime_type
 from rsocket.extensions.helpers import route, authenticate_simple, authenticate_bearer
+from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import MAX_REQUEST_N
 from tests.rsocket.helpers import create_data
 
@@ -145,5 +147,15 @@ def test_get_request_type(is_request, stream, fnf, metadata_push, channel, inter
 ))
 def test_parse_headers(headers, expected):
     actual = parse_headers(headers)
+
+    assert actual == expected
+
+
+@pytest.mark.parametrize('composite_items, metadata_mime_type, expected', (
+        ([], 'application/json', 'application/json'),
+        ([route('path')], 'application/json', WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA),
+))
+def test_normalize_metadata_mime_type(composite_items, metadata_mime_type, expected):
+    actual = normalize_metadata_mime_type(composite_items, metadata_mime_type)
 
     assert actual == expected
