@@ -8,7 +8,7 @@ from OpenSSL import crypto
 
 @contextmanager
 def cert_gen(emailAddress="emailAddress",
-             commonName="commonName",
+             commonName="localhost",
              countryName="NT",
              localityName="localityName",
              stateOrProvinceName="stateOrProvinceName",

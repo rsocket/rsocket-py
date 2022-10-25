@@ -136,15 +136,18 @@ async def start_server(with_ssl: bool, port: int, transport: str):
         app = web.Application()
         app.add_routes([web.get('/', websocket_handler_factory(handler_factory=handler_factory))])
 
-        if with_ssl:
-            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        with cert_gen() as (certificate_path, key_path):
+            if with_ssl:
+                ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 
-            with cert_gen() as (certificate, key):
-                ssl_context.load_cert_chain(certificate, key)
-        else:
-            ssl_context = None
+                logging.info('Certificate %s', certificate_path)
+                logging.info('Private-key %s', key_path)
 
-        await web._run_app(app, port=port, ssl_context=ssl_context)
+                ssl_context.load_cert_chain(certificate_path, key_path)
+            else:
+                ssl_context = None
+
+            await web._run_app(app, port=port, ssl_context=ssl_context)
     elif transport == 'tcp':
 
         server = await asyncio.start_server(handle_client, 'localhost', port)

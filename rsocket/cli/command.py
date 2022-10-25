@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import ssl
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import Enum, unique
@@ -74,8 +75,14 @@ async def transport_from_uri(uri: RSocketUri,
         yield TransportTCP(*connection)
     elif uri.schema in ['wss', 'ws']:
         async with aiohttp.ClientSession() as session:
+            if trust_cert is not None:
+                ssl_context = ssl.create_default_context(cafile=trust_cert)
+            else:
+                ssl_context = None
+
             async with session.ws_connect(uri.original_uri,
                                           verify_ssl=verify_ssl,
+                                          ssl_context=ssl_context,
                                           headers=headers) as websocket:
                 yield TransportAioHttpClient(websocket=websocket)
     else:
