@@ -94,7 +94,7 @@ async def create_client(parsed_uri,
             yield AwaitableRSocket(client)
 
 
-@click.command(help='Supported connection strings: tcp/ws/wss')
+@click.command(name='rsocket-py', help='Supported connection strings: tcp/ws/wss')
 @click.option('--request', is_flag=True,
               help='Request response')
 @click.option('--stream', is_flag=True,
