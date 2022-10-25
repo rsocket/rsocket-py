@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+v0.4.1
+======
+- Added running tests on python 3.11 and package classification
+
 v0.4.0
 ======
 
