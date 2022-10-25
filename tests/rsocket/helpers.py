@@ -6,7 +6,7 @@ from math import ceil
 from typing import Tuple, Any
 from typing import Type, Callable
 
-from rsocket.frame_helpers import str_to_bytes
+from rsocket.frame_helpers import str_to_bytes, ensure_bytes
 from rsocket.helpers import create_future, noop
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -97,3 +97,7 @@ def get_components(pipe) -> Tuple[RSocketServer, RSocketClient]:
 
 def to_json_bytes(item: Any) -> bytes:
     return str_to_bytes(json.dumps(item))
+
+
+def create_data(base: bytes, multiplier: int, limit: float = None):
+    return b''.join([ensure_bytes(str(i)) + base for i in range(multiplier)])[0:limit]

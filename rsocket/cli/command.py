@@ -106,10 +106,14 @@ async def create_client(parsed_uri, data_mime_type, metadata_mime_type, setup_pa
               help='MimeType for data (default: application/json)')
 @click.option('--metadataMimeType', '--mmt', 'metadata_mime_type', is_flag=False,
               help='MimeType for metadata (default:application/json)')
-@click.option('--request', is_flag=True)
-@click.option('--stream', is_flag=True)
-@click.option('--channel', is_flag=True)
-@click.option('--fnf', is_flag=True)
+@click.option('--request', is_flag=True,
+              help='Request response')
+@click.option('--stream', is_flag=True,
+              help='Request stream')
+@click.option('--channel', is_flag=True,
+              help='Request channel')
+@click.option('--fnf', is_flag=True,
+              help='Fire and Forget')
 @click.option('--debug', is_flag=True,
               help='Show debug log')
 @click.option('--quiet', '-q', is_flag=True,
@@ -222,11 +226,11 @@ def create_setup_payload(setup_data: Optional[str], setup_metadata: Optional[str
 def normalize_data(data: Optional[str], load: Optional[str]) -> bytes:
     if data == '-':
         stdin_text = click.get_text_stream('stdin')
-        data = stdin_text.read()
+        return ensure_bytes(stdin_text.read())
 
     if load is not None:
         with open(load) as fd:
-            data = fd.read()
+            return ensure_bytes(fd.read())
 
     return ensure_bytes(data)
 

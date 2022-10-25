@@ -1,6 +1,11 @@
+import io
+import sys
+import tempfile
+
 from rsocket.cli.command import parse_uri, build_composite_metadata, create_request_payload, get_metadata_value, \
     create_setup_payload, normalize_data, normalize_limit_rate
 from rsocket.frame import MAX_REQUEST_N
+from tests.rsocket.helpers import create_data
 
 
 def test_parse_uri():
@@ -44,6 +49,42 @@ def test_normalize_data():
     data = normalize_data(None, None)
 
     assert data is None
+
+
+def test_normalize_data_from_file():
+    with tempfile.NamedTemporaryFile() as fd:
+        fixture_data = create_data(b'1234567890', 20)
+        fd.write(fixture_data)
+        fd.flush()
+
+        data = normalize_data(None, fd.name)
+
+        assert data == fixture_data
+
+
+def test_normalize_data_from_stdin():
+    fixture_data = create_data(b'1234567890', 20)
+    stdin = io.BytesIO(fixture_data)
+    sys.stdin = stdin
+
+    data = normalize_data('-', None)
+
+    assert data == fixture_data
+
+
+def test_normalize_data_from_stdin_takes_precedence_over_load_from_file():
+    with tempfile.NamedTemporaryFile() as fd:
+        fixture_data_file = create_data(b'1234567890', 20)
+        fd.write(fixture_data_file)
+        fd.flush()
+
+        fixture_data_stdin = create_data(b'0987654321', 20)
+        stdin = io.BytesIO(fixture_data_stdin)
+        sys.stdin = stdin
+
+        data = normalize_data('-', fd.name)
+
+        assert data == fixture_data_stdin
 
 
 def test_normalize_limit_rate():
