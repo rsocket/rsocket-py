@@ -1,11 +1,15 @@
 import asyncio
 import logging
-import sys
+import ssl
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
+import asyncclick as click
+from aiohttp import web
+
 from examples.example_fixtures import large_data1
+from examples.fixtures import generate_certificate_and_key
 from examples.response_channel import response_stream_1, LoggingSubscriber
 from response_stream import response_stream_2
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
@@ -15,6 +19,7 @@ from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
+from rsocket.transports.aiohttp_websocket import TransportAioHttpWebsocket
 from rsocket.transports.tcp import TransportTCP
 
 router = RequestRouter()
@@ -53,7 +58,7 @@ async def get_large_data():
 
 
 @router.response('large_request')
-async def get_large_data(payload: Payload):
+async def get_large_data_request(payload: Payload):
     return create_future(Payload(payload.data))
 
 
@@ -106,16 +111,52 @@ def handle_client(reader, writer):
     RSocketServer(TransportTCP(reader, writer), handler_factory=handler_factory)
 
 
-async def run_server(server_port):
-    logging.info('Starting server at localhost:%s', server_port)
+def websocket_handler_factory(**kwargs):
+    async def websocket_handler(request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        transport = TransportAioHttpWebsocket(ws)
+        RSocketServer(transport, **kwargs)
+        await transport.handle_incoming_ws_messages()
+        return ws
 
-    server = await asyncio.start_server(handle_client, 'localhost', server_port)
+    return websocket_handler
 
-    async with server:
-        await server.serve_forever()
+
+@click.command()
+@click.option('--port', help='Port to listen on', default=6565, type=int)
+@click.option('--with-ssl', is_flag=True, help='Enable SSL mode')
+@click.option('--transport', is_flag=False, default='tcp')
+async def start_server(with_ssl: bool, port: int, transport: str):
+    logging.basicConfig(level=logging.DEBUG)
+
+    logging.info(f'Starting {transport} server at localhost:{port}')
+
+    if transport in ['ws', 'wss']:
+        app = web.Application()
+        app.add_routes([web.get('/', websocket_handler_factory(handler_factory=handler_factory))])
+
+        with generate_certificate_and_key() as (certificate_path, key_path):
+            if with_ssl:
+                ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+
+                logging.info('Certificate %s', certificate_path)
+                logging.info('Private-key %s', key_path)
+
+                ssl_context.load_cert_chain(certificate_path, key_path)
+            else:
+                ssl_context = None
+
+            await web._run_app(app, port=port, ssl_context=ssl_context)
+    elif transport == 'tcp':
+
+        server = await asyncio.start_server(handle_client, 'localhost', port)
+
+        async with server:
+            await server.serve_forever()
+    else:
+        raise Exception(f'Unsupported transport {transport}')
 
 
 if __name__ == '__main__':
-    port = sys.argv[1] if len(sys.argv) > 1 else 6565
-    logging.basicConfig(level=logging.DEBUG)
-    asyncio.run(run_server(port))
+    start_server()

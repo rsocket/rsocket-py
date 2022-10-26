@@ -5,7 +5,7 @@ from typing import Optional
 import pytest
 
 from rsocket.error_codes import ErrorCode
-from rsocket.exceptions import RSocketApplicationError
+from rsocket.exceptions import RSocketApplicationError, RSocketUnknownAuthType
 from rsocket.extensions.authentication import AuthenticationSimple
 from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
@@ -148,7 +148,7 @@ async def test_authentication_failure_on_setup(lazy_pipe):
 
 
 async def test_authentication_types_unknown_id_raises_exception():
-    with pytest.raises(Exception):
+    with pytest.raises(RSocketUnknownAuthType):
         WellKnownAuthenticationTypes.require_by_id(98987)
 
 
@@ -156,6 +156,18 @@ async def test_authentication_types_unknown_name_returns_none():
     result = WellKnownAuthenticationTypes.get_by_name(b'non-existing-authentication-type')
 
     assert result is None
+
+
+def test_authentication_type_require_by_id():
+    mimetype = WellKnownAuthenticationTypes.require_by_id(0x01)
+
+    assert mimetype is WellKnownAuthenticationTypes.BEARER.value
+
+
+def test_authentication_type_get_by_name():
+    mimetype = WellKnownAuthenticationTypes.get_by_name(b'bearer')
+
+    assert mimetype is WellKnownAuthenticationTypes.BEARER.value
 
 
 def test_metadata_authentication_bearer():

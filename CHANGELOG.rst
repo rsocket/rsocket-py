@@ -1,11 +1,26 @@
 Changelog
 ---------
 
+v0.4.3
+======
+- Command line fixes:
+    - limit_rage argument was effectively ignored. fixed.
+
+v0.4.2
+======
+- Command line fixes:
+    - Support passing ssl certificate and http headers when using ws/wss
+    - Support requesting --version without the need to specify URI arguments
+    - Option --interactionModel to specify interaction (eg. request_response, request_stream)
+    - Added Metadata Push support
 
 v0.4.1
 ======
+- Added running tests on python 3.11 and package classification
 - Removed data and metadata content from logs. Replaced with data and metadata sizes
 - Performance test examples available in *performance* folder
+- WSS (Secure websocket) example and support (aiohttp)
+    - Refactored Websocket transport to allow providing either url or an existing websocket
 - Added command line tool (rsocket-py)
 
 v0.4.0

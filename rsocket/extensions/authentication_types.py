@@ -1,7 +1,8 @@
 from enum import unique, Enum
 from typing import Optional
 
-from rsocket.helpers import WellKnownType
+from rsocket.exceptions import RSocketUnknownAuthType
+from rsocket.helpers import WellKnownType, map_types_by_id, map_types_by_name
 
 
 class WellKnownAuthenticationType(WellKnownType):
@@ -14,17 +15,16 @@ class WellKnownAuthenticationTypes(Enum):
     BEARER = WellKnownAuthenticationType(b'bearer', 0x01)
 
     @classmethod
-    def require_by_id(cls, metadata_numeric_id: int) -> WellKnownAuthenticationType:
-        for value in cls:
-            if value.value.id == metadata_numeric_id:
-                return value.value
-
-        raise Exception('Unknown authentication type id')
+    def require_by_id(cls, numeric_id: int) -> WellKnownAuthenticationType:
+        try:
+            return type_by_id[numeric_id]
+        except KeyError:
+            raise RSocketUnknownAuthType(numeric_id)
 
     @classmethod
     def get_by_name(cls, metadata_name: str) -> Optional[WellKnownAuthenticationType]:
-        for value in cls:
-            if value.value.name == metadata_name:
-                return value.value
+        return type_by_name.get(metadata_name)
 
-        return None
+
+type_by_id = map_types_by_id(WellKnownAuthenticationTypes)
+type_by_name = map_types_by_name(WellKnownAuthenticationTypes)

@@ -60,6 +60,14 @@ class WellKnownType:
         return hash((self.id, self.name))
 
 
+def map_types_by_name(types):
+    return {value.value.name: value.value for value in types}
+
+
+def map_types_by_id(types):
+    return {value.value.id: value.value for value in types}
+
+
 @contextmanager
 def wrap_transport_exception():
     try:

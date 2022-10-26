@@ -48,4 +48,3 @@ class TaggingMetadata(CompositeMetadataItem):
             return self.tags == other.tags and self.encoding == other.encoding
 
         return False
-

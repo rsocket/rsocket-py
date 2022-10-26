@@ -39,4 +39,3 @@ def test_routing():
     parsed.parse(data)
 
     assert parsed == routing
-
