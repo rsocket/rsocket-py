@@ -1,12 +1,12 @@
 import asyncio
-import os
-import signal
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from multiprocessing import Process
 
 import pytest
 
 from performance.performance_client import PerformanceClient
+from performance.performance_server import run_server
 
 
 @pytest.mark.timeout(5)
@@ -26,15 +26,21 @@ async def test_request_stream(unused_tcp_port):
                              lambda: client.request_stream(**arguments), iterations=1)
 
 
+def run_server_async(unused_tcp_port):
+    asyncio.run(run_server(unused_tcp_port))
+
+
 @asynccontextmanager
 async def run_against_server(unused_tcp_port: int) -> PerformanceClient:
-    pid = os.spawnlp(os.P_NOWAIT, 'python3', 'python3', 'performance_server.py', str(unused_tcp_port))
-    await asyncio.sleep(2)  # todo: replace with wait for server
+    server_process = Process(target=run_server_async, args=[unused_tcp_port])
+    server_process.start()
+    await asyncio.sleep(1)  # todo: replace with wait for server
+
     try:
         async with run_with_client(unused_tcp_port) as client:
             yield client
     finally:
-        os.kill(pid, signal.SIGTERM)
+        server_process.kill()
         pass
 
 
