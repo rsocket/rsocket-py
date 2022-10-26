@@ -58,7 +58,7 @@ async def get_large_data():
 
 
 @router.response('large_request')
-async def get_large_data(payload: Payload):
+async def get_large_data_request(payload: Payload):
     return create_future(Payload(payload.data))
 
 

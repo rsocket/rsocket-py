@@ -19,7 +19,7 @@ class Handler(BaseRequestHandler):
         return create_future(Payload(b'pong'))
 
 
-def websocket_handler_factory( **kwargs):
+def websocket_handler_factory(**kwargs):
     async def websocket_handler(request):
         ws = web.WebSocketResponse()
         await ws.prepare(request)

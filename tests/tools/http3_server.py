@@ -85,8 +85,7 @@ class HttpRequestHandler:
                             (b":status", str(message["status"]).encode()),
                             (b"server", SERVER_NAME.encode()),
                             (b"date", formatdate(time.time(), usegmt=True).encode()),
-                        ]
-                        + [(k, v) for k, v in message["headers"]],
+                        ] + [(k, v) for k, v in message["headers"]],
             )
         elif message["type"] == "http.response.body":
             self.connection.send_data(
@@ -174,51 +173,63 @@ class WebSocketHandler:
     async def send(self, message: Dict):
         data = b""
         end_stream = False
+
         if message["type"] == "websocket.accept":
-            subprotocol = message.get("subprotocol")
-
-            self.websocket = wsproto.Connection(wsproto.ConnectionType.SERVER)
-
-            headers = [
-                (b":status", b"200"),
-                (b"server", SERVER_NAME.encode()),
-                (b"date", formatdate(time.time(), usegmt=True).encode()),
-            ]
-            if subprotocol is not None:
-                headers.append((b"sec-websocket-protocol", subprotocol.encode()))
-            self.connection.send_headers(stream_id=self.stream_id, headers=headers)
-
-            # consume backlog
-            while self.http_event_queue:
-                self.http_event_received(self.http_event_queue.popleft())
-
+            self._websocket_accept(message)
         elif message["type"] == "websocket.close":
-            if self.websocket is not None:
-                data = self.websocket.send(
-                    wsproto.events.CloseConnection(code=message["code"])
-                )
-            else:
-                self.connection.send_headers(
-                    stream_id=self.stream_id, headers=[(b":status", b"403")]
-                )
-            end_stream = True
+            data, end_stream = self._websocket_close(message)
         elif message["type"] == "websocket.send":
-            if message.get("text") is not None:
-                data = self.websocket.send(
-                    wsproto.events.TextMessage(data=message["text"])
-                )
-            elif message.get("bytes") is not None:
-                data = self.websocket.send(
-                    wsproto.events.Message(data=message["bytes"])
-                )
+            data = self._websocket_send(message)
 
         if data:
             self.connection.send_data(
                 stream_id=self.stream_id, data=data, end_stream=end_stream
             )
+
         if end_stream:
             self.closed = True
+
         self.transmit()
+
+    def _websocket_accept(self, message):
+        subprotocol = message.get("subprotocol")
+        self.websocket = wsproto.Connection(wsproto.ConnectionType.SERVER)
+        headers = [
+            (b":status", b"200"),
+            (b"server", SERVER_NAME.encode()),
+            (b"date", formatdate(time.time(), usegmt=True).encode()),
+        ]
+        if subprotocol is not None:
+            headers.append((b"sec-websocket-protocol", subprotocol.encode()))
+        self.connection.send_headers(stream_id=self.stream_id, headers=headers)
+        # consume backlog
+        while self.http_event_queue:
+            self.http_event_received(self.http_event_queue.popleft())
+
+    def _websocket_close(self, message):
+        data = b''
+        if self.websocket is not None:
+            data = self.websocket.send(
+                wsproto.events.CloseConnection(code=message["code"])
+            )
+        else:
+            self.connection.send_headers(
+                stream_id=self.stream_id, headers=[(b":status", b"403")]
+            )
+        end_stream = True
+        return data, end_stream
+
+    def _websocket_send(self, message):
+        data = b""
+        if message.get("text") is not None:
+            data = self.websocket.send(
+                wsproto.events.TextMessage(data=message["text"])
+            )
+        elif message.get("bytes") is not None:
+            data = self.websocket.send(
+                wsproto.events.Message(data=message["bytes"])
+            )
+        return data
 
 
 class WebTransportHandler:

@@ -6,7 +6,6 @@ from rsocket.exceptions import RSocketFrameFragmentDifferentType
 from rsocket.frame import PayloadFrame, RequestResponseFrame, FragmentableFrame, RequestStreamFrame, RequestChannelFrame
 from rsocket.frame_builders import to_request_response_frame, to_request_stream_frame, to_request_channel_frame
 from rsocket.frame_fragment_cache import FrameFragmentCache
-from rsocket.frame_helpers import ensure_bytes
 from rsocket.payload import Payload
 from tests.rsocket.helpers import create_data
 
@@ -119,7 +118,6 @@ async def test_frame_building_should_fail_if_inconsistent_frame_type():
     second_frame.data = b'123'
     second_frame.flags_follows = False
     second_frame.flags_complete = True
-    first_frame.flags_next = True
 
     cache = FrameFragmentCache()
 

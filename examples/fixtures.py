@@ -56,7 +56,7 @@ def create_self_signed_certificate(common_name, country_name, email_address, pri
     cert.get_subject().C = country_name
     cert.get_subject().ST = state_or_province_name
     cert.get_subject().L = locality_name
-    cert.get_subject().O = organization_name
+    cert.get_subject().O = organization_name  # noqa: E741
     cert.get_subject().OU = organization_unit_name
     cert.get_subject().CN = common_name
     cert.get_subject().emailAddress = email_address

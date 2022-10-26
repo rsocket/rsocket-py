@@ -3,7 +3,7 @@ import struct
 from abc import ABCMeta
 from asyncio import Future
 from enum import IntEnum, unique
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union, cast
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
@@ -82,17 +82,6 @@ def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
     frame.flags_ignore = is_flag_set(flags, _FLAG_IGNORE_BIT)
     frame.flags_metadata = is_flag_set(flags, _FLAG_METADATA_BIT)
     return flags
-
-
-class FragmentableFrame:
-    __slots__ = (
-        'metadata',
-        'data',
-        'flags_follows',
-        'flags_complete',
-        'flags_next',
-        'stream_id'
-    )
 
 
 class Frame(Header, metaclass=ABCMeta):
@@ -217,40 +206,11 @@ class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
         try:
             fragment = self.fragment_generator.__next__()
-            return self._new_frame_fragment(fragment)
+            return new_frame_fragment(self, fragment)
         except GeneratorExit:
             return None
         except StopIteration:
             return None
-
-    def _new_frame_fragment(self, fragment: Fragment) -> 'Frame':
-        if fragment.is_first:
-            frame = self.__class__()
-        else:
-            frame = PayloadFrame()
-
-        if isinstance(frame, PayloadFrame):
-            if not is_blank(frame.data) or not is_blank(frame.metadata):
-                frame.flags_next = True
-
-        frame.stream_id = self.stream_id
-
-        frame.flags_ignore = self.flags_ignore
-        frame.flags_metadata = self.flags_metadata
-        frame.metadata_only = self.metadata_only
-
-        if hasattr(self, 'initial_request_n'):
-            frame.initial_request_n = self.initial_request_n
-
-        frame.data = fragment.data
-        frame.metadata = fragment.metadata
-        frame.flags_follows = fragment.is_last is False
-
-        if fragment.is_last is None or fragment.is_last:
-            frame.sent_future = self.sent_future
-            frame.flags_complete = self.flags_complete
-
-        return frame
 
 
 class SetupFrame(Frame):
@@ -720,6 +680,43 @@ def is_fragmentable_frame(frame: Frame) -> bool:
     ))
 
 
+FragmentableFrame = Union[PayloadFrame,
+                          RequestResponseFrame,
+                          RequestChannelFrame,
+                          RequestStreamFrame,
+                          RequestFireAndForgetFrame]
+
+
+def new_frame_fragment(base_frame: FragmentableFrame, fragment: Fragment) -> Frame:
+    if fragment.is_first:
+        frame = base_frame.__class__()
+    else:
+        frame = PayloadFrame()
+
+    if isinstance(frame, PayloadFrame):
+        if not is_blank(frame.data) or not is_blank(frame.metadata):
+            frame.flags_next = True
+
+    frame.stream_id = base_frame.stream_id
+
+    frame.flags_ignore = base_frame.flags_ignore
+    frame.flags_metadata = base_frame.flags_metadata
+    frame.metadata_only = base_frame.metadata_only
+
+    if hasattr(base_frame, 'initial_request_n'):
+        frame.initial_request_n = base_frame.initial_request_n
+
+    frame.data = fragment.data
+    frame.metadata = fragment.metadata
+    frame.flags_follows = fragment.is_last is False
+
+    if fragment.is_last is None or fragment.is_last:
+        frame.sent_future = base_frame.sent_future
+        frame.flags_complete = base_frame.flags_complete
+
+    return frame
+
+
 def exception_to_error_frame(stream_id: int, exception: Exception) -> ErrorFrame:
     frame = ErrorFrame()
     frame.stream_id = stream_id
@@ -763,5 +760,5 @@ frame_header_length = {
 }
 
 
-def get_header_length(frame: Frame) -> int:
+def get_header_length(frame: FragmentableFrame) -> int:
     return frame_header_length[frame.__class__]

@@ -6,8 +6,6 @@ from rsocket.helpers import single_transport_provider
 from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from tests.rsocket.helpers import assert_no_open_streams
-# noinspection PyUnresolvedReferences
-from tests.tools.fixtures_shared import generate_test_certificates
 from tests.tools.http3_client import http3_ws_transport
 from tests.tools.http3_server import start_http_server
 
