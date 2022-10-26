@@ -1,6 +1,13 @@
 Changelog
 ---------
 
+v0.4.2
+======
+- Command line fixes:
+    - Support passing ssl certificate and http headers when using ws/wss
+    - Support requesting --version without the need to specify URI arguments
+    - Option --interactionModel to specify interaction (eg. request_response, request_stream)
+    - Added Metadata Push support
 
 v0.4.1
 ======

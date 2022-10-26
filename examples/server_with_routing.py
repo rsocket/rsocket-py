@@ -9,7 +9,7 @@ import asyncclick as click
 from aiohttp import web
 
 from examples.example_fixtures import large_data1
-from examples.fixtures import cert_gen
+from examples.fixtures import generate_certificate_and_key
 from examples.response_channel import response_stream_1, LoggingSubscriber
 from response_stream import response_stream_2
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
@@ -136,15 +136,18 @@ async def start_server(with_ssl: bool, port: int, transport: str):
         app = web.Application()
         app.add_routes([web.get('/', websocket_handler_factory(handler_factory=handler_factory))])
 
-        if with_ssl:
-            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        with generate_certificate_and_key() as (certificate_path, key_path):
+            if with_ssl:
+                ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 
-            with cert_gen() as (certificate, key):
-                ssl_context.load_cert_chain(certificate, key)
-        else:
-            ssl_context = None
+                logging.info('Certificate %s', certificate_path)
+                logging.info('Private-key %s', key_path)
 
-        await web._run_app(app, port=port, ssl_context=ssl_context)
+                ssl_context.load_cert_chain(certificate_path, key_path)
+            else:
+                ssl_context = None
+
+            await web._run_app(app, port=port, ssl_context=ssl_context)
     elif transport == 'tcp':
 
         server = await asyncio.start_server(handle_client, 'localhost', port)
