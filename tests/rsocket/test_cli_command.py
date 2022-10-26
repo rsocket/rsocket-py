@@ -57,10 +57,15 @@ def test_create_request_payload():
     assert payload.metadata is None
 
 
-def test_get_metadata_value():
-    result = get_metadata_value([], None)
+@pytest.mark.parametrize('composite_items, metadata, expected', (
+        ([], None, None),
+        ([], 'metadata1', b'metadata1'),
+        ([route('somewhere')], b'metadata1', b'\xfe\x00\x00\n\tsomewhere'),
+))
+def test_get_metadata_value(composite_items, metadata, expected):
+    result = get_metadata_value(composite_items, metadata)
 
-    assert result is None
+    assert result == expected
 
 
 @pytest.mark.parametrize('data, metadata, expected', (
@@ -118,7 +123,11 @@ def test_normalize_data_from_stdin_takes_precedence_over_load_from_file():
 
 
 @pytest.mark.parametrize('limit_rate, expected', (
+        (MAX_REQUEST_N, MAX_REQUEST_N),
         (None, MAX_REQUEST_N),
+        (3, 3),
+        (0, MAX_REQUEST_N),
+        (-5, MAX_REQUEST_N),
 ))
 def test_normalize_limit_rate(limit_rate, expected):
     result = normalize_limit_rate(limit_rate)

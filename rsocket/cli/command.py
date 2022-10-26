@@ -365,9 +365,7 @@ def normalize_data(data: Optional[str], load: Optional[str]) -> bytes:
 
 
 def normalize_limit_rate(limit_rate):
-    if limit_rate is not None and not limit_rate > 0:
-        limit_rate = MAX_REQUEST_N
-    else:
+    if limit_rate is None or limit_rate <= 0:
         limit_rate = MAX_REQUEST_N
 
     return limit_rate
