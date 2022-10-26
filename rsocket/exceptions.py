@@ -16,6 +16,11 @@ class RSocketUnknownMimetype(RSocketError):
         self.mimetype_id = mimetype_id
 
 
+class RSocketUnknownAuthType(RSocketError):
+    def __init__(self, auth_type_id):
+        self.auth_type_id = auth_type_id
+
+
 class RSocketMimetypeTooLong(RSocketError):
     def __init__(self, mimetype):
         self.mimetype = mimetype
