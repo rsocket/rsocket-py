@@ -15,3 +15,21 @@ def test_mimetype_raise_exception_on_unknown_type():
 def test_serialize_well_known_encoding_too_long():
     with pytest.raises(RSocketMimetypeTooLong):
         serialize_well_known_encoding(b'1' * 1000, WellKnownMimeTypes.get_by_name)
+
+
+def test_mimetype_require_by_id():
+    mimetype = WellKnownMimeTypes.require_by_id(0x05)
+
+    assert mimetype is WellKnownMimeTypes.APPLICATION_JSON.value
+
+
+def test_mimetype_get_by_name():
+    mimetype = WellKnownMimeTypes.get_by_name(b'application/json')
+
+    assert mimetype is WellKnownMimeTypes.APPLICATION_JSON.value
+
+
+def test_mimetype_get_by_unknown_name():
+    mimetype = WellKnownMimeTypes.get_by_name(b'non_existing/type')
+
+    assert mimetype is None

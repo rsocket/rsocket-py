@@ -1,9 +1,9 @@
 from enum import Enum, unique
-from typing import Optional
+from typing import Optional, Union
 
 from rsocket.exceptions import RSocketUnknownMimetype
 from rsocket.frame_helpers import ensure_bytes
-from rsocket.helpers import WellKnownType
+from rsocket.helpers import WellKnownType, map_types_by_id, map_types_by_name
 
 
 class WellKnownMimeType(WellKnownType):
@@ -73,22 +73,21 @@ class WellKnownMimeTypes(Enum):
 
     @classmethod
     def require_by_id(cls, metadata_numeric_id: int) -> WellKnownMimeType:
-        for value in cls:
-            if value.value.id == metadata_numeric_id:
-                return value.value
-
-        raise RSocketUnknownMimetype(metadata_numeric_id)
+        try:
+            return mimetype_by_id[metadata_numeric_id]
+        except KeyError:
+            raise RSocketUnknownMimetype(metadata_numeric_id)
 
     @classmethod
     def get_by_name(cls, metadata_name: str) -> Optional[WellKnownMimeType]:
-        for value in cls:
-            if value.value.name == metadata_name:
-                return value.value
-
-        return None
+        return mimetype_by_name.get(metadata_name)
 
 
-def ensure_encoding_name(encoding) -> bytes:
+mimetype_by_id = map_types_by_id(WellKnownMimeTypes)
+mimetype_by_name = map_types_by_name(WellKnownMimeTypes)
+
+
+def ensure_encoding_name(encoding: Union[WellKnownMimeTypes, str, bytes]) -> bytes:
     if isinstance(encoding, WellKnownMimeTypes):
         return encoding.value.name
 
