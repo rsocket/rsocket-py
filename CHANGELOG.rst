@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+v0.4.3
+======
+- Command line fixes:
+    - limit_rage argument was effectively ignored. fixed.
+
 v0.4.2
 ======
 - Command line fixes:
