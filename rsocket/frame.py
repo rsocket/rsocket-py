@@ -3,7 +3,7 @@ import struct
 from abc import ABCMeta
 from asyncio import Future
 from enum import IntEnum, unique
-from typing import Tuple, Optional, Union, cast
+from typing import Tuple, Optional, Union
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
