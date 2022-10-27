@@ -1,19 +1,22 @@
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from multiprocessing import Process
+from typing import Optional
 
 import pytest
 
 from performance.performance_client import PerformanceClient
 from performance.performance_server import run_server
+from rsocket.rsocket_server import RSocketServer
 
 
 @pytest.mark.timeout(5)
 @pytest.mark.performance
 async def test_request_response(unused_tcp_port):
     async with run_against_server(unused_tcp_port) as client:
-        await record_runtime('request_response', client.request_response)
+        result = await record_runtime('request_response', client.request_response)
+
+        assert result is not None
 
 
 @pytest.mark.timeout(300)
@@ -22,26 +25,32 @@ async def test_request_stream(unused_tcp_port):
     async with run_against_server(unused_tcp_port) as client:
         arguments = dict(response_count=1,
                          response_size=1_000_000)
-        await record_runtime(f'request_stream {arguments}',
-                             lambda: client.request_stream(**arguments), iterations=1)
+        result = await record_runtime(f'request_stream {arguments}',
+                                      lambda: client.request_stream(**arguments), iterations=1)
 
-
-def run_server_async(unused_tcp_port):
-    asyncio.run(run_server(unused_tcp_port))
+        assert result is not None
 
 
 @asynccontextmanager
 async def run_against_server(unused_tcp_port: int) -> PerformanceClient:
-    server_process = Process(target=run_server_async, args=[unused_tcp_port])
-    server_process.start()
-    await asyncio.sleep(1)  # todo: replace with wait for server
+    server_ready = asyncio.Event()
+
+    server: Optional[RSocketServer] = None
+
+    def on_ready(rs):
+        nonlocal server
+        server_ready.set()
+        server = rs
+
+    server_task = asyncio.create_task(run_server(unused_tcp_port, on_ready=on_ready))
 
     try:
         async with run_with_client(unused_tcp_port) as client:
+            await server_ready.wait()
             yield client
     finally:
-        server_process.kill()
-        pass
+        await server.close()
+        server_task.cancel()
 
 
 @asynccontextmanager
@@ -52,13 +61,16 @@ async def run_with_client(unused_tcp_port):
 
 async def record_runtime(request_type, coroutine_generator, iterations=1000, output_filename='results.csv'):
     run_times = []
+    last_result = None
 
     for i in range(iterations):
         start_time = datetime.now()
-        await coroutine_generator()
+        last_result = await coroutine_generator()
         run_times.append(datetime.now() - start_time)
 
     average_runtime = sum(run_times, timedelta(0)) / len(run_times)
 
     with open(output_filename, 'a') as fd:
         fd.write(f'{request_type}, {iterations}, {average_runtime.total_seconds()}\n')
+
+    return last_result
