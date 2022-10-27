@@ -6,6 +6,7 @@ from typing import AsyncGenerator, Tuple
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
+from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.fragment import Fragment
@@ -98,10 +99,9 @@ class PerformanceClient:
             authenticate_simple('user', '12345')
         ))
 
-        await self._client.request_response(payload)
+        return await self._client.request_response(payload)
 
     async def request_channel(self):
-        channel_completion_event = Event()
         requester_completion_event = Event()
         payload = Payload(b'The quick brown fox', composite(
             route('channel'),
@@ -109,21 +109,15 @@ class PerformanceClient:
         ))
         publisher = sample_publisher(requester_completion_event)
 
-        requested = self._client.request_channel(payload, publisher)
-
-        requested.initial_request_n(5).subscribe(ChannelSubscriber(channel_completion_event))
-
-        await channel_completion_event.wait()
-        await requester_completion_event.wait()
+        return await self._client.request_channel(payload, publisher, limit_rate=5)
 
     async def request_stream_invalid_login(self):
         payload = Payload(b'The quick brown fox', composite(
             route('stream'),
             authenticate_simple('user', 'wrong_password')
         ))
-        completion_event = Event()
-        self._client.request_stream(payload).initial_request_n(1).subscribe(StreamSubscriber(completion_event))
-        await completion_event.wait()
+
+        return await self._client.request_stream(payload, 1)
 
     async def request_stream(self, response_count: int = 3, response_size=100):
         payload = Payload(to_json_bytes({'response_count': response_count,
@@ -132,35 +126,34 @@ class PerformanceClient:
                               route('stream'),
                               authenticate_simple('user', '12345')
                           ))
-        completion_event = Event()
-        self._client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
-        await completion_event.wait()
+
+        return await self._client.request_stream(payload)
 
     async def request_slow_stream(self):
         payload = Payload(b'The quick brown fox', composite(
             route('slow_stream'),
             authenticate_simple('user', '12345')
         ))
-        completion_event = Event()
-        self._client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
-        await completion_event.wait()
+
+        return await self._client.request_stream(payload)
 
     async def request_fragmented_stream(self):
         payload = Payload(b'The quick brown fox', composite(
             route('fragmented_stream'),
             authenticate_simple('user', '12345')
         ))
-        completion_event = Event()
-        self._client.request_stream(payload).subscribe(StreamSubscriber(completion_event))
-        await completion_event.wait()
+
+        return await self._client.request_stream(payload)
 
     async def __aenter__(self):
         logging.info('Connecting to server at localhost:%s', self._server_port)
 
         connection = await asyncio.open_connection('localhost', self._server_port)
 
-        self._client = RSocketClient(single_transport_provider(TransportTCP(*connection)),
-                                     metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA)
+        self._client = AwaitableRSocket(RSocketClient(
+            single_transport_provider(TransportTCP(*connection)),
+            metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA)
+        )
 
         await self._client.connect()
         return self

@@ -100,17 +100,21 @@ def handler_factory(socket):
     return RoutingRequestHandler(socket, router, authenticator)
 
 
-def handle_client(reader, writer):
-    RSocketServer(TransportTCP(reader, writer),
-                  handler_factory=handler_factory,
-                  fragment_size_bytes=64_000
-                  )
+def client_handler_factory(on_ready=None):
+    def handle_client(reader, writer):
+        RSocketServer(TransportTCP(reader, writer),
+                      handler_factory=handler_factory,
+                      fragment_size_bytes=64_000,
+                      on_ready=on_ready
+                      )
+
+    return handle_client
 
 
-async def run_server(server_port):
+async def run_server(server_port, on_ready=None):
     logging.info('Starting server at localhost:%s', server_port)
 
-    server = await asyncio.start_server(handle_client, 'localhost', server_port)
+    server = await asyncio.start_server(client_handler_factory(on_ready), 'localhost', server_port)
 
     async with server:
         await server.serve_forever()

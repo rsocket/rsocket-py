@@ -5,6 +5,7 @@ v0.4.3
 ======
 - Command line fixes:
     - limit_rate argument was effectively ignored. fixed.
+- Added on_ready callback to RSocketServer. Called when sender/receiver tasks are ready.
 
 v0.4.2
 ======
