@@ -1,5 +1,5 @@
 from rsocket.frame import Frame, InvalidFrame, RequestNFrame, KeepAliveFrame, RequestStreamFrame, LeaseFrame, \
-    PayloadFrame, ErrorFrame, SetupFrame
+    PayloadFrame, ErrorFrame, SetupFrame, RequestChannelFrame, RequestResponseFrame
 from rsocket.frame_helpers import safe_len
 from rsocket.logger import logger
 
@@ -75,7 +75,7 @@ def log_frame(frame: Frame, log_identifier: str, direction: str = 'Received'):
             safe_len(frame.metadata),
             frame.flags_lease
         )
-    elif isinstance(frame, RequestStreamFrame):
+    elif isinstance(frame, (RequestStreamFrame, RequestChannelFrame)):
         logger().debug(
             '%s: %s frame (type=%s, stream_id=%d, n=%d)',
             log_identifier,
@@ -83,6 +83,14 @@ def log_frame(frame: Frame, log_identifier: str, direction: str = 'Received'):
             frame.frame_type.name,
             frame.stream_id,
             frame.initial_request_n
+        )
+    elif isinstance(frame, RequestResponseFrame):
+        logger().debug(
+            '%s: %s frame (type=%s, stream_id=%d)',
+            log_identifier,
+            direction,
+            frame.frame_type.name,
+            frame.stream_id
         )
     else:
         logger().debug(
