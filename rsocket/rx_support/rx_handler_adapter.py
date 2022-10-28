@@ -1,6 +1,6 @@
 import asyncio
 from datetime import timedelta
-from typing import Tuple, Optional, Type
+from typing import Tuple, Optional, Callable
 
 from rx import operators
 
@@ -8,14 +8,14 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from rsocket.error_codes import ErrorCode
 from rsocket.payload import Payload
+from rsocket.request_handler import RequestHandler
+from rsocket.rsocket import RSocket
 from rsocket.rx_support.back_pressure_publisher import BackPressurePublisher
 from rsocket.rx_support.from_rsocket_publisher import RxSubscriberFromObserver
 from rsocket.rx_support.rx_handler import RxHandler
-from rsocket.request_handler import RequestHandler
-from rsocket.rsocket import RSocket
 
 
-def rx_handler_factory(handler_factory: Type[RxHandler]):
+def rx_handler_factory(handler_factory: Callable[[RSocket], RxHandler]):
     def create_handler(socket: RSocket):
         return RxHandlerAdapter(handler_factory(socket), socket)
 

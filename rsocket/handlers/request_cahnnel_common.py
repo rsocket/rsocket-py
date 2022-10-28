@@ -1,4 +1,5 @@
 import abc
+import asyncio
 from typing import Optional
 
 from reactivestreams.publisher import Publisher
@@ -39,8 +40,12 @@ class StreamSubscriber(DefaultSubscriber):
 
 class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc.ABCMeta):
 
-    def __init__(self, socket: RSocket, remote_publisher: Optional[Publisher] = None):
+    def __init__(self,
+                 socket: RSocket,
+                 remote_publisher: Optional[Publisher] = None,
+                 sending_done_event: Optional[asyncio.Event] = None):
         super().__init__(socket)
+        self._sending_done_event = sending_done_event
         self.remote_subscriber = None
         self._sent_complete = False
         self._received_complete = False
@@ -56,7 +61,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
     def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):
             self.subscriber.subscription.cancel()
-            self._finish_stream()
+            self.mark_completed_and_finish(sent=True)
         elif isinstance(frame, RequestNFrame):
             if self.subscriber.subscription is not None:
                 self.subscriber.subscription.request(frame.request_n)
@@ -83,10 +88,14 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
         self.mark_completed_and_finish(received=True)
 
     def mark_completed_and_finish(self, received=None, sent=None):
+
         if received:
             self._received_complete = True
+
         if sent:
             self._sent_complete = True
+            self._set_sending_done()
+
         self._finish_if_both_closed()
 
     def _finish_if_both_closed(self):
@@ -102,6 +111,11 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
 
     def cancel(self):
         self.send_cancel()
+        self._set_sending_done()
+
+    def _set_sending_done(self):
+        if self._sending_done_event is not None:
+            self._sending_done_event.set()
 
     def request(self, n: int):
         self.send_request_n(n)

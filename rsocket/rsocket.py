@@ -1,4 +1,5 @@
 import abc
+import asyncio
 from typing import Union, Optional, Any
 
 from reactivestreams.publisher import Publisher
@@ -13,7 +14,8 @@ class RSocket(metaclass=abc.ABCMeta):
     def request_channel(
             self,
             payload: Payload,
-            local_publisher: Optional[Publisher] = None) -> Union[Any, Publisher]:
+            local_publisher: Optional[Publisher] = None,
+            sending_done: Optional[asyncio.Event] = None) -> Union[Any, Publisher]:
         ...
 
     @abc.abstractmethod
