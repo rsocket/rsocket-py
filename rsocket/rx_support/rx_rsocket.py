@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 
 import rx
@@ -24,14 +25,15 @@ class RxRSocket:
     def request_channel(self,
                         request: Payload,
                         request_limit: int = MAX_REQUEST_N,
-                        observable: Optional[Observable] = None) -> Observable:
+                        observable: Optional[Observable] = None,
+                        sending_done_event: Optional[asyncio.Event] = None) -> Observable:
         if observable is not None:
             local_publisher = BackPressurePublisher(observable)
         else:
             local_publisher = None
 
         response_publisher = self._rsocket.request_channel(
-            request, local_publisher
+            request, local_publisher, sending_done_event
         ).initial_request_n(request_limit)
         return from_rsocket_publisher(response_publisher, request_limit)
 

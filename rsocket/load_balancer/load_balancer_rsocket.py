@@ -1,3 +1,4 @@
+import asyncio
 from typing import Union, Optional, Any
 
 from reactivestreams.publisher import Publisher
@@ -13,9 +14,12 @@ class LoadBalancerRSocket(RSocket):
     def __init__(self, strategy: LoadBalancerStrategy):
         self._strategy = strategy
 
-    def request_channel(self, payload: Payload, local_publisher: Optional[Publisher] = None) -> Union[Any, Publisher]:
+    def request_channel(self,
+                        payload: Payload,
+                        local_publisher: Optional[Publisher] = None,
+                        sending_done: Optional[asyncio.Event] = None) -> Union[Any, Publisher]:
         return self._select_client().request_channel(
-            payload, local_publisher
+            payload, local_publisher, sending_done
         )
 
     def request_response(self, payload: Payload) -> Awaitable[Payload]:

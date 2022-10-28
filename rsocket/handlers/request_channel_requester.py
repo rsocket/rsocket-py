@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 
 from reactivestreams.publisher import Publisher
@@ -10,8 +11,12 @@ from rsocket.rsocket import RSocket
 
 class RequestChannelRequester(RequestChannelCommon):
 
-    def __init__(self, socket: RSocket, payload: Payload, remote_publisher: Optional[Publisher] = None):
-        super().__init__(socket, remote_publisher)
+    def __init__(self,
+                 socket: RSocket,
+                 payload: Payload,
+                 remote_publisher: Optional[Publisher] = None,
+                 sending_done_event: Optional[asyncio.Event] = None):
+        super().__init__(socket, remote_publisher, sending_done_event)
         self._payload = payload
 
     def setup(self):

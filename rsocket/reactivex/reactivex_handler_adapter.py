@@ -1,6 +1,6 @@
 import asyncio
 from datetime import timedelta
-from typing import Tuple, Optional, Type
+from typing import Tuple, Optional, Callable
 
 from reactivex import operators
 
@@ -15,7 +15,7 @@ from rsocket.request_handler import RequestHandler
 from rsocket.rsocket import RSocket
 
 
-def reactivex_handler_factory(handler_factory: Type[ReactivexHandler]):
+def reactivex_handler_factory(handler_factory: Callable[[RSocket], ReactivexHandler]):
     def create_handler(socket: RSocket):
         return ReactivexHandlerAdapter(handler_factory(socket), socket)
 

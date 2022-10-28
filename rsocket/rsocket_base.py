@@ -493,10 +493,11 @@ class RSocketBase(RSocket, RSocketInternal):
     def request_channel(
             self,
             payload: Payload,
-            local_publisher: Optional[Publisher] = None) -> Union[BackpressureApi, Publisher]:
+            local_publisher: Optional[Publisher] = None,
+            sending_done_event: Optional[asyncio.Event] = None) -> Union[BackpressureApi, Publisher]:
         logger().debug('%s: request-channel: %s', self._log_identifier(), payload)
 
-        requester = RequestChannelRequester(self, payload, local_publisher)
+        requester = RequestChannelRequester(self, payload, local_publisher, sending_done_event)
         return self.register_new_stream(requester)
 
     def metadata_push(self, metadata: bytes) -> Awaitable[None]:

@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Tuple
+from typing import Tuple, Optional
 
 import rx
 from rx import operators, Observable
@@ -8,6 +8,7 @@ from rx.core import Observer
 
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.payload import Payload
+from rsocket.rsocket import RSocket
 from rsocket.rx_support.rx_channel import RxChannel
 from rsocket.rx_support.rx_rsocket import RxRSocket
 from rsocket.rx_support.rx_handler import BaseRxHandler
@@ -17,6 +18,10 @@ from rsocket.rsocket_server import RSocketServer
 
 
 class Handler(BaseRxHandler):
+    def __init__(self, socket: RSocket, server_done: Optional[asyncio.Event] = None):
+        super().__init__(socket)
+        self._server_done = server_done
+
     async def request_stream(self, payload: Payload) -> Observable:
         return rx.from_iterable((Payload(ensure_bytes('Feed Item: {}'.format(index))) for index in range(3)))
 
@@ -27,13 +32,18 @@ class Handler(BaseRxHandler):
         def observer(value: Payload):
             logging.info(f'Received by test server: {value.data}')
 
-        return RxChannel(observable, Observer(observer), limit_rate=2)
+        return RxChannel(observable,
+                         Observer(observer,
+                                  on_completed=lambda: self._server_done.set(),
+                                  on_error=lambda _: self._server_done.set()
+                                  ),
+                         limit_rate=2)
 
     async def request_response(self, payload: Payload) -> Observable:
         return rx.of(Payload(b'response value'))
 
 
-async def test_serve_reactivex_stream(pipe: Tuple[RSocketServer, RSocketClient]):
+async def test_serve_rx_stream(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
 
     server.set_handler_using_factory(rx_handler_factory(Handler))
@@ -50,20 +60,20 @@ async def test_serve_reactivex_stream(pipe: Tuple[RSocketServer, RSocketClient])
     assert received_messages[2] == b'Feed Item: 2'
 
 
-async def test_serve_reactivex_channel(pipe: Tuple[RSocketServer, RSocketClient]):
+async def test_serve_rx_channel(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
-    server.set_handler_using_factory(rx_handler_factory(Handler))
 
-    sending_finished = asyncio.Event()
+    server_done_event = asyncio.Event()
+
+    def handler_factory(rsocket):
+        return Handler(rsocket, server_done_event)
+
+    server.set_handler_using_factory(rx_handler_factory(handler_factory))
 
     received_messages = await RxRSocket(client).request_channel(
         Payload(b'request text'),
         request_limit=2,
-        observable=rx.from_iterable(
-            Payload(ensure_bytes(f'Client item: {index}')) for index in range(3)
-        ).pipe(
-            operators.do_action(on_completed=sending_finished.set())
-        )
+        observable=rx.from_iterable(Payload(ensure_bytes(f'Client item: {index}')) for index in range(3))
     ).pipe(
         operators.map(lambda payload: payload.data),
         operators.to_list()
@@ -74,11 +84,10 @@ async def test_serve_reactivex_channel(pipe: Tuple[RSocketServer, RSocketClient]
     assert received_messages[1] == b'Feed Item: 1'
     assert received_messages[2] == b'Feed Item: 2'
 
-    await sending_finished.wait()
-    await asyncio.sleep(2)  # fixme: how to wait for server to finish processing before test killing it
+    await server_done_event.wait()
 
 
-async def test_serve_reactivex_response(pipe: Tuple[RSocketServer, RSocketClient]):
+async def test_serve_rx_response(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = pipe
 
     server.set_handler_using_factory(rx_handler_factory(Handler))
