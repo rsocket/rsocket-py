@@ -4,9 +4,9 @@ Changelog
 v0.4.3
 ======
 - Command line fixes:
-    - limit_rate argument was effectively ignored. fixed.
-- Added on_ready callback to RSocketServer. Called when sender/receiver tasks are ready.
-- Implement ReactiveX (3.0, 4.0) server side handler. Allows to define RequestHandler directly using ReactiveX.
+    - limit_rate argument was effectively ignored. fixed
+- Added on_ready callback to RSocketServer. Called when sender/receiver tasks are ready
+- Implement ReactiveX (3.0, 4.0) server side handler. Allows to define RequestHandler directly using ReactiveX
 - Added sending_done_event argument to request_channel to allow client to wait until sending to server is complete/canceled
 
 v0.4.2
