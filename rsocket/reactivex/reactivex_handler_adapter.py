@@ -53,7 +53,7 @@ class ReactivexHandlerAdapter(RequestHandler):
 
     async def request_response(self, payload: Payload) -> asyncio.Future:
         observable = await self.delegate.request_response(payload)
-        return await observable.pipe(operators.to_future())
+        return observable.pipe(operators.to_future())
 
     async def request_stream(self, payload: Payload) -> Publisher:
         return BackPressurePublisher(await self.delegate.request_stream(payload))

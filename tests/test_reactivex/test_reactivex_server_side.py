@@ -31,3 +31,21 @@ async def test_serve_reactivex_stream(pipe: Tuple[RSocketServer, RSocketClient])
     assert received_messages[0] == b'Feed Item: 0'
     assert received_messages[1] == b'Feed Item: 1'
     assert received_messages[2] == b'Feed Item: 2'
+
+
+async def test_serve_reactivex_response(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+
+    class Handler(BaseReactivexHandler):
+        async def request_response(self, payload: Payload) -> Observable:
+            return reactivex.of(Payload(b'response value'))
+
+    server.set_handler_using_factory(reactivex_handler_factory(Handler))
+
+    received_messages = await ReactiveXClient(client).request_response(Payload(b'request text')).pipe(
+        operators.map(lambda payload: payload.data),
+        operators.to_list()
+    )
+
+    assert len(received_messages) == 1
+    assert received_messages[0] == b'response value'
