@@ -93,7 +93,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
         if self._received_complete and self._sent_complete:
             self._finish_stream()
 
-    def subscribe(self, subscriber: Subscriber):
+    def subscribe(self, subscriber: Optional[Subscriber]):
         if subscriber is not None:
             self.remote_subscriber = subscriber
             self.remote_subscriber.on_subscribe(self)

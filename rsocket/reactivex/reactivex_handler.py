@@ -1,15 +1,15 @@
 from abc import abstractmethod
 from datetime import timedelta
-from typing import Tuple, Optional
 
 import reactivex
-from reactivex import Observable, Observer
+from reactivex import Observable
 
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.helpers import create_error_future
 from rsocket.logger import logger
 from rsocket.payload import Payload
+from rsocket.reactivex.reactivex_channel import ReactivexChannel
 from rsocket.rsocket import RSocket
 
 
@@ -30,7 +30,7 @@ class ReactivexHandler:
         ...
 
     @abstractmethod
-    async def request_channel(self, payload: Payload) -> Tuple[Optional[Observable], Optional[Observer]]:
+    async def request_channel(self, payload: Payload) -> ReactivexChannel:
         ...
 
     @abstractmethod
@@ -73,7 +73,7 @@ class BaseReactivexHandler(ReactivexHandler):
     async def on_metadata_push(self, metadata: Payload):
         """Nothing by default"""
 
-    async def request_channel(self, payload: Payload) -> Tuple[Optional[Observable], Optional[Observer]]:
+    async def request_channel(self, payload: Payload) -> ReactivexChannel:
         raise RuntimeError('Not implemented')
 
     async def request_fire_and_forget(self, payload: Payload):

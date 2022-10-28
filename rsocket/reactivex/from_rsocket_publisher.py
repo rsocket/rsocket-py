@@ -27,6 +27,7 @@ class RxSubscriber(Subscriber):
     def on_next(self, value, is_complete=False):
         self._received_messages += 1
         self.observer.on_next(value)
+
         if is_complete:
             self.observer.on_completed()
             self._finish()
@@ -91,3 +92,33 @@ def from_rsocket_publisher(publisher: Publisher, limit_rate: int = MAX_REQUEST_N
         return Disposable(dispose)
 
     return reactivex.create(on_subscribe)
+
+
+class RxSubscriberFromObserver(Subscriber):
+    def __init__(self, observer: Observer, limit_rate: int):
+        self.limit_rate = limit_rate
+        self.observer = observer
+        self._received_messages = 0
+        self.subscription = None
+
+    def on_subscribe(self, subscription: Subscription):
+        self.subscription = subscription
+        self.subscription.request(self.limit_rate)
+
+    def on_next(self, value, is_complete=False):
+        self._received_messages += 1
+        self.observer.on_next(value)
+
+        if is_complete:
+            self.observer.on_completed()
+
+        else:
+            if self._received_messages == self.limit_rate:
+                self._received_messages = 0
+                self.subscription.request(self.limit_rate)
+
+    def on_error(self, exception: Exception):
+        self.observer.on_error(exception)
+
+    def on_complete(self):
+        self.observer.on_completed()

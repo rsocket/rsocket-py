@@ -9,9 +9,8 @@ from reactivestreams.subscriber import Subscriber
 from rsocket.error_codes import ErrorCode
 from rsocket.payload import Payload
 from rsocket.reactivex.back_pressure_publisher import BackPressurePublisher
-from rsocket.reactivex.from_rsocket_publisher import RxSubscriber
+from rsocket.reactivex.from_rsocket_publisher import RxSubscriberFromObserver
 from rsocket.reactivex.reactivex_handler import ReactivexHandler
-
 from rsocket.request_handler import RequestHandler
 from rsocket.rsocket import RSocket
 
@@ -36,15 +35,16 @@ class ReactivexHandlerAdapter(RequestHandler):
         await self.on_metadata_push(metadata)
 
     async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
-        observable, observer = await self.delegate.request_channel(payload)
+        reactivex_channel = await self.delegate.request_channel(payload)
 
         publisher = None
         subscriber = None
-        if observable is not None:
-            publisher = BackPressurePublisher(await self.delegate.request_stream(payload))
+        if reactivex_channel.observable is not None:
+            publisher = BackPressurePublisher(reactivex_channel.observable)
 
-        if observer is not None:
-            subscriber = RxSubscriber(observer)
+        if reactivex_channel.observer is not None:
+            subscriber = RxSubscriberFromObserver(reactivex_channel.observer,
+                                                  reactivex_channel.limit_rate)
 
         return publisher, subscriber
 

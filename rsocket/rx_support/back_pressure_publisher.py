@@ -33,27 +33,39 @@ async def observable_to_async_event_generator(observable: Observable):
 def from_aiter(iterator, feedback: Optional[Observable] = None):
     # noinspection PyUnusedLocal
     def on_subscribe(observer: Observer, scheduler):
-        async def _aio_next():
-            try:
-                event = await iterator.__anext__()
 
-                if isinstance(event, OnNext):
-                    observer.on_next(event.value)
-                elif isinstance(event, OnError):
-                    observer.on_error(event.exception)
-                elif isinstance(event, OnCompleted):
-                    observer.on_completed()
+        request_n_queue = asyncio.Queue()
+
+        async def _aio_next():
+
+            try:
+                while True:
+                    next_n = await request_n_queue.get()
+                    for i in range(next_n):
+                        event = await iterator.__anext__()
+
+                        if isinstance(event, OnNext):
+                            observer.on_next(event.value)
+                        elif isinstance(event, OnError):
+                            observer.on_error(event.exception)
+                            return
+                        elif isinstance(event, OnCompleted):
+                            observer.on_completed()
+                            return
             except StopAsyncIteration:
-                pass
+                return
             except Exception as exception:
                 logger().error(str(exception), exc_info=True)
                 observer.on_error(exception)
 
-        def create_next_task():
-            asyncio.create_task(_aio_next())
+        sender = asyncio.create_task(_aio_next())
+
+        def cancel_sender():
+            sender.cancel()
 
         return feedback.subscribe(
-            on_next=lambda i: create_next_task()
+            on_next=lambda n: request_n_queue.put_nowait(n),
+            on_completed=cancel_sender
         )
 
     return rx.create(on_subscribe)
@@ -71,8 +83,7 @@ class BackPressurePublisher(DefaultPublisherSubscription):
         from_aiter(async_iterator, self._feedback).subscribe(SubscriberAdapter(subscriber))
 
     def request(self, n: int):
-        for i in range(n):
-            self._feedback.on_next(True)
+        self._feedback.on_next(n)
 
     def cancel(self):
         self._feedback.on_completed()
