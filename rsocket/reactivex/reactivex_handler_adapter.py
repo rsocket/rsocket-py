@@ -12,20 +12,18 @@ from rsocket.reactivex.back_pressure_publisher import BackPressurePublisher
 from rsocket.reactivex.from_rsocket_publisher import RxSubscriberFromObserver
 from rsocket.reactivex.reactivex_handler import ReactivexHandler
 from rsocket.request_handler import RequestHandler
-from rsocket.rsocket import RSocket
 
 
-def reactivex_handler_factory(handler_factory: Callable[[RSocket], ReactivexHandler]):
-    def create_handler(socket: RSocket):
-        return ReactivexHandlerAdapter(handler_factory(socket), socket)
+def reactivex_handler_factory(handler_factory: Callable[[], ReactivexHandler]):
+    def create_handler():
+        return ReactivexHandlerAdapter(handler_factory())
 
     return create_handler
 
 
 class ReactivexHandlerAdapter(RequestHandler):
 
-    def __init__(self, delegate: ReactivexHandler, socket: RSocket):
-        super().__init__(socket)
+    def __init__(self, delegate: ReactivexHandler):
         self.delegate = delegate
 
     async def on_setup(self, data_encoding: bytes, metadata_encoding: bytes, payload: Payload):

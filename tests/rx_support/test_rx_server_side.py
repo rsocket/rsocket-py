@@ -8,18 +8,16 @@ from rx.core import Observer
 
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.payload import Payload
-from rsocket.rsocket import RSocket
-from rsocket.rx_support.rx_channel import RxChannel
-from rsocket.rx_support.rx_rsocket import RxRSocket
-from rsocket.rx_support.rx_handler import BaseRxHandler
-from rsocket.rx_support.rx_handler_adapter import rx_handler_factory
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from rsocket.rx_support.rx_channel import RxChannel
+from rsocket.rx_support.rx_handler import BaseRxHandler
+from rsocket.rx_support.rx_handler_adapter import rx_handler_factory
+from rsocket.rx_support.rx_rsocket import RxRSocket
 
 
 class Handler(BaseRxHandler):
-    def __init__(self, socket: RSocket, server_done: Optional[asyncio.Event] = None):
-        super().__init__(socket)
+    def __init__(self, server_done: Optional[asyncio.Event] = None):
         self._server_done = server_done
 
     async def request_stream(self, payload: Payload) -> Observable:
@@ -65,8 +63,8 @@ async def test_serve_rx_channel(pipe: Tuple[RSocketServer, RSocketClient]):
 
     server_done_event = asyncio.Event()
 
-    def handler_factory(rsocket):
-        return Handler(rsocket, server_done_event)
+    def handler_factory():
+        return Handler(server_done_event)
 
     server.set_handler_using_factory(rx_handler_factory(handler_factory))
 

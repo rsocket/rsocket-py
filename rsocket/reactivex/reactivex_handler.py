@@ -10,13 +10,9 @@ from rsocket.helpers import create_error_future
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.reactivex.reactivex_channel import ReactivexChannel
-from rsocket.rsocket import RSocket
 
 
 class ReactivexHandler:
-    def __init__(self, socket: RSocket):
-        super().__init__()
-        self.socket = socket
 
     @abstractmethod
     async def on_setup(self,

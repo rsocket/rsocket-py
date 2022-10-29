@@ -57,7 +57,7 @@ class RSocketBase(RSocket, RSocketInternal):
             self._socket.send_lease(value)
 
     def __init__(self,
-                 handler_factory: Callable[['RSocketBase'], RequestHandler] = BaseRequestHandler,
+                 handler_factory: Callable[[], RequestHandler] = BaseRequestHandler,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,
@@ -82,7 +82,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._lease_publisher = lease_publisher
         self._sender_task = None
         self._receiver_task = None
-        self._handler = self._handler_factory(self)
+        self._handler = self._handler_factory()
         self._responder_lease = None
         self._requester_lease = None
         self._is_closing = False
@@ -150,7 +150,7 @@ class RSocketBase(RSocket, RSocketInternal):
             return asyncio.create_task(task_factory())
 
     def set_handler_using_factory(self, handler_factory) -> RequestHandler:
-        self._handler = handler_factory(self)
+        self._handler = handler_factory()
         return self._handler
 
     def _allocate_stream(self) -> int:

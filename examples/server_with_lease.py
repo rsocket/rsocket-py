@@ -20,8 +20,8 @@ async def single_request_response(payload, composite_metadata):
     return create_future(Payload(b'single_response'))
 
 
-def handler_factory(socket):
-    return RoutingRequestHandler(socket, router)
+def handler_factory():
+    return RoutingRequestHandler(router)
 
 
 def handle_client(reader, writer):

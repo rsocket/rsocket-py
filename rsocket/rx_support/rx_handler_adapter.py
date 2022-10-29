@@ -9,23 +9,21 @@ from reactivestreams.subscriber import Subscriber
 from rsocket.error_codes import ErrorCode
 from rsocket.payload import Payload
 from rsocket.request_handler import RequestHandler
-from rsocket.rsocket import RSocket
 from rsocket.rx_support.back_pressure_publisher import BackPressurePublisher
 from rsocket.rx_support.from_rsocket_publisher import RxSubscriberFromObserver
 from rsocket.rx_support.rx_handler import RxHandler
 
 
-def rx_handler_factory(handler_factory: Callable[[RSocket], RxHandler]):
-    def create_handler(socket: RSocket):
-        return RxHandlerAdapter(handler_factory(socket), socket)
+def rx_handler_factory(handler_factory: Callable[[], RxHandler]):
+    def create_handler():
+        return RxHandlerAdapter(handler_factory())
 
     return create_handler
 
 
 class RxHandlerAdapter(RequestHandler):
 
-    def __init__(self, delegate: RxHandler, socket: RSocket):
-        super().__init__(socket)
+    def __init__(self, delegate: RxHandler):
         self.delegate = delegate
 
     async def on_setup(self, data_encoding: bytes, metadata_encoding: bytes, payload: Payload):
