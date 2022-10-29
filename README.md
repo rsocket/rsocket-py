@@ -90,8 +90,9 @@ The client_springboot.py is set up to work against https://github.com/benwilcock
     - [X] Authentication
 - [ ] Transports
     - [X] TCP
-    - [X] Websocket
+    - [X] Websocket (WS, WSS) - Quart and aiohttp integration
     - [X] QUIC
+    - [X] HTTP/3
     - [ ] HTTP/2
     - [ ] Aeron
 - [X] RxPy Integration
@@ -100,6 +101,8 @@ The client_springboot.py is set up to work against https://github.com/benwilcock
     - [X] Channel Requester stream
     - [X] Response
 - [ ] Other
-    - [ ] Error handling all scenarios in the protocol spec
     - [X] Reconnect
     - [X] Load balancing
+    - [X] Server routing definition helper (Flask like syntax)
+    - [X] Reactivex integration (v3, v4) server/client side
+    - [X] Command line interface
