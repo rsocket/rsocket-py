@@ -7,7 +7,7 @@ from reactivestreams.subscription import Subscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.payload import Payload
-from rsocket.request_handler import BaseRequestHandler, RequestHandler
+from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_generator import StreamFromGenerator
