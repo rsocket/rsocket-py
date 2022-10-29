@@ -1,5 +1,6 @@
 import asyncio
 import functools
+from typing import Awaitable
 
 import pytest
 
@@ -17,7 +18,7 @@ async def test_request_response_awaitable_wrapper(pipe):
             return future_from_payload(request)
 
     server, client = get_components(pipe)
-    server._handler = Handler(server)
+    server.set_handler_using_factory(Handler)
 
     response = await AwaitableRSocket(client).request_response(Payload(b'dog', b'cat'))
     assert response == Payload(b'data: dog', b'meta: cat')
@@ -29,7 +30,7 @@ async def test_request_response_repeated(pipe):
             return future_from_payload(request)
 
     server, client = get_components(pipe)
-    server._handler = Handler(server)
+    server.set_handler_using_factory(Handler)
 
     for x in range(2):
         response = await client.request_response(Payload(b'dog', b'cat'))
@@ -43,7 +44,7 @@ async def test_request_response_failure(pipe):
             return self
 
     server, client = get_components(pipe)
-    server._handler = Handler(server)
+    server.set_handler_using_factory(Handler)
 
     with pytest.raises(RuntimeError):
         await client.request_response(Payload())
@@ -58,7 +59,7 @@ async def test_request_response_cancellation(pipe):
             return server_future
 
     server, client = get_components(pipe)
-    server._handler = Handler(server)
+    server.set_handler_using_factory(Handler)
 
     future = client.request_response(Payload())
 
@@ -90,9 +91,9 @@ async def test_request_response_bidirectional(pipe):
                 payload.metadata = b'(server ' + payload.metadata + b')'
                 other.set_result(payload)
 
-        async def request_response(self, payload: Payload):
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
             future = create_future()
-            self.socket.request_response(payload).add_done_callback(
+            server.request_response(payload).add_done_callback(
                 functools.partial(self.future_done, future))
             return future
 
@@ -102,8 +103,8 @@ async def test_request_response_bidirectional(pipe):
                                          b'(client ' + payload.metadata + b')'))
 
     server, client = get_components(pipe)
-    server._handler = ServerHandler(server)
-    client._handler = ClientHandler(client)
+    server.set_handler_using_factory(ServerHandler)
+    client.set_handler_using_factory(ClientHandler)
 
     response = await client.request_response(Payload(b'data', b'metadata'))
 

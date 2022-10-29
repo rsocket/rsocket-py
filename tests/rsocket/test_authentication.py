@@ -65,8 +65,7 @@ async def test_authentication_frame_simple():
 
 async def test_authentication_success_on_setup(lazy_pipe):
     class Handler(BaseRequestHandler):
-        def __init__(self, socket):
-            super().__init__(socket)
+        def __init__(self):
             self._authenticated = False
 
         async def on_setup(self,
@@ -100,8 +99,7 @@ async def test_authentication_failure_on_setup(lazy_pipe):
     received_error: Optional[tuple] = None
 
     class ServerHandler(BaseRequestHandler):
-        def __init__(self, socket):
-            super().__init__(socket)
+        def __init__(self):
             self._authenticated = False
 
         async def on_setup(self,

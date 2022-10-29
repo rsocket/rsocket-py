@@ -7,7 +7,7 @@ from reactivestreams.subscription import Subscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.payload import Payload
-from rsocket.request_handler import BaseRequestHandler, RequestHandler
+from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_generator import StreamFromGenerator
@@ -37,13 +37,12 @@ async def test_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSoc
 
 async def test_request_channel_immediately_finished_without_payloads(pipe: Tuple[RSocketServer, RSocketClient]):
     server, client = get_components(pipe)
-    handler: Optional[RequestHandler] = None
     response_stream_finished = asyncio.Event()
 
     class Handler(BaseRequestHandler, DefaultPublisherSubscription, DefaultSubscriber):
 
-        def __init__(self, socket):
-            super().__init__(socket)
+        def __init__(self):
+            super().__init__()
             self.received_messages = []
 
         def on_next(self, value, is_complete=False):
@@ -62,14 +61,16 @@ async def test_request_channel_immediately_finished_without_payloads(pipe: Tuple
         async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
             return self, self
 
+    handler: Optional[Handler] = None
+
     class RequesterPublisher(DefaultPublisherSubscription):
 
         def request(self, n: int):
             self._subscriber.on_complete()
 
-    def handler_factory(socket):
+    def handler_factory():
         nonlocal handler
-        handler = Handler(socket)
+        handler = Handler()
         return handler
 
     server.set_handler_using_factory(handler_factory)

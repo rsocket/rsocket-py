@@ -7,8 +7,7 @@ from rsocket.request_handler import BaseRequestHandler
 
 
 class FireAndForgetHandler(BaseRequestHandler):
-    def __init__(self, socket):
-        super().__init__(socket)
+    def __init__(self):
         self.received = asyncio.Event()
         self.received_payload: Optional[Payload] = None
 
@@ -20,9 +19,9 @@ class FireAndForgetHandler(BaseRequestHandler):
 async def test_request_fire_and_forget(lazy_pipe):
     handler: Optional[FireAndForgetHandler] = None
 
-    def handler_factory(socket):
+    def handler_factory():
         nonlocal handler
-        handler = FireAndForgetHandler(socket)
+        handler = FireAndForgetHandler()
         return handler
 
     async with lazy_pipe(
@@ -38,9 +37,9 @@ async def test_request_fire_and_forget(lazy_pipe):
 async def test_request_fire_and_forget_wait(lazy_pipe):
     handler: Optional[FireAndForgetHandler] = None
 
-    def handler_factory(socket):
+    def handler_factory():
         nonlocal handler
-        handler = FireAndForgetHandler(socket)
+        handler = FireAndForgetHandler()
         return handler
 
     async with lazy_pipe(
@@ -53,9 +52,9 @@ async def test_request_fire_and_forget_wait(lazy_pipe):
 async def test_request_fire_and_forget_awaitable_client(lazy_pipe):
     handler: Optional[FireAndForgetHandler] = None
 
-    def handler_factory(socket):
+    def handler_factory():
         nonlocal handler
-        handler = FireAndForgetHandler(socket)
+        handler = FireAndForgetHandler()
         return handler
 
     async with lazy_pipe(

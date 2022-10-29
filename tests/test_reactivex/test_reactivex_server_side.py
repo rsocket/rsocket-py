@@ -11,15 +11,13 @@ from rsocket.reactivex.reactivex_channel import ReactivexChannel
 from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.reactivex.reactivex_handler import BaseReactivexHandler
 from rsocket.reactivex.reactivex_handler_adapter import reactivex_handler_factory
-from rsocket.rsocket import RSocket
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 
 
 class Handler(BaseReactivexHandler):
 
-    def __init__(self, socket: RSocket, server_done: Optional[asyncio.Event] = None):
-        super().__init__(socket)
+    def __init__(self, server_done: Optional[asyncio.Event] = None):
         self._server_done = server_done
 
     async def request_stream(self, payload: Payload) -> Observable:
@@ -65,8 +63,8 @@ async def test_serve_reactivex_channel(pipe: Tuple[RSocketServer, RSocketClient]
 
     server_done_event = asyncio.Event()
 
-    def handler_factory(rsocket):
-        return Handler(rsocket, server_done_event)
+    def handler_factory():
+        return Handler(server_done_event)
 
     server.set_handler_using_factory(reactivex_handler_factory(handler_factory))
 

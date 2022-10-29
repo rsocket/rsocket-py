@@ -15,10 +15,6 @@ from rsocket.payload import Payload
 
 class RequestHandler(metaclass=ABCMeta):
 
-    def __init__(self, socket):
-        super().__init__()
-        self.socket = socket
-
     @abstractmethod
     async def on_setup(self,
                        data_encoding: bytes,
