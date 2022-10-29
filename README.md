@@ -100,7 +100,7 @@ The client_springboot.py is set up to work against https://github.com/benwilcock
     - [X] Channel Response
     - [X] Channel Requester stream
     - [X] Response
-- [ ] Other
+- [X] Other
     - [X] Reconnect
     - [X] Load balancing
     - [X] Server routing definition helper (Flask like syntax)
