@@ -1,10 +1,14 @@
+from typing import cast
+
 import pytest
 
 from rsocket.exceptions import RSocketError
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.extensions.helpers import composite, data_mime_type, data_mime_types
+from rsocket.extensions.helpers import composite, data_mime_type, data_mime_types, route, authenticate_simple, \
+    metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
+from rsocket.extensions.stream_data_mimetype import StreamDataMimetypes, StreamDataMimetype
 
 
 def test_tag_composite_metadata_too_long():
@@ -23,7 +27,8 @@ def test_data_mime_type_composite_metadata():
     composite_metadata.parse(data)
 
     assert len(composite_metadata.items) == 1
-    assert composite_metadata.items[0].data_encoding == b'application/json'
+    metadata_item_1 = cast(composite_metadata.items[0], StreamDataMimetype)
+    assert metadata_item_1.data_encoding == b'application/json'
 
     assert composite_metadata.serialize() == data
 
@@ -38,7 +43,36 @@ def test_data_mime_types_composite_metadata():
     composite_metadata.parse(data)
 
     assert len(composite_metadata.items) == 1
-    assert composite_metadata.items[0].data_encodings[0] == b'application/json'
-    assert composite_metadata.items[0].data_encodings[1] == b'text/xml'
+    from typing import cast
+    metadata_item_1 = cast(composite_metadata.items[0], StreamDataMimetypes)
+
+    assert metadata_item_1.data_encodings[0] == b'application/json'
+    assert metadata_item_1.data_encodings[1] == b'text/xml'
 
     assert composite_metadata.serialize() == data
+
+
+def test_composite_metadata_find_by_mimetype():
+    data = composite(
+        data_mime_types(
+            WellKnownMimeTypes.APPLICATION_JSON,
+            WellKnownMimeTypes.TEXT_XML
+        ),
+        route('login'),
+        authenticate_simple('abcd', '1234'),
+        metadata_item(b'some_data_1', WellKnownMimeTypes.TEXT_PLAIN),
+        metadata_item(b'some_data_2', WellKnownMimeTypes.TEXT_PLAIN),
+        metadata_item(b'{"key":1}', WellKnownMimeTypes.APPLICATION_JSON),
+    )
+
+    composite_metadata = CompositeMetadata()
+    composite_metadata.parse(data)
+
+    plain_text = composite_metadata.find_by_mimetype(WellKnownMimeTypes.TEXT_PLAIN)
+
+    assert len(plain_text) == 2
+    assert plain_text[0].content == b'some_data_1'
+    assert plain_text[1].content == b'some_data_2'
+
+    authentication_items = composite_metadata.find_by_mimetype(WellKnownMimeTypes.MESSAGE_RSOCKET_AUTHENTICATION)
+    assert authentication_items[0].authentication.password == b'1234'

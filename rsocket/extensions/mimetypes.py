@@ -2,12 +2,9 @@ from enum import Enum, unique
 from typing import Optional, Union
 
 from rsocket.exceptions import RSocketUnknownMimetype
+from rsocket.extensions.mimetype import WellKnownMimeType
 from rsocket.frame_helpers import ensure_bytes
-from rsocket.helpers import WellKnownType, map_types_by_id, map_types_by_name
-
-
-class WellKnownMimeType(WellKnownType):
-    pass
+from rsocket.helpers import map_types_by_id, map_types_by_name
 
 
 @unique
@@ -92,3 +89,10 @@ def ensure_encoding_name(encoding: Union[WellKnownMimeTypes, str, bytes]) -> byt
         return encoding.value.name
 
     return ensure_bytes(encoding)
+
+
+def ensure_well_known_encoding_enum_value(data_encoding):
+    if isinstance(data_encoding, WellKnownMimeTypes):
+        data_encoding = data_encoding.value
+
+    return data_encoding

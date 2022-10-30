@@ -1,8 +1,8 @@
-from typing import List, Type
+from typing import List, Type, Union
 
 from rsocket.extensions.authentication_content import AuthenticationContent
 from rsocket.extensions.composite_metadata_item import CompositeMetadataItem
-from rsocket.extensions.mimetypes import WellKnownMimeTypes
+from rsocket.extensions.mimetypes import WellKnownMimeTypes, ensure_encoding_name
 from rsocket.extensions.routing import RoutingMetadata
 from rsocket.extensions.stream_data_mimetype import StreamDataMimetype
 from rsocket.extensions.stream_data_mimetype import StreamDataMimetypes
@@ -39,6 +39,10 @@ class CompositeMetadata:
     def append(self, item: CompositeMetadataItem) -> 'CompositeMetadata':
         self.items.append(item)
         return self
+
+    def find_by_mimetype(self, mimetype: Union[WellKnownMimeTypes, str, bytes]) -> List[CompositeMetadataItem]:
+        mimetype_name = ensure_encoding_name(mimetype)
+        return [item for item in self.items if ensure_encoding_name(item.encoding) == mimetype_name]
 
     def extend(self, *items: CompositeMetadataItem) -> 'CompositeMetadata':
         self.items.extend(items)

@@ -14,7 +14,8 @@ def composite(*items) -> bytes:
     return metadata.serialize()
 
 
-def metadata_item(data: bytes, encoding: Union[bytes, WellKnownMimeTypes]) -> CompositeMetadataItem:
+def metadata_item(data: bytes,
+                  encoding: Union[bytes, WellKnownMimeTypes, WellKnownMimeType]) -> CompositeMetadataItem:
     return CompositeMetadataItem(encoding, data)
 
 
@@ -30,11 +31,11 @@ def route(*paths: str) -> CompositeMetadataItem:
     return RoutingMetadata(list(paths))
 
 
-def data_mime_type(metadata_mime_type: Union[bytes, WellKnownMimeType]) -> CompositeMetadataItem:
+def data_mime_type(metadata_mime_type: Union[bytes, WellKnownMimeType]) -> StreamDataMimetype:
     return StreamDataMimetype(metadata_mime_type)
 
 
-def data_mime_types(*metadata_mime_types: Union[bytes, WellKnownMimeType]) -> CompositeMetadataItem:
+def data_mime_types(*metadata_mime_types: Union[bytes, WellKnownMimeType]) -> StreamDataMimetypes:
     return StreamDataMimetypes(list(metadata_mime_types))
 
 
