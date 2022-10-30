@@ -44,12 +44,12 @@ python3 setup.py install
 # Examples
 
 Examples can be found in the /examples folder. It contains various server and client usages. The following is a table
-denoting which <b>client</b> example is constructed to be run against which <b>server</b> example. Some of the examples
-are in java to show compatibility with a different implementation.
+denoting which <b>client</b> example is constructed to be run against which <b>server</b> example. Some examples
+are in java to show compatibility with a different implementation. To run the java examples first build using <code>mvn package</code>.
 
-The **examples/test_examples.py** shows which pairs of client/server work with each other, and can be used to execute
-all the examples
-(except for the client_springboot.py which is set up to work against https://github.com/benwilcock/spring-rsocket-demo)
+The **examples/test_examples.py**  can be used to execute the relevant example server/client pairs.
+
+The client_springboot.py is set up to work against https://github.com/benwilcock/spring-rsocket-demo.
 
 | server (python)                    | server (java)           | client (python)                    | client(java)    |
 |------------------------------------|-------------------------|------------------------------------|-----------------|
@@ -90,8 +90,9 @@ all the examples
     - [X] Authentication
 - [ ] Transports
     - [X] TCP
-    - [X] Websocket
+    - [X] Websocket (WS, WSS) - Quart and aiohttp integration
     - [X] QUIC
+    - [X] HTTP/3
     - [ ] HTTP/2
     - [ ] Aeron
 - [X] RxPy Integration
@@ -99,7 +100,9 @@ all the examples
     - [X] Channel Response
     - [X] Channel Requester stream
     - [X] Response
-- [ ] Other
-    - [ ] Error handling all scenarios in the protocol spec
+- [X] Other
     - [X] Reconnect
     - [X] Load balancing
+    - [X] Server routing definition helper (Flask like syntax)
+    - [X] Reactivex integration (v3, v4) server/client side
+    - [X] Command line interface

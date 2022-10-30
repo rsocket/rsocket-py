@@ -18,8 +18,7 @@ async def test_setup_with_explicit_data_encoding(lazy_pipe, data_mimetype):
     received_data_encoding: Optional[bytes] = None
 
     class ServerHandler(BaseRequestHandler):
-        def __init__(self, socket):
-            super().__init__(socket)
+        def __init__(self):
             self._authenticated = False
 
         async def on_setup(self,

@@ -32,8 +32,8 @@ from tests.rsocket.helpers import future_from_payload, IdentifiedHandlerFactory,
 
 
 class ServerHandler(IdentifiedHandler):
-    def __init__(self, socket, server_id: int, delay=timedelta(0)):
-        super().__init__(socket, server_id, delay)
+    def __init__(self, server_id: int, delay=timedelta(0)):
+        super().__init__(server_id, delay)
         self._delay = delay
 
     async def request_response(self, payload: Payload) -> Awaitable[Payload]:
@@ -285,11 +285,11 @@ async def start_quic_service(waiter: asyncio.Event, container, port: int, genera
         is_client=False
     )
 
-    def handler_factory(*args, **kwargs):
+    def handler_factory():
         return IdentifiedHandlerFactory(
             next(index_iterator),
             ServerHandler,
-            delay=timedelta(seconds=1)).factory(*args, **kwargs)
+            delay=timedelta(seconds=1)).factory()
 
     def on_server_create(server):
         container.server = server

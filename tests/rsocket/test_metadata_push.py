@@ -9,8 +9,7 @@ from tests.rsocket.helpers import get_components
 
 
 class MetadataPushHandler(BaseRequestHandler):
-    def __init__(self, socket):
-        super().__init__(socket)
+    def __init__(self):
         self.received = asyncio.Event()
         self.received_payload: Optional[Payload] = None
 
@@ -22,9 +21,9 @@ class MetadataPushHandler(BaseRequestHandler):
 async def test_metadata_push(pipe):
     handler: Optional[MetadataPushHandler] = None
 
-    def handler_factory(socket):
+    def handler_factory():
         nonlocal handler
-        handler = MetadataPushHandler(socket)
+        handler = MetadataPushHandler()
         return handler
 
     server, client = get_components(pipe)
@@ -41,9 +40,9 @@ async def test_metadata_push(pipe):
 async def test_metadata_push_await(pipe):
     handler: Optional[MetadataPushHandler] = None
 
-    def handler_factory(socket):
+    def handler_factory():
         nonlocal handler
-        handler = MetadataPushHandler(socket)
+        handler = MetadataPushHandler()
         return handler
 
     server, client = get_components(pipe)
@@ -55,9 +54,9 @@ async def test_metadata_push_await(pipe):
 async def test_metadata_push_awaitable_client(pipe):
     handler: Optional[MetadataPushHandler] = None
 
-    def handler_factory(socket):
+    def handler_factory():
         nonlocal handler
-        handler = MetadataPushHandler(socket)
+        handler = MetadataPushHandler()
         return handler
 
     server: RSocketServer = pipe[0]

@@ -103,8 +103,8 @@ async def authenticator(route: str, authentication: Authentication):
         raise Exception('Unsupported authentication')
 
 
-def handler_factory(socket):
-    return RoutingRequestHandler(socket, router, authenticator)
+def handler_factory():
+    return RoutingRequestHandler(router, authenticator)
 
 
 def handle_client(reader, writer):

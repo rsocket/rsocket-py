@@ -57,8 +57,7 @@ def assert_no_open_streams(client: RSocketBase, server: RSocketBase):
 
 
 class IdentifiedHandler(BaseRequestHandler):
-    def __init__(self, socket, server_id: int, delay=timedelta(0)):
-        super().__init__(socket)
+    def __init__(self, server_id: int, delay=timedelta(0)):
         self._delay = delay
         self._server_id = server_id
 
@@ -74,8 +73,8 @@ class IdentifiedHandlerFactory:
         self._server_id = server_id
         self._handler_factory = handler_factory
 
-    def factory(self, socket) -> BaseRequestHandler:
-        handler = self._handler_factory(socket, self._server_id, self._delay)
+    def factory(self) -> BaseRequestHandler:
+        handler = self._handler_factory(self._server_id, self._delay)
         self._on_handler_create(handler)
         return handler
 

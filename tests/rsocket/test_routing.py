@@ -20,8 +20,8 @@ from rsocket.streams.stream_from_generator import StreamFromGenerator
 async def test_routed_request_stream_properly_finished(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     def feed():
         for x in range(3):
@@ -46,8 +46,8 @@ async def test_routed_request_stream_properly_finished(lazy_pipe):
 async def test_routed_request_response_properly_finished(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.response('test.path')
     async def response():
@@ -64,8 +64,8 @@ async def test_routed_request_response_properly_finished(lazy_pipe):
 async def test_routed_request_response_with_payload_mapper(lazy_pipe):
     router = RequestRouter(lambda cls, _: json.loads(_.data.decode()))
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.response('test.path')
     async def response(payload: dict):
@@ -83,8 +83,8 @@ async def test_routed_request_response_with_payload_mapper(lazy_pipe):
 async def test_routed_request_response_properly_finished_accept_payload_only(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.response('test.path')
     async def response(payload: Payload):
@@ -101,8 +101,8 @@ async def test_routed_request_response_properly_finished_accept_payload_only(laz
 async def test_routed_request_response_properly_finished_accept_metadata_only(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.response('test.path')
     async def response(composite_metadata: CompositeMetadata):
@@ -119,8 +119,8 @@ async def test_routed_request_response_properly_finished_accept_metadata_only(la
 async def test_routed_request_response_properly_finished_accept_payload_and_metadata(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.response('test.path')
     async def response(payload: Payload, composite_metadata: CompositeMetadata):
@@ -141,8 +141,8 @@ async def test_routed_fire_and_forget(lazy_pipe):
     received_data = None
     received = asyncio.Event()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.fire_and_forget('test.path')
     async def fire_and_forget(payload):
@@ -162,8 +162,8 @@ async def test_routed_fire_and_forget(lazy_pipe):
 async def test_routed_request_channel_properly_finished(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     def feed():
         for x in range(3):
@@ -190,8 +190,8 @@ async def test_routed_push_metadata(lazy_pipe):
     received_metadata = None
     received = asyncio.Event()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.metadata_push('test.path')
     async def metadata_push(payload):
@@ -212,8 +212,8 @@ async def test_routed_push_metadata(lazy_pipe):
 async def test_invalid_request_response(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.response('test.path')
     async def request_response():
@@ -231,8 +231,8 @@ async def test_invalid_request_response(lazy_pipe):
 async def test_invalid_request_stream(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.stream('test.path')
     async def request_stream():
@@ -250,8 +250,8 @@ async def test_invalid_request_stream(lazy_pipe):
 async def test_invalid_request_channel(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     @router.channel('test.path')
     async def request_channel():
@@ -269,8 +269,8 @@ async def test_invalid_request_channel(lazy_pipe):
 async def test_no_route_in_request(lazy_pipe):
     router = RequestRouter()
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router)
+    def handler_factory():
+        return RoutingRequestHandler(router)
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -292,8 +292,8 @@ async def test_invalid_authentication_in_routing_handler(lazy_pipe):
     async def request_channel():
         raise Exception('error from server')
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router, authentication_verifier=authenticate)
+    def handler_factory():
+        return RoutingRequestHandler(router, authentication_verifier=authenticate)
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -318,8 +318,8 @@ async def test_valid_authentication_in_routing_handler(lazy_pipe):
     async def response():
         return create_future(Payload(b'result'))
 
-    def handler_factory(socket):
-        return RoutingRequestHandler(socket, router, authentication_verifier=authenticate)
+    def handler_factory():
+        return RoutingRequestHandler(router, authentication_verifier=authenticate)
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},

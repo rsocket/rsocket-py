@@ -24,8 +24,8 @@ def to_response_payload(payload, server_id):
 
 
 class Handler(IdentifiedHandler):
-    def __init__(self, socket, server_id: int, delay=timedelta(0)):
-        super().__init__(socket, server_id, delay)
+    def __init__(self, server_id: int, delay=timedelta(0)):
+        super().__init__(server_id, delay)
         self.fnf = []
         self.metadata = []
 

@@ -28,11 +28,10 @@ class RoutingRequestHandler(BaseRequestHandler):
     )
 
     def __init__(self,
-                 socket,
                  router: RequestRouter,
                  authentication_verifier: Optional[
                      Callable[[str, Authentication], Coroutine[None, None, None]]] = None):
-        super().__init__(socket)
+        super().__init__()
         self.router = router
         self.authentication_verifier = authentication_verifier
         self.data_encoding = None
