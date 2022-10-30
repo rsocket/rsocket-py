@@ -27,7 +27,7 @@ def test_data_mime_type_composite_metadata():
     composite_metadata.parse(data)
 
     assert len(composite_metadata.items) == 1
-    metadata_item_1 = cast(composite_metadata.items[0], StreamDataMimetype)
+    metadata_item_1 = cast(StreamDataMimetype, composite_metadata.items[0])
     assert metadata_item_1.data_encoding == b'application/json'
 
     assert composite_metadata.serialize() == data
@@ -44,7 +44,7 @@ def test_data_mime_types_composite_metadata():
 
     assert len(composite_metadata.items) == 1
     from typing import cast
-    metadata_item_1 = cast(composite_metadata.items[0], StreamDataMimetypes)
+    metadata_item_1 = cast(StreamDataMimetypes, composite_metadata.items[0])
 
     assert metadata_item_1.data_encodings[0] == b'application/json'
     assert metadata_item_1.data_encodings[1] == b'text/xml'
