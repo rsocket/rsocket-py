@@ -14,12 +14,40 @@ from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
+chat_session_mimetype = b'chat/session-id'
+
+
+def print_private_message(data):
+    message = Message(**json.loads(data))
+    print(f'{message.user}: {message.content}')
+
 
 async def listen_for_messages(client, session_id):
     await ReactiveXClient(client).request_stream(Payload(metadata=composite(
         route('messages.incoming'),
-        metadata_item(session_id, b'chat/session-id')
-    ))).pipe(operators.do_action(on_next=lambda value: print(value.data), on_error=lambda exception: print(exception)))
+        metadata_session_id(session_id)
+    ))).pipe(operators.do_action(on_next=lambda value: print_private_message(value.data),
+                                 on_error=lambda exception: print(exception)))
+
+
+def encode_dataclass(obj):
+    return ensure_bytes(json.dumps(obj.__dict__))
+
+
+async def login(client, username: str):
+    payload = Payload(ensure_bytes(username), composite(route('login')))
+    return (await client.request_response(payload)).data
+
+
+def new_private_message(session_id: bytes, to_user: str, message: str):
+    print(f'Sending {message} to user {to_user}')
+
+    return Payload(encode_dataclass(Message(to_user, message)),
+                   composite(route('message'), metadata_session_id(session_id)))
+
+
+def metadata_session_id(session_id):
+    return metadata_item(session_id, chat_session_mimetype)
 
 
 async def main():
@@ -27,26 +55,20 @@ async def main():
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
-        session1 = (await login(client, 'user1')).data
+        # User 1 logs in and listens for messages
+        session1 = await login(client, 'user1')
 
-        session2 = (await login(client, 'user2')).data
-        #
-        # task = asyncio.create_task(listen_for_messages(client, session1))
-        #
-        payload = Payload(ensure_bytes(json.dumps(Message('user2', 'some message').__dict__)),
-                          composite(route('message'), metadata_item(session1, b'chat/session-id')))
-        await client.request_response(payload)
+        task = asyncio.create_task(listen_for_messages(client, session1))
+
+        # User 2 logs in and send a message to user 1
+        session2 = await login(client, 'user2')
+        await client.request_response(new_private_message(session2, 'user1', 'some message'))
 
         messages_done = asyncio.Event()
-        # task.add_done_callback(lambda: messages_done.set())
-        await asyncio.sleep(600)
-
-
-async def login(client, username: str):
-    payload = Payload(ensure_bytes(username), composite(route('login')))
-    return await client.request_response(payload)
+        task.add_done_callback(lambda: messages_done.set())
+        await messages_done.wait()
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     asyncio.run(main())

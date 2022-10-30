@@ -31,8 +31,8 @@ async def login(payload: Payload):
     return create_future(Payload(str_to_bytes(f'Welcome to chat: {username}')))
 
 
-def handler_factory(server):
-    return RoutingRequestHandler(server, router)
+def handler_factory():
+    return RoutingRequestHandler(router)
 
 
 async def run_server():
