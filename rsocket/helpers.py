@@ -9,6 +9,7 @@ from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.exceptions import RSocketTransportError
+from rsocket.extensions.mimetype import WellKnownType
 from rsocket.frame import Frame
 from rsocket.frame_helpers import serialize_128max_value, parse_type
 from rsocket.logger import logger
@@ -41,23 +42,6 @@ class DefaultPublisherSubscription(DefaultPublisher, DefaultSubscription):
     def subscribe(self, subscriber: Subscriber):
         super().subscribe(subscriber)
         subscriber.on_subscribe(self)
-
-
-class WellKnownType:
-    __slots__ = (
-        'name',
-        'id'
-    )
-
-    def __init__(self, name: bytes, id_: int):
-        self.name = name
-        self.id = id_
-
-    def __eq__(self, other):
-        return self.name == other.name and self.id == other.id
-
-    def __hash__(self):
-        return hash((self.id, self.name))
 
 
 def map_types_by_name(types):
