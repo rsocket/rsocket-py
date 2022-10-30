@@ -1,15 +1,8 @@
 from typing import Optional, List, Union
 
 from rsocket.extensions.composite_metadata_item import CompositeMetadataItem
-from rsocket.extensions.mimetypes import WellKnownMimeTypes, WellKnownMimeType
+from rsocket.extensions.mimetypes import WellKnownMimeTypes, WellKnownMimeType, ensure_well_known_encoding_enum_value
 from rsocket.helpers import parse_well_known_encoding, serialize_well_known_encoding
-
-
-def ensure_well_known_encoding_enum_value(data_encoding):
-    if isinstance(data_encoding, WellKnownMimeTypes):
-        data_encoding = data_encoding.value
-
-    return data_encoding
 
 
 class StreamDataMimetype(CompositeMetadataItem):
