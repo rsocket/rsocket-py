@@ -67,5 +67,9 @@ class RSocketTransportError(RSocketError):
     pass
 
 
+class RSocketTransportClosed(RSocketError):
+    pass
+
+
 class RSocketNoAvailableTransport(RSocketError):
     pass

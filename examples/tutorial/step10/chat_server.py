@@ -5,7 +5,7 @@ import uuid
 from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Set
 
 from examples.tutorial.step10.models import Message
 from reactivestreams.publisher import DefaultPublisher
@@ -23,8 +23,8 @@ from rsocket.transports.tcp import TransportTCP
 
 @dataclass(frozen=True)
 class Storage:
-    channels: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    private: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
+    channel_messages: Queue = field(default_factory=Queue)
+    channels: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
     files: Dict[str, bytes] = field(default_factory=dict)
 
 
@@ -32,6 +32,7 @@ class Storage:
 class SessionState:
     username: str
     session_id: str
+    messages: Queue = field(default_factory=Queue)
 
 
 storage = Storage()
@@ -39,10 +40,34 @@ storage = Storage()
 session_state_map: Dict[str, SessionState] = dict()
 
 
+async def channel_message_delivery():
+    while True:
+        try:
+            message = await storage.channel_messages.get()
+            for user in storage.channels[message.channel]:
+                session_state_map[user].messages.put_nowait(message)
+        except Exception:
+            pass
+
+
+class CustomRoutingRequestHandler(RoutingRequestHandler):
+    def __init__(self, session: 'ChatUserSession', router: RequestRouter):
+        super().__init__(router)
+        self._session = session
+
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
+        self._session.remove()
+        return await super().on_close(rsocket, exception)
+
+
 class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[SessionState] = None
+
+    def remove(self):
+        print(f'Removing session: {self._session.session_id}')
+        del session_state_map[self._session.session_id]
 
     def define_handler(self):
         router = RequestRouter()
@@ -58,37 +83,46 @@ class ChatUserSession:
             return create_future(Payload(ensure_bytes(session_id)))
 
         @router.response('logout')
-        async def logout(payload, composite_metadata: CompositeMetadata):
+        async def logout(payload: Payload, composite_metadata: CompositeMetadata):
             ...
 
         @router.response('join')
-        async def join_channel():
-            ...
+        async def join_channel(payload: Payload):
+            storage.channels[payload.data].add(self._session.username)
 
         @router.response('leave')
-        async def leave_channel():
-            ...
+        async def leave_channel(payload: Payload):
+            storage.channels[payload.data].discard(self._session.username)
 
         @router.response('upload')
-        async def upload_file():
+        async def upload_file(payload: Payload):
             ...
 
         @router.response('download')
-        async def download_file():
+        async def download_file(payload: Payload):
             ...
 
         @router.fire_and_forget('statistics')
-        async def statistics():
+        async def statistics(payload: Payload):
             ...
 
         @router.metadata_push('download.priority')
-        async def download_priority():
+        async def download_priority(payload: Payload):
             ...
 
         @router.response('message')
         async def send_message(payload: Payload, composite_metadata: CompositeMetadata):
             message = Message(**json.loads(payload.data))
-            storage.private[message.user].put_nowait(message)
+
+            if message.user is not None:
+                sessions = [session for session in session_state_map.values() if session.username == message.user]
+
+                if len(sessions) > 0:
+                    await sessions[0].messages.put(message)
+            elif message.channel is not None:
+                channel_message = Message(self._session.username, message.content, message.channel)
+                await storage.channel_messages.put(channel_message)
+
             return create_future()
 
         @router.stream('messages.incoming')
@@ -107,17 +141,17 @@ class ChatUserSession:
 
                 async def _message_sender(self):
                     while True:
-                        next_message = await storage.private[self._state.username].get()
+                        next_message = await self._state.messages.get()
                         self._subscriber.on_next(Payload(ensure_bytes(json.dumps(next_message.__dict__))))
 
             session_id = composite_metadata.find_by_mimetype(b'chat/session-id')[0].content.decode('utf-8')
             return MessagePublisher(session_state_map[session_id])
 
         @router.channel('messages.bidirectional')
-        async def messages_bidirectional():
+        async def messages_bidirectional(payload):
             ...
 
-        return RoutingRequestHandler(router)
+        return CustomRoutingRequestHandler(self, router)
 
 
 def handler_factory():
@@ -125,6 +159,8 @@ def handler_factory():
 
 
 async def run_server():
+    asyncio.create_task(channel_message_delivery())
+
     def session(*connection):
         RSocketServer(TransportTCP(*connection), handler_factory=handler_factory)
 

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+from typing import Optional
 
 from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
@@ -21,7 +22,7 @@ async def request_response(client: RSocketClient) -> Payload:
 
 class Handler(BaseRequestHandler):
 
-    async def on_connection_lost(self, rsocket: RSocketClient, exception: Exception):
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
         await asyncio.sleep(5)
         await rsocket.reconnect()
 

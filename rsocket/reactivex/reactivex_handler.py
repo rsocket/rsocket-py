@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from datetime import timedelta
+from typing import Optional
 
 import reactivex
 from reactivex import Observable
@@ -52,7 +53,11 @@ class ReactivexHandler:
         ...
 
     @abstractmethod
-    async def on_connection_lost(self, rsocket, exception):
+    async def on_connection_error(self, rsocket, exception: Exception):
+        ...
+
+    @abstractmethod
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
         ...
 
     # noinspection PyMethodMayBeStatic
@@ -63,6 +68,7 @@ class ReactivexHandler:
 
 
 class BaseReactivexHandler(ReactivexHandler):
+
     async def on_setup(self, data_encoding: bytes, metadata_encoding: bytes, payload: Payload):
         """Nothing to do on setup by default"""
 
@@ -87,5 +93,8 @@ class BaseReactivexHandler(ReactivexHandler):
     async def on_keepalive_timeout(self, time_since_last_keepalive: timedelta, rsocket):
         pass
 
-    async def on_connection_lost(self, rsocket, exception):
-        await rsocket.close()
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
+        pass
+
+    async def on_connection_error(self, rsocket, exception: Exception):
+        pass

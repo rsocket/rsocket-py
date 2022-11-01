@@ -62,5 +62,8 @@ class RxHandlerAdapter(RequestHandler):
     async def on_keepalive_timeout(self, time_since_last_keepalive: timedelta, rsocket):
         await self.delegate.on_keepalive_timeout(time_since_last_keepalive, rsocket)
 
-    async def on_connection_lost(self, rsocket, exception):
-        await self.delegate.on_connection_lost(rsocket, exception)
+    async def on_connection_error(self, rsocket, exception: Exception):
+        await self.delegate.on_connection_error(rsocket, exception)
+
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
+        await self.delegate.on_close(rsocket, exception)

@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass(frozen=True)
 class Message:
-    user: str
-    content: str
+    user: Optional[str] = None
+    content: Optional[str] = None
+    channel: Optional[str] = None

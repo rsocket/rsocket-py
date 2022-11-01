@@ -26,8 +26,10 @@ async def listen_for_messages(client, session_id):
     await ReactiveXClient(client).request_stream(Payload(metadata=composite(
         route('messages.incoming'),
         metadata_session_id(session_id)
-    ))).pipe(operators.do_action(on_next=lambda value: print_private_message(value.data),
-                                 on_error=lambda exception: print(exception)))
+    ))).pipe(
+        # operators.take(1),
+        operators.do_action(on_next=lambda value: print_private_message(value.data),
+                            on_error=lambda exception: print(exception)))
 
 
 def encode_dataclass(obj):
@@ -51,22 +53,26 @@ def metadata_session_id(session_id):
 
 
 async def main():
-    connection = await asyncio.open_connection('localhost', 6565)
+    connection1 = await asyncio.open_connection('localhost', 6565)
 
-    async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
-                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
-        # User 1 logs in and listens for messages
-        session1 = await login(client, 'user1')
+    async with RSocketClient(single_transport_provider(TransportTCP(*connection1)),
+                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client1:
+        connection2 = await asyncio.open_connection('localhost', 6565)
 
-        task = asyncio.create_task(listen_for_messages(client, session1))
+        async with RSocketClient(single_transport_provider(TransportTCP(*connection2)),
+                                 metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client2:
+            # User 1 logs in and listens for messages
+            session1 = await login(client1, 'user1')
 
-        # User 2 logs in and send a message to user 1
-        session2 = await login(client, 'user2')
-        await client.request_response(new_private_message(session2, 'user1', 'some message'))
+            task = asyncio.create_task(listen_for_messages(client1, session1))
 
-        messages_done = asyncio.Event()
-        task.add_done_callback(lambda: messages_done.set())
-        await messages_done.wait()
+            # User 2 logs in and send a message to user 1
+            session2 = await login(client2, 'user2')
+            await client2.request_response(new_private_message(session2, 'user1', 'some message'))
+
+            messages_done = asyncio.Event()
+            task.add_done_callback(lambda: messages_done.set())
+            await messages_done.wait()
 
 
 if __name__ == '__main__':
