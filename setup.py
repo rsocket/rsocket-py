@@ -24,6 +24,10 @@ setup(
         'quic': {'aioquic >= 0.9.0'},
         'cli': {'asyncclick >= 8.0.0'}
     },
+    project_urls={
+        'Documentation': 'https://rsocket.io/guides/rsocket-py',
+        'Changelog': 'https://github.com/rsocket/rsocket-py/blob/master/CHANGELOG.rst'
+    },
     entry_points={
         'console_scripts': [
             'rsocket-py = rsocket.cli.command:command [cli]',
