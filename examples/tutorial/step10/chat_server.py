@@ -5,7 +5,7 @@ import uuid
 from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional, List, Set
+from typing import Dict, Optional, Set
 
 from examples.tutorial.step10.models import Message
 from reactivestreams.publisher import DefaultPublisher
@@ -23,9 +23,9 @@ from rsocket.transports.tcp import TransportTCP
 
 @dataclass(frozen=True)
 class Storage:
-    channel_messages: Queue = field(default_factory=Queue)
-    channels: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
+    channel_users: Dict[bytes, Set[str]] = field(default_factory=lambda: defaultdict(set))
     files: Dict[str, bytes] = field(default_factory=dict)
+    channel_messages: Dict[bytes, Queue] = field(default_factory=lambda: defaultdict(Queue))
 
 
 @dataclass(frozen=True)
@@ -40,14 +40,25 @@ storage = Storage()
 session_state_map: Dict[str, SessionState] = dict()
 
 
-async def channel_message_delivery():
+def ensure_channel(channel_name):
+    if channel_name not in storage.channel_users:
+        storage.channel_users[channel_name] = set()
+        storage.channel_messages[channel_name] = Queue()
+        asyncio.create_task(channel_message_delivery(channel_name))
+
+
+async def channel_message_delivery(channel_name: bytes):
+    logging.info('Starting channel delivery %s', channel_name)
     while True:
         try:
-            message = await storage.channel_messages.get()
-            for user in storage.channels[message.channel]:
-                session_state_map[user].messages.put_nowait(message)
-        except Exception:
-            pass
+            message = await storage.channel_messages[channel_name].get()
+            for session_id in storage.channel_users[channel_name]:
+                user_specific_message = Message(user=message.user,
+                                                content=message.content,
+                                                channel=channel_name)
+                session_state_map[session_id].messages.put_nowait(user_specific_message)
+        except Exception as exception:
+            logging.error(str(exception), exc_info=True)
 
 
 class CustomRoutingRequestHandler(RoutingRequestHandler):
@@ -88,11 +99,15 @@ class ChatUserSession:
 
         @router.response('join')
         async def join_channel(payload: Payload):
-            storage.channels[payload.data].add(self._session.username)
+            channel_name = bytes(payload.data)
+            ensure_channel(channel_name)
+            storage.channel_users[channel_name].add(self._session.session_id)
+            return create_future(Payload())
 
         @router.response('leave')
         async def leave_channel(payload: Payload):
-            storage.channels[payload.data].discard(self._session.username)
+            storage.channel_users[bytes(payload.data)].discard(self._session.session_id)
+            return create_future(Payload())
 
         @router.response('upload')
         async def upload_file(payload: Payload):
@@ -114,16 +129,16 @@ class ChatUserSession:
         async def send_message(payload: Payload, composite_metadata: CompositeMetadata):
             message = Message(**json.loads(payload.data))
 
-            if message.user is not None:
+            if message.channel is not None:
+                channel_message = Message(self._session.username, message.content, message.channel)
+                await storage.channel_messages[message.channel.encode('utf-8')].put(channel_message)
+            elif message.user is not None:
                 sessions = [session for session in session_state_map.values() if session.username == message.user]
 
                 if len(sessions) > 0:
                     await sessions[0].messages.put(message)
-            elif message.channel is not None:
-                channel_message = Message(self._session.username, message.content, message.channel)
-                await storage.channel_messages.put(channel_message)
 
-            return create_future()
+            return create_future(Payload())
 
         @router.stream('messages.incoming')
         async def messages_incoming(payload: Payload, composite_metadata: CompositeMetadata):
@@ -147,10 +162,6 @@ class ChatUserSession:
             session_id = composite_metadata.find_by_mimetype(b'chat/session-id')[0].content.decode('utf-8')
             return MessagePublisher(session_state_map[session_id])
 
-        @router.channel('messages.bidirectional')
-        async def messages_bidirectional(payload):
-            ...
-
         return CustomRoutingRequestHandler(self, router)
 
 
@@ -159,8 +170,6 @@ def handler_factory():
 
 
 async def run_server():
-    asyncio.create_task(channel_message_delivery())
-
     def session(*connection):
         RSocketServer(TransportTCP(*connection), handler_factory=handler_factory)
 
