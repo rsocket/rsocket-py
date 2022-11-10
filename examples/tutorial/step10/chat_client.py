@@ -1,10 +1,13 @@
 import asyncio
 import json
 import logging
+from asyncio import Event
 
 from reactivex import operators
 
-from examples.tutorial.step10.models import Message, chat_session_mimetype, chat_filename_mimetype
+from examples.tutorial.step10.models import Message, chat_session_mimetype, chat_filename_mimetype, ServerStatistics
+from reactivestreams.publisher import DefaultPublisher
+from reactivestreams.subscriber import DefaultSubscriber, Subscriber
 from rsocket.extensions.helpers import composite, route, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
@@ -74,6 +77,32 @@ async def join_channel(client, channel_name: str):
     await client.request_response(join_request)
 
 
+class StatisticsHandler(DefaultPublisher, DefaultSubscriber):
+
+    def __init__(self):
+        super().__init__()
+        self.done = Event()
+
+    def subscribe(self, subscriber: Subscriber):
+        super().subscribe(subscriber)
+
+    def on_next(self, value: Payload, is_complete=False):
+        statistics = ServerStatistics(**json.loads(utf8_decode(value.data)))
+        print(statistics)
+
+        if is_complete:
+            self.done.set()
+
+
+async def listen_for_statistics(client: RSocketClient, session_id, subscriber):
+    client.request_channel(Payload(metadata=composite(
+        route('statistics'),
+        metadata_session_id(session_id)
+    ))).subscribe(subscriber)
+
+    await subscriber.done.wait()
+
+
 async def main():
     connection1 = await asyncio.open_connection('localhost', 6565)
 
@@ -87,6 +116,9 @@ async def main():
             await join_channel(client1, 'channel1')
 
             task = asyncio.create_task(listen_for_messages(client1, session1))
+
+            statistics_handler = StatisticsHandler()
+            statistics_task = asyncio.create_task(listen_for_statistics(client1, session1, statistics_handler))
 
             session2 = await login(client2, 'user2')
             await join_channel(client2, 'channel1')

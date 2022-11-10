@@ -7,9 +7,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
 
-from examples.tutorial.step10.models import Message, chat_filename_mimetype
+from examples.tutorial.step10.models import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
+                                             ServerStatistics)
 from reactivestreams.publisher import DefaultPublisher
-from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
@@ -35,6 +36,7 @@ class SessionState:
     username: str
     session_id: str
     messages: Queue = field(default_factory=Queue)
+    statistics: Optional[ClientStatistics] = None
 
 
 storage = Storage()
@@ -129,18 +131,56 @@ class ChatUserSession:
 
         @router.stream('file_names')
         async def get_file_names():
-            item_count = len(storage.files)
-            generator = ((Payload(ensure_bytes(file_name)), index == item_count) for (index, file_name) in
+            file_count = len(storage.files)
+            generator = ((Payload(ensure_bytes(file_name)), index == file_count) for (index, file_name) in
                          enumerate(storage.files.keys(), 1))
             return StreamFromGenerator(lambda: generator)
 
-        # @router.fire_and_forget('statistics')
-        # async def statistics(payload: Payload):
-        #     ...
-        #
-        # @router.metadata_push('download.priority')
-        # async def download_priority(payload: Payload):
-        #     ...
+        @router.fire_and_forget('statistics')
+        async def receive_statistics(payload: Payload):
+            statistics = ClientStatistics(**json.loads(utf8_decode(payload.data)))
+            self._session.statistics = statistics
+
+        @router.channel('statistics')
+        async def send_statistics(payload: Payload):
+
+            class StatisticsChannel(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
+
+                def __init__(self, session: SessionState):
+                    super().__init__()
+                    self._session = session
+                    self._requested_statistics = ServerStatisticsRequest()
+
+                def cancel(self):
+                    self._sender.cancel()
+
+                def subscribe(self, subscriber: Subscriber):
+                    super().subscribe(subscriber)
+                    subscriber.on_subscribe(self)
+                    self._sender = asyncio.create_task(self._statistics_sender())
+
+                async def _statistics_sender(self):
+                    while True:
+                        await asyncio.sleep(self._requested_statistics.period_seconds)
+                        next_message = ServerStatistics(
+                            user_count=len(session_state_map),
+                            channel_count=len(storage.channel_messages)
+                        )
+                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
+                        self._subscriber.on_next(next_payload)
+
+                def on_next(self, value: Payload, is_complete=False):
+                    request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
+
+                    if request.ids is not None:
+                        self._requested_statistics.ids = request.ids
+
+                    if request.period_seconds is not None:
+                        self._requested_statistics.period_seconds = request.period_seconds
+
+            response = StatisticsChannel(self._session)
+
+            return response, response
 
         @router.response('message')
         async def send_message(payload: Payload) -> Awaitable[Payload]:
@@ -160,8 +200,8 @@ class ChatUserSession:
         @router.stream('messages.incoming')
         async def messages_incoming(composite_metadata: CompositeMetadata):
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
-                def __init__(self, state: SessionState):
-                    self._state = state
+                def __init__(self, session: SessionState):
+                    self._session = session
 
                 def cancel(self):
                     self._sender.cancel()
@@ -173,7 +213,7 @@ class ChatUserSession:
 
                 async def _message_sender(self):
                     while True:
-                        next_message = await self._state.messages.get()
+                        next_message = await self._session.messages.get()
                         next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
                         self._subscriber.on_next(next_payload)
 
