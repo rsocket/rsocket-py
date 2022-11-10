@@ -147,7 +147,7 @@ async def main():
                 print(f'Downloaded file: {len(download.data)} bytes')
 
             messages_done = asyncio.Event()
-            task.add_done_callback(lambda: messages_done.set())
+            task.add_done_callback(lambda _: messages_done.set())
             await messages_done.wait()
 
 
