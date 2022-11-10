@@ -60,6 +60,7 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
         except asyncio.CancelledError:
             logger().debug('Asyncio task canceled: queue_next_n')
         except Exception as exception:
+            logger().error('Stream error', exc_info=True)
             self._subscriber.on_error(exception)
             self._cancel_feeders()
 

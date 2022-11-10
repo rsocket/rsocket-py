@@ -1,6 +1,7 @@
 from inspect import signature, Parameter
 from typing import Callable, Any
 
+from rsocket.exceptions import RSocketUnknownRoute
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.frame import FrameType
 from rsocket.payload import Payload
@@ -75,6 +76,8 @@ class RequestRouter:
                                                                composite_metadata)
 
             return await route_processor(**route_kwargs)
+        else:
+            raise RSocketUnknownRoute(route)
 
     async def _collect_route_arguments(self, route_processor, payload, composite_metadata):
         route_signature = signature(route_processor)

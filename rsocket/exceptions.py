@@ -35,6 +35,11 @@ class RSocketApplicationError(RSocketError):
     pass
 
 
+class RSocketUnknownRoute(RSocketApplicationError):
+    def __init__(self, route_id: str):
+        self.route_id = route_id
+
+
 class RSocketStreamAllocationFailure(RSocketError):
     pass
 

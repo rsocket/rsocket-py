@@ -5,19 +5,21 @@ import uuid
 from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Awaitable
 
-from examples.tutorial.step10.models import Message
+from examples.tutorial.step10.models import Message, chat_filename_mimetype
 from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
+from rsocket.extensions.helpers import composite, metadata_item
 from rsocket.frame_helpers import ensure_bytes
-from rsocket.helpers import create_future, utf8_decode
+from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
+from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
 
@@ -61,6 +63,10 @@ async def channel_message_delivery(channel_name: str):
             logging.error(str(exception), exc_info=True)
 
 
+def get_file_name(composite_metadata):
+    return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
+
+
 class CustomRoutingRequestHandler(RoutingRequestHandler):
     def __init__(self, session: 'ChatUserSession', router: RequestRouter):
         super().__init__(router)
@@ -84,50 +90,60 @@ class ChatUserSession:
         router = RequestRouter()
 
         @router.response('login')
-        async def login(payload: Payload):
+        async def login(payload: Payload) -> Awaitable[Payload]:
             username = utf8_decode(payload.data)
             logging.info(f'New user: {username}')
             session_id = str(uuid.uuid4())
             self._session = SessionState(username, session_id)
             session_state_map[session_id] = self._session
 
-            return create_future(Payload(ensure_bytes(session_id)))
+            return create_response(ensure_bytes(session_id))
 
-        @router.response('logout')
-        async def logout(payload: Payload, composite_metadata: CompositeMetadata):
-            ...
+        # @router.response('logout')
+        # async def logout(payload: Payload, composite_metadata: CompositeMetadata):
+        #     ...
 
         @router.response('join')
-        async def join_channel(payload: Payload):
+        async def join_channel(payload: Payload) -> Awaitable[Payload]:
             channel_name = payload.data.decode('utf-8')
             ensure_channel(channel_name)
             storage.channel_users[channel_name].add(self._session.session_id)
-            return create_future(Payload())
+            return create_response()
 
         @router.response('leave')
-        async def leave_channel(payload: Payload):
+        async def leave_channel(payload: Payload) -> Awaitable[Payload]:
             channel_name = payload.data.decode('utf-8')
             storage.channel_users[channel_name].discard(self._session.session_id)
-            return create_future(Payload())
+            return create_response()
 
         @router.response('upload')
-        async def upload_file(payload: Payload):
-            ...
+        async def upload_file(payload: Payload, composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
+            storage.files[get_file_name(composite_metadata)] = payload.data
+            return create_response()
 
         @router.response('download')
-        async def download_file(payload: Payload):
-            ...
+        async def download_file(composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
+            file_name = get_file_name(composite_metadata)
+            return create_response(storage.files[file_name],
+                                   composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype)))
 
-        @router.fire_and_forget('statistics')
-        async def statistics(payload: Payload):
-            ...
+        @router.stream('file_names')
+        async def get_file_names():
+            item_count = len(storage.files)
+            generator = ((Payload(ensure_bytes(file_name)), index == item_count) for (index, file_name) in
+                         enumerate(storage.files.keys(), 1))
+            return StreamFromGenerator(lambda: generator)
 
-        @router.metadata_push('download.priority')
-        async def download_priority(payload: Payload):
-            ...
+        # @router.fire_and_forget('statistics')
+        # async def statistics(payload: Payload):
+        #     ...
+        #
+        # @router.metadata_push('download.priority')
+        # async def download_priority(payload: Payload):
+        #     ...
 
         @router.response('message')
-        async def send_message(payload: Payload, composite_metadata: CompositeMetadata):
+        async def send_message(payload: Payload) -> Awaitable[Payload]:
             message = Message(**json.loads(payload.data))
 
             if message.channel is not None:
@@ -139,10 +155,10 @@ class ChatUserSession:
                 if len(sessions) > 0:
                     await sessions[0].messages.put(message)
 
-            return create_future(Payload())
+            return create_response()
 
         @router.stream('messages.incoming')
-        async def messages_incoming(payload: Payload, composite_metadata: CompositeMetadata):
+        async def messages_incoming(composite_metadata: CompositeMetadata):
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
                 def __init__(self, state: SessionState):
                     self._state = state
