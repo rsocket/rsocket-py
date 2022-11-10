@@ -25,13 +25,6 @@ from rsocket.transports.tcp import TransportTCP
 
 
 @dataclass(frozen=True)
-class Storage:
-    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
-    files: Dict[str, bytes] = field(default_factory=dict)
-    channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-
-
-@dataclass(frozen=True)
 class SessionState:
     username: str
     session_id: str
@@ -39,9 +32,15 @@ class SessionState:
     statistics: Optional[ClientStatistics] = None
 
 
-storage = Storage()
+@dataclass(frozen=True)
+class Storage:
+    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
+    files: Dict[str, bytes] = field(default_factory=dict)
+    channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
+    session_state_map: Dict[str, SessionState] = field(default_factory=dict)
 
-session_state_map: Dict[str, SessionState] = dict()
+
+storage = Storage()
 
 
 def ensure_channel(channel_name):
@@ -60,7 +59,7 @@ async def channel_message_delivery(channel_name: str):
                 user_specific_message = Message(user=message.user,
                                                 content=message.content,
                                                 channel=channel_name)
-                session_state_map[session_id].messages.put_nowait(user_specific_message)
+                storage.session_state_map[session_id].messages.put_nowait(user_specific_message)
         except Exception as exception:
             logging.error(str(exception), exc_info=True)
 
@@ -86,7 +85,7 @@ class ChatUserSession:
 
     def remove(self):
         print(f'Removing session: {self._session.session_id}')
-        del session_state_map[self._session.session_id]
+        del storage.session_state_map[self._session.session_id]
 
     def define_handler(self):
         router = RequestRouter()
@@ -97,7 +96,7 @@ class ChatUserSession:
             logging.info(f'New user: {username}')
             session_id = str(uuid.uuid4())
             self._session = SessionState(username, session_id)
-            session_state_map[session_id] = self._session
+            storage.session_state_map[session_id] = self._session
 
             return create_response(ensure_bytes(session_id))
 
@@ -170,7 +169,7 @@ class ChatUserSession:
                     while True:
                         await asyncio.sleep(self._requested_statistics.period_seconds)
                         next_message = ServerStatistics(
-                            user_count=len(session_state_map),
+                            user_count=len(storage.session_state_map),
                             channel_count=len(storage.channel_messages)
                         )
                         next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
@@ -197,7 +196,7 @@ class ChatUserSession:
                 channel_message = Message(self._session.username, message.content, message.channel)
                 await storage.channel_messages[message.channel].put(channel_message)
             elif message.user is not None:
-                sessions = [session for session in session_state_map.values() if session.username == message.user]
+                sessions = [session for session in storage.session_state_map.values() if session.username == message.user]
 
                 if len(sessions) > 0:
                     await sessions[0].messages.put(message)
@@ -225,7 +224,7 @@ class ChatUserSession:
                         self._subscriber.on_next(next_payload)
 
             session_id = composite_metadata.find_by_mimetype(b'chat/session-id')[0].content.decode('utf-8')
-            return MessagePublisher(session_state_map[session_id])
+            return MessagePublisher(storage.session_state_map[session_id])
 
         return CustomRoutingRequestHandler(self, router)
 

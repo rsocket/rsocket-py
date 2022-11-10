@@ -155,7 +155,7 @@ async def main():
 
             user1.listen_for_statistics()
 
-            print(f'Users: {await user1.list_files()}')
+            print(f'Files: {await user1.list_files()}')
             print(f'Channels: {await user1.list_channels()}')
 
             await user1.private_message('user2', 'private message from user1')
