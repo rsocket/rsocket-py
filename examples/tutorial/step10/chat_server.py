@@ -23,9 +23,9 @@ from rsocket.transports.tcp import TransportTCP
 
 @dataclass(frozen=True)
 class Storage:
-    channel_users: Dict[bytes, Set[str]] = field(default_factory=lambda: defaultdict(set))
+    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
     files: Dict[str, bytes] = field(default_factory=dict)
-    channel_messages: Dict[bytes, Queue] = field(default_factory=lambda: defaultdict(Queue))
+    channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
 
 
 @dataclass(frozen=True)
@@ -47,7 +47,7 @@ def ensure_channel(channel_name):
         asyncio.create_task(channel_message_delivery(channel_name))
 
 
-async def channel_message_delivery(channel_name: bytes):
+async def channel_message_delivery(channel_name: str):
     logging.info('Starting channel delivery %s', channel_name)
     while True:
         try:
@@ -99,14 +99,15 @@ class ChatUserSession:
 
         @router.response('join')
         async def join_channel(payload: Payload):
-            channel_name = bytes(payload.data)
+            channel_name = payload.data.decode('utf-8')
             ensure_channel(channel_name)
             storage.channel_users[channel_name].add(self._session.session_id)
             return create_future(Payload())
 
         @router.response('leave')
         async def leave_channel(payload: Payload):
-            storage.channel_users[bytes(payload.data)].discard(self._session.session_id)
+            channel_name = payload.data.decode('utf-8')
+            storage.channel_users[channel_name].discard(self._session.session_id)
             return create_future(Payload())
 
         @router.response('upload')
@@ -131,7 +132,7 @@ class ChatUserSession:
 
             if message.channel is not None:
                 channel_message = Message(self._session.username, message.content, message.channel)
-                await storage.channel_messages[message.channel.encode('utf-8')].put(channel_message)
+                await storage.channel_messages[message.channel].put(channel_message)
             elif message.user is not None:
                 sessions = [session for session in session_state_map.values() if session.username == message.user]
 
@@ -157,7 +158,8 @@ class ChatUserSession:
                 async def _message_sender(self):
                     while True:
                         next_message = await self._state.messages.get()
-                        self._subscriber.on_next(Payload(ensure_bytes(json.dumps(next_message.__dict__))))
+                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
+                        self._subscriber.on_next(next_payload)
 
             session_id = composite_metadata.find_by_mimetype(b'chat/session-id')[0].content.decode('utf-8')
             return MessagePublisher(session_state_map[session_id])
