@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from asyncio import Event
+from typing import List
 
 from reactivex import operators
 
@@ -18,63 +19,12 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
 
-def print_message(data):
-    message = Message(**json.loads(data))
-    print(f'{message.user} ({message.channel}): {message.content}')
-
-
-async def listen_for_messages(client, session_id):
-    await ReactiveXClient(client).request_stream(Payload(metadata=composite(
-        route('messages.incoming'),
-        metadata_session_id(session_id)
-    ))).pipe(
-        # operators.take(1),
-        operators.do_action(on_next=lambda value: print_message(value.data),
-                            on_error=lambda exception: print(exception)))
-
-
 def encode_dataclass(obj):
     return ensure_bytes(json.dumps(obj.__dict__))
 
 
-async def login(client, username: str) -> bytes:
-    payload = Payload(ensure_bytes(username), composite(route('login')))
-    return (await client.request_response(payload)).data
-
-
-def new_private_message(session_id: bytes, to_user: str, message: str) -> Payload:
-    print(f'Sending {message} to user {to_user}')
-
-    return Payload(encode_dataclass(Message(to_user, message)),
-                   composite(route('message'), metadata_session_id(session_id)))
-
-
-def new_file_upload(file_name: str, content: bytes) -> Payload:
-    return Payload(content, composite(
-        route('upload'),
-        metadata_item(ensure_bytes(file_name), chat_filename_mimetype)
-    ))
-
-
-def new_file_download(file_name: str) -> Payload:
-    return Payload(
-        metadata=composite(route('download'), metadata_item(ensure_bytes(file_name), chat_filename_mimetype)))
-
-
-def new_channel_message(session_id: bytes, to_channel: str, message: str) -> Payload:
-    print(f'Sending {message} to channel {to_channel}')
-
-    return Payload(encode_dataclass(Message(channel=to_channel, content=message)),
-                   composite(route('message'), metadata_session_id(session_id)))
-
-
 def metadata_session_id(session_id):
     return metadata_item(session_id, chat_session_mimetype)
-
-
-async def join_channel(client, channel_name: str):
-    join_request = Payload(ensure_bytes(channel_name), composite(route('join')))
-    await client.request_response(join_request)
 
 
 class StatisticsHandler(DefaultPublisher, DefaultSubscriber):
@@ -94,13 +44,91 @@ class StatisticsHandler(DefaultPublisher, DefaultSubscriber):
             self.done.set()
 
 
-async def listen_for_statistics(client: RSocketClient, session_id, subscriber):
-    client.request_channel(Payload(metadata=composite(
-        route('statistics'),
-        metadata_session_id(session_id)
-    ))).subscribe(subscriber)
+class ChatClient:
+    def __init__(self, rsocket: RSocketClient):
+        self._rsocket = rsocket
+        self._listen_task = None
+        self._session_id = None
 
-    await subscriber.done.wait()
+    async def login(self, username: str):
+        payload = Payload(ensure_bytes(username), composite(route('login')))
+        self._session_id = (await self._rsocket.request_response(payload)).data
+        return self
+
+    async def join(self, channel_name: str):
+        join_request = Payload(ensure_bytes(channel_name), composite(route('join')))
+        await self._rsocket.request_response(join_request)
+        return self
+
+    def listen_for_messages(self):
+        def print_message(data):
+            message = Message(**json.loads(data))
+            print(f'{message.user} ({message.channel}): {message.content}')
+
+        async def listen_for_messages(client, session_id):
+            await ReactiveXClient(client).request_stream(Payload(metadata=composite(
+                route('messages.incoming'),
+                metadata_session_id(session_id)
+            ))).pipe(
+                # operators.take(1),
+                operators.do_action(on_next=lambda value: print_message(value.data),
+                                    on_error=lambda exception: print(exception)))
+
+        self._listen_task = asyncio.create_task(listen_for_messages(self._rsocket, self._session_id))
+
+    async def wait_for_messages(self):
+        messages_done = asyncio.Event()
+        self._listen_task.add_done_callback(lambda _: messages_done.set())
+        await messages_done.wait()
+
+    def listen_for_statistics(self):
+        async def listen_for_statistics(client: RSocketClient, session_id, subscriber):
+            client.request_channel(Payload(metadata=composite(
+                route('statistics'),
+                metadata_session_id(session_id)
+            ))).subscribe(subscriber)
+
+            await subscriber.done.wait()
+
+        statistics_handler = StatisticsHandler()
+        self._statistics_task = asyncio.create_task(
+            listen_for_statistics(self._rsocket, self._session_id, statistics_handler))
+
+    async def private_message(self, username: str, content: str):
+        print(f'Sending {content} to user {username}')
+        await self._rsocket.request_response(Payload(encode_dataclass(Message(username, content)),
+                                                     composite(route('message'), metadata_session_id(
+                                                         self._session_id))))
+
+    async def channel_message(self, channel: str, content: str):
+        print(f'Sending {content} to channel {channel}')
+        await self._rsocket.request_response(Payload(encode_dataclass(Message(channel=channel, content=content)),
+                                                     composite(route('message'), metadata_session_id(
+                                                         self._session_id))))
+
+    async def upload(self, file_name, content):
+        await self._rsocket.request_response(Payload(content, composite(
+            route('upload'),
+            metadata_item(ensure_bytes(file_name), chat_filename_mimetype)
+        )))
+
+    async def download(self, file_name):
+        return await self._rsocket.request_response(Payload(
+            metadata=composite(route('download'), metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
+
+    async def list_files(self) -> List[str]:
+        request = Payload(metadata=composite(route('file_names')))
+        return await ReactiveXClient(self._rsocket).request_stream(
+            request
+        ).pipe(operators.map(lambda x: utf8_decode(x.data)),
+               operators.to_list())
+
+    async def list_channels(self) -> List[str]:
+        request = Payload(metadata=composite(route('channels')))
+        return await ReactiveXClient(self._rsocket).request_stream(
+            request
+        ).pipe(operators.map(lambda x: utf8_decode(x.data)),
+               operators.to_list())
 
 
 async def main():
@@ -112,43 +140,39 @@ async def main():
 
         async with RSocketClient(single_transport_provider(TransportTCP(*connection2)),
                                  metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client2:
-            session1 = await login(client1, 'user1')
-            await join_channel(client1, 'channel1')
 
-            task = asyncio.create_task(listen_for_messages(client1, session1))
+            user1 = ChatClient(client1)
+            user2 = ChatClient(client2)
 
-            statistics_handler = StatisticsHandler()
-            statistics_task = asyncio.create_task(listen_for_statistics(client1, session1, statistics_handler))
+            await user1.login('user1')
+            await user2.login('user2')
 
-            session2 = await login(client2, 'user2')
-            await join_channel(client2, 'channel1')
+            user1.listen_for_messages()
+            user2.listen_for_messages()
 
-            await client1.request_response(new_channel_message(session1, 'channel1', 'some message'))
+            await user1.join('channel1')
+            await user2.join('channel1')
 
-            await client2.request_response(new_private_message(session2, 'user1', 'some message'))
+            user1.listen_for_statistics()
+
+            print(f'Users: {await user1.list_files()}')
+            print(f'Channels: {await user1.list_channels()}')
+
+            await user1.private_message('user2', 'private message from user1')
+            await user1.channel_message('channel1', 'channel message from user1')
 
             file_contents = b'abcdefg1234567'
-            await client1.request_response(new_file_upload('file_name_1.txt', file_contents))
+            file_name = 'file_name_1.txt'
+            await user1.upload(file_name, file_contents)
 
-            download_request = Payload(metadata=composite(route('file_names')))
-
-            file_list = await ReactiveXClient(client2).request_stream(
-                download_request
-            ).pipe(operators.map(lambda x: utf8_decode(x.data)),
-                   operators.to_list())
-
-            print(f'Filenames: {file_list}')
-
-            download = await client2.request_response(new_file_download('file_name_1.txt'))
+            download = await user2.download(file_name)
 
             if download.data != file_contents:
                 raise Exception('File download failed')
             else:
                 print(f'Downloaded file: {len(download.data)} bytes')
 
-            messages_done = asyncio.Event()
-            task.add_done_callback(lambda _: messages_done.set())
-            await messages_done.wait()
+            await user1.wait_for_messages()
 
 
 if __name__ == '__main__':

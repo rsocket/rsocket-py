@@ -131,9 +131,16 @@ class ChatUserSession:
 
         @router.stream('file_names')
         async def get_file_names():
-            file_count = len(storage.files)
-            generator = ((Payload(ensure_bytes(file_name)), index == file_count) for (index, file_name) in
+            count = len(storage.files)
+            generator = ((Payload(ensure_bytes(file_name)), index == count) for (index, file_name) in
                          enumerate(storage.files.keys(), 1))
+            return StreamFromGenerator(lambda: generator)
+
+        @router.stream('channels')
+        async def get_channels():
+            count = len(storage.channel_messages)
+            generator = ((Payload(ensure_bytes(channel)), index == count) for (index, channel) in
+                         enumerate(storage.channel_messages.keys(), 1))
             return StreamFromGenerator(lambda: generator)
 
         @router.fire_and_forget('statistics')
