@@ -209,6 +209,7 @@ async def test_routed_push_metadata(lazy_pipe):
         assert received_metadata == metadata
 
 
+@pytest.mark.allow_error_log(regex_filter='Request response error:')
 async def test_invalid_request_response(lazy_pipe):
     router = RequestRouter()
 
@@ -228,6 +229,7 @@ async def test_invalid_request_response(lazy_pipe):
         assert str(exc_info.value) == 'error from server'
 
 
+@pytest.mark.allow_error_log(regex_filter='Request stream error:')
 async def test_invalid_request_stream(lazy_pipe):
     router = RequestRouter()
 
@@ -247,6 +249,7 @@ async def test_invalid_request_stream(lazy_pipe):
         assert str(exc_info.value) == 'error from server'
 
 
+@pytest.mark.allow_error_log(regex_filter='Request channel error:')
 async def test_invalid_request_channel(lazy_pipe):
     router = RequestRouter()
 
@@ -266,6 +269,7 @@ async def test_invalid_request_channel(lazy_pipe):
         assert str(exc_info.value) == 'error from server'
 
 
+@pytest.mark.allow_error_log(regex_filter='Request channel error:')
 async def test_no_route_in_request(lazy_pipe):
     router = RequestRouter()
 
@@ -281,6 +285,7 @@ async def test_no_route_in_request(lazy_pipe):
         assert str(exc_info.value) == 'No route found in request'
 
 
+@pytest.mark.allow_error_log(regex_filter='Request channel error:')
 async def test_invalid_authentication_in_routing_handler(lazy_pipe):
     router = RequestRouter()
 
