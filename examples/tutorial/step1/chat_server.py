@@ -1,11 +1,9 @@
 import asyncio
 import logging
 import uuid
-from asyncio import Queue
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Awaitable
 
-from examples.tutorial.step10.models import ClientStatistics
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
@@ -16,19 +14,17 @@ from rsocket.transports.tcp import TransportTCP
 
 
 @dataclass(frozen=True)
-class SessionState:
+class UserSessionData:
     username: str
     session_id: str
-    messages: Queue = field(default_factory=Queue)
-    statistics: Optional[ClientStatistics] = None
 
 
 @dataclass(frozen=True)
-class Storage:
-    session_state_map: Dict[str, SessionState] = field(default_factory=dict)
+class ChatData:
+    session_state_map: Dict[str, UserSessionData] = field(default_factory=dict)
 
 
-storage = Storage()
+storage = ChatData()
 
 
 class CustomRoutingRequestHandler(RoutingRequestHandler):
@@ -40,7 +36,7 @@ class CustomRoutingRequestHandler(RoutingRequestHandler):
 class ChatUserSession:
 
     def __init__(self):
-        self._session: Optional[SessionState] = None
+        self._session: Optional[UserSessionData] = None
 
     def define_handler(self):
         router = RequestRouter()
@@ -52,7 +48,7 @@ class ChatUserSession:
             logging.info(f'New user: {username}')
 
             session_id = str(uuid.uuid4())
-            self._session = SessionState(username, session_id)
+            self._session = UserSessionData(username, session_id)
             storage.session_state_map[session_id] = self._session
 
             return create_response(ensure_bytes(session_id))

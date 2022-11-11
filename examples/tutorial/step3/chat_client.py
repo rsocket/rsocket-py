@@ -1,14 +1,15 @@
 import asyncio
 import json
 import logging
+from typing import List
 
 from reactivex import operators
 
-from examples.tutorial.step2.models import Message, chat_session_mimetype
+from examples.tutorial.step5.models import Message, chat_session_mimetype
 from rsocket.extensions.helpers import composite, route, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
-from rsocket.helpers import single_transport_provider
+from rsocket.helpers import single_transport_provider, utf8_decode
 from rsocket.payload import Payload
 from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.rsocket_client import RSocketClient
@@ -34,10 +35,15 @@ class ChatClient:
         self._session_id = (await self._rsocket.request_response(payload)).data
         return self
 
+    async def join(self, channel_name: str):
+        join_request = Payload(ensure_bytes(channel_name), composite(route('join')))
+        await self._rsocket.request_response(join_request)
+        return self
+
     def listen_for_messages(self):
         def print_message(data):
             message = Message(**json.loads(data))
-            print(f'{message.user} : {message.content}')
+            print(f'{message.user} ({message.channel}): {message.content}')
 
         async def listen_for_messages(client, session_id):
             await ReactiveXClient(client).request_stream(Payload(metadata=composite(
@@ -60,6 +66,19 @@ class ChatClient:
                                                      composite(route('message'), metadata_session_id(
                                                          self._session_id))))
 
+    async def channel_message(self, channel: str, content: str):
+        print(f'Sending {content} to channel {channel}')
+        await self._rsocket.request_response(Payload(encode_dataclass(Message(channel=channel, content=content)),
+                                                     composite(route('message'), metadata_session_id(
+                                                         self._session_id))))
+
+    async def list_channels(self) -> List[str]:
+        request = Payload(metadata=composite(route('channels')))
+        return await ReactiveXClient(self._rsocket).request_stream(
+            request
+        ).pipe(operators.map(lambda x: utf8_decode(x.data)),
+               operators.to_list())
+
 
 async def main():
     connection1 = await asyncio.open_connection('localhost', 6565)
@@ -70,6 +89,7 @@ async def main():
 
         async with RSocketClient(single_transport_provider(TransportTCP(*connection2)),
                                  metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client2:
+
             user1 = ChatClient(client1)
             user2 = ChatClient(client2)
 
@@ -79,9 +99,15 @@ async def main():
             user1.listen_for_messages()
             user2.listen_for_messages()
 
-            await user1.private_message('user2', 'private message from user1')
+            await user1.join('channel1')
+            await user2.join('channel1')
 
-            await user2.wait_for_messages()
+            print(f'Channels: {await user1.list_channels()}')
+
+            await user1.private_message('user2', 'private message from user1')
+            await user1.channel_message('channel1', 'channel message from user1')
+
+            await user1.wait_for_messages()
 
 
 if __name__ == '__main__':

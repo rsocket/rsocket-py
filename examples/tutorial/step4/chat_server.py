@@ -7,10 +7,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
 
-from examples.tutorial.step10.models import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
-                                             ServerStatistics)
+from examples.tutorial.step5.models import (Message, chat_filename_mimetype)
 from reactivestreams.publisher import DefaultPublisher
-from reactivestreams.subscriber import Subscriber, DefaultSubscriber
+from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
@@ -25,25 +24,24 @@ from rsocket.transports.tcp import TransportTCP
 
 
 @dataclass(frozen=True)
-class SessionState:
+class UserSessionData:
     username: str
     session_id: str
     messages: Queue = field(default_factory=Queue)
-    statistics: Optional[ClientStatistics] = None
 
 
 @dataclass(frozen=True)
-class Storage:
+class ChatData:
     channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
     files: Dict[str, bytes] = field(default_factory=dict)
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    session_state_map: Dict[str, SessionState] = field(default_factory=dict)
+    session_state_map: Dict[str, UserSessionData] = field(default_factory=dict)
 
 
-storage = Storage()
+storage = ChatData()
 
 
-def ensure_channel(channel_name):
+def ensure_channel_exists(channel_name):
     if channel_name not in storage.channel_users:
         storage.channel_users[channel_name] = set()
         storage.channel_messages[channel_name] = Queue()
@@ -69,7 +67,7 @@ def get_file_name(composite_metadata):
 
 
 class CustomRoutingRequestHandler(RoutingRequestHandler):
-    def __init__(self, session: 'ChatUserSession', router: RequestRouter):
+    def __init__(self, session: 'UserSession', router: RequestRouter):
         super().__init__(router)
         self._session = session
 
@@ -78,16 +76,16 @@ class CustomRoutingRequestHandler(RoutingRequestHandler):
         return await super().on_close(rsocket, exception)
 
 
-class ChatUserSession:
+class UserSession:
 
     def __init__(self):
-        self._session: Optional[SessionState] = None
+        self._session: Optional[UserSessionData] = None
 
     def remove(self):
         print(f'Removing session: {self._session.session_id}')
         del storage.session_state_map[self._session.session_id]
 
-    def define_handler(self):
+    def handler_factory(self):
         router = RequestRouter()
 
         @router.response('login')
@@ -95,19 +93,15 @@ class ChatUserSession:
             username = utf8_decode(payload.data)
             logging.info(f'New user: {username}')
             session_id = str(uuid.uuid4())
-            self._session = SessionState(username, session_id)
+            self._session = UserSessionData(username, session_id)
             storage.session_state_map[session_id] = self._session
 
             return create_response(ensure_bytes(session_id))
 
-        # @router.response('logout')
-        # async def logout(payload: Payload, composite_metadata: CompositeMetadata):
-        #     ...
-
         @router.response('join')
         async def join_channel(payload: Payload) -> Awaitable[Payload]:
             channel_name = payload.data.decode('utf-8')
-            ensure_channel(channel_name)
+            ensure_channel_exists(channel_name)
             storage.channel_users[channel_name].add(self._session.session_id)
             return create_response()
 
@@ -142,52 +136,6 @@ class ChatUserSession:
                          enumerate(storage.channel_messages.keys(), 1))
             return StreamFromGenerator(lambda: generator)
 
-        @router.fire_and_forget('statistics')
-        async def receive_statistics(payload: Payload):
-            statistics = ClientStatistics(**json.loads(utf8_decode(payload.data)))
-            self._session.statistics = statistics
-
-        @router.channel('statistics')
-        async def send_statistics(payload: Payload):
-
-            class StatisticsChannel(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
-
-                def __init__(self, session: SessionState):
-                    super().__init__()
-                    self._session = session
-                    self._requested_statistics = ServerStatisticsRequest()
-
-                def cancel(self):
-                    self._sender.cancel()
-
-                def subscribe(self, subscriber: Subscriber):
-                    super().subscribe(subscriber)
-                    subscriber.on_subscribe(self)
-                    self._sender = asyncio.create_task(self._statistics_sender())
-
-                async def _statistics_sender(self):
-                    while True:
-                        await asyncio.sleep(self._requested_statistics.period_seconds)
-                        next_message = ServerStatistics(
-                            user_count=len(storage.session_state_map),
-                            channel_count=len(storage.channel_messages)
-                        )
-                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
-                        self._subscriber.on_next(next_payload)
-
-                def on_next(self, value: Payload, is_complete=False):
-                    request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
-
-                    if request.ids is not None:
-                        self._requested_statistics.ids = request.ids
-
-                    if request.period_seconds is not None:
-                        self._requested_statistics.period_seconds = request.period_seconds
-
-            response = StatisticsChannel(self._session)
-
-            return response, response
-
         @router.response('message')
         async def send_message(payload: Payload) -> Awaitable[Payload]:
             message = Message(**json.loads(payload.data))
@@ -206,7 +154,7 @@ class ChatUserSession:
         @router.stream('messages.incoming')
         async def messages_incoming(composite_metadata: CompositeMetadata):
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
-                def __init__(self, session: SessionState):
+                def __init__(self, session: UserSessionData):
                     self._session = session
 
                 def cancel(self):
@@ -230,7 +178,7 @@ class ChatUserSession:
 
 
 def handler_factory():
-    return ChatUserSession().define_handler()
+    return UserSession().handler_factory()
 
 
 async def run_server():
