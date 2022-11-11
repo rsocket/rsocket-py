@@ -66,7 +66,7 @@ class ChatClient:
             message = Message(**json.loads(data))
             print(f'{message.user} ({message.channel}): {message.content}')
 
-        async def listen_for_messages(client, session_id):
+        async def listen_for_messages(client):
             await ReactiveXClient(client).request_stream(Payload(metadata=composite(
                 route('messages.incoming')
             ))).pipe(
@@ -74,7 +74,7 @@ class ChatClient:
                 operators.do_action(on_next=lambda value: print_message(value.data),
                                     on_error=lambda exception: print(exception)))
 
-        self._listen_task = asyncio.create_task(listen_for_messages(self._rsocket, self._session_id))
+        self._listen_task = asyncio.create_task(listen_for_messages(self._rsocket))
 
     async def wait_for_messages(self):
         messages_done = asyncio.Event()
