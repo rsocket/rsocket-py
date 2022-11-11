@@ -23,10 +23,6 @@ def encode_dataclass(obj):
     return ensure_bytes(json.dumps(obj.__dict__))
 
 
-def metadata_session_id(session_id):
-    return metadata_item(session_id, chat_session_mimetype)
-
-
 class StatisticsHandler(DefaultPublisher, DefaultSubscriber):
 
     def __init__(self):
@@ -67,8 +63,7 @@ class ChatClient:
 
         async def listen_for_messages(client, session_id):
             await ReactiveXClient(client).request_stream(Payload(metadata=composite(
-                route('messages.incoming'),
-                metadata_session_id(session_id)
+                route('messages.incoming')
             ))).pipe(
                 # operators.take(1),
                 operators.do_action(on_next=lambda value: print_message(value.data),
@@ -84,8 +79,7 @@ class ChatClient:
     def listen_for_statistics(self):
         async def listen_for_statistics(client: RSocketClient, session_id, subscriber):
             client.request_channel(Payload(metadata=composite(
-                route('statistics'),
-                metadata_session_id(session_id)
+                route('statistics')
             ))).subscribe(subscriber)
 
             await subscriber.done.wait()
@@ -97,14 +91,12 @@ class ChatClient:
     async def private_message(self, username: str, content: str):
         print(f'Sending {content} to user {username}')
         await self._rsocket.request_response(Payload(encode_dataclass(Message(username, content)),
-                                                     composite(route('message'), metadata_session_id(
-                                                         self._session_id))))
+                                                     composite(route('message'))))
 
     async def channel_message(self, channel: str, content: str):
         print(f'Sending {content} to channel {channel}')
         await self._rsocket.request_response(Payload(encode_dataclass(Message(channel=channel, content=content)),
-                                                     composite(route('message'), metadata_session_id(
-                                                         self._session_id))))
+                                                     composite(route('message'))))
 
     async def upload(self, file_name, content):
         await self._rsocket.request_response(Payload(content, composite(
