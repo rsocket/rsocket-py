@@ -21,13 +21,13 @@ class ChatClient:
 
 
 async def main():
-    connection1 = await asyncio.open_connection('localhost', 6565)
+    connection = await asyncio.open_connection('localhost', 6565)
 
-    async with RSocketClient(single_transport_provider(TransportTCP(*connection1)),
+    async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client1:
-        user1 = ChatClient(client1)
+        user = ChatClient(client1)
 
-        await user1.login('user1')
+        await user.login('user1')
 
 
 if __name__ == '__main__':

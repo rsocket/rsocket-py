@@ -75,7 +75,6 @@ async def main():
             await user1.login('user1')
             await user2.login('user2')
 
-            user1.listen_for_messages()
             user2.listen_for_messages()
 
             await user1.private_message('user2', 'private message from user1')
@@ -85,7 +84,6 @@ async def main():
             except asyncio.TimeoutError:
                 pass
 
-            await user1.stop_listening_for_messages()
             await user2.stop_listening_for_messages()
 
 if __name__ == '__main__':
