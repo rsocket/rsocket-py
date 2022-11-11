@@ -66,17 +66,7 @@ def get_file_name(composite_metadata):
     return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
-class CustomRoutingRequestHandler(RoutingRequestHandler):
-    def __init__(self, session: 'UserSession', router: RequestRouter):
-        super().__init__(router)
-        self._session = session
-
-    async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        self._session.remove()
-        return await super().on_close(rsocket, exception)
-
-
-class UserSession:
+class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[UserSessionData] = None
@@ -85,7 +75,7 @@ class UserSession:
         print(f'Removing session: {self._session.session_id}')
         del storage.session_state_map[self._session.session_id]
 
-    def handler_factory(self):
+    def router_factory(self):
         router = RequestRouter()
 
         @router.response('login')
@@ -174,11 +164,21 @@ class UserSession:
             session_id = composite_metadata.find_by_mimetype(b'chat/session-id')[0].content.decode('utf-8')
             return MessagePublisher(storage.session_state_map[session_id])
 
-        return CustomRoutingRequestHandler(self, router)
+        return router
+
+
+class CustomRoutingRequestHandler(RoutingRequestHandler):
+    def __init__(self, session: ChatUserSession):
+        super().__init__(session.router_factory())
+        self._session = session
+
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
+        self._session.remove()
+        return await super().on_close(rsocket, exception)
 
 
 def handler_factory():
-    return UserSession().handler_factory()
+    return CustomRoutingRequestHandler(ChatUserSession())
 
 
 async def run_server():

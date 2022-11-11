@@ -37,23 +37,13 @@ class ChatData:
 storage = ChatData()
 
 
-class CustomRoutingRequestHandler(RoutingRequestHandler):
-    def __init__(self, session: 'ChatUserSession', router: RequestRouter):
-        super().__init__(router)
-        self._session = session
-
-    async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        self._session.remove()
-        return await super().on_close(rsocket, exception)
-
-
 def get_session_id(composite_metadata: CompositeMetadata):
     return utf8_decode(composite_metadata.find_by_mimetype(b'chat/session-id')[0].content)
 
 
 def find_session_by_username(username: str) -> Optional[UserSessionData]:
     return first((session for session in storage.session_state_map.values() if
-            session.username == username), None)
+                  session.username == username), None)
 
 
 class ChatUserSession:
@@ -65,7 +55,7 @@ class ChatUserSession:
         print(f'Removing session: {self._session.session_id}')
         del storage.session_state_map[self._session.session_id]
 
-    def define_handler(self):
+    def router_factory(self):
         router = RequestRouter()
 
         @router.response('login')
@@ -85,7 +75,7 @@ class ChatUserSession:
             message = Message(**json.loads(payload.data))
 
             session = find_session_by_username(message.user)
-            
+
             await session.messages.put(message)
 
             return create_response()
@@ -113,11 +103,21 @@ class ChatUserSession:
 
             return MessagePublisher(storage.session_state_map[get_session_id(composite_metadata)])
 
-        return CustomRoutingRequestHandler(self, router)
+        return router
+
+
+class CustomRoutingRequestHandler(RoutingRequestHandler):
+    def __init__(self, session: ChatUserSession):
+        super().__init__(session.router_factory())
+        self._session = session
+
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
+        self._session.remove()
+        return await super().on_close(rsocket, exception)
 
 
 def handler_factory():
-    return ChatUserSession().define_handler()
+    return CustomRoutingRequestHandler(ChatUserSession())
 
 
 async def run_server():

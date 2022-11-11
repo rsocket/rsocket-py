@@ -68,16 +68,6 @@ def get_file_name(composite_metadata):
     return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
-class CustomRoutingRequestHandler(RoutingRequestHandler):
-    def __init__(self, session: 'UserSession', router: RequestRouter):
-        super().__init__(router)
-        self._session = session
-
-    async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        self._session.remove()
-        return await super().on_close(rsocket, exception)
-
-
 class UserSession:
 
     def __init__(self):
@@ -87,7 +77,7 @@ class UserSession:
         print(f'Removing session: {self._session.session_id}')
         del storage.session_state_map[self._session.session_id]
 
-    def handler_factory(self):
+    def router_factory(self):
         router = RequestRouter()
 
         @router.response('login')
@@ -192,7 +182,8 @@ class UserSession:
                 channel_message = Message(self._session.username, message.content, message.channel)
                 await storage.channel_messages[message.channel].put(channel_message)
             elif message.user is not None:
-                sessions = [session for session in storage.session_state_map.values() if session.username == message.user]
+                sessions = [session for session in storage.session_state_map.values() if
+                            session.username == message.user]
 
                 if len(sessions) > 0:
                     await sessions[0].messages.put(message)
@@ -222,11 +213,21 @@ class UserSession:
             session_id = composite_metadata.find_by_mimetype(b'chat/session-id')[0].content.decode('utf-8')
             return MessagePublisher(storage.session_state_map[session_id])
 
-        return CustomRoutingRequestHandler(self, router)
+        return router
+
+
+class CustomRoutingRequestHandler(RoutingRequestHandler):
+    def __init__(self, session: UserSession):
+        super().__init__(session.router_factory())
+        self._session = session
+
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
+        self._session.remove()
+        return await super().on_close(rsocket, exception)
 
 
 def handler_factory():
-    return UserSession().handler_factory()
+    return CustomRoutingRequestHandler(UserSession())
 
 
 async def run_server():

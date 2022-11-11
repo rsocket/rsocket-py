@@ -27,18 +27,12 @@ class ChatData:
 chat_data = ChatData()
 
 
-class CustomRoutingRequestHandler(RoutingRequestHandler):
-    def __init__(self, session: 'ChatUserSession', router: RequestRouter):
-        super().__init__(router)
-        self._session = session
-
-
 class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[UserSessionData] = None
 
-    def define_handler(self):
+    def router_factory(self):
         router = RequestRouter()
 
         @router.response('login')
@@ -53,11 +47,17 @@ class ChatUserSession:
 
             return create_response(ensure_bytes(session_id))
 
-        return CustomRoutingRequestHandler(self, router)
+        return router
+
+
+class CustomRoutingRequestHandler(RoutingRequestHandler):
+    def __init__(self, session: ChatUserSession):
+        super().__init__(session.router_factory())
+        self._session = session
 
 
 def handler_factory():
-    return ChatUserSession().define_handler()
+    return CustomRoutingRequestHandler(ChatUserSession())
 
 
 async def run_server():
