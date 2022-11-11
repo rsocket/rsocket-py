@@ -9,5 +9,4 @@ class Message:
     channel: Optional[str] = None
 
 
-chat_session_mimetype = b'chat/session-id'
 chat_filename_mimetype = b'chat/file-name'

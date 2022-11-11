@@ -6,7 +6,7 @@ from typing import List
 
 from reactivex import operators
 
-from examples.tutorial.step5.models import Message, chat_session_mimetype, chat_filename_mimetype, ServerStatistics
+from examples.tutorial.step5.models import Message, chat_filename_mimetype, ServerStatistics
 from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
 from rsocket.extensions.helpers import composite, route, metadata_item

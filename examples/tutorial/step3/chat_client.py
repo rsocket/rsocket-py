@@ -5,7 +5,7 @@ from typing import List
 
 from reactivex import operators
 
-from examples.tutorial.step5.models import Message, chat_session_mimetype
+from examples.tutorial.step5.models import Message
 from rsocket.extensions.helpers import composite, route, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes

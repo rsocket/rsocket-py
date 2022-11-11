@@ -26,5 +26,4 @@ class ClientStatistics:
     memory_usage: Optional[int] = None
 
 
-chat_session_mimetype = b'chat/session-id'
 chat_filename_mimetype = b'chat/file-name'
