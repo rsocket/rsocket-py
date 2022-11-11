@@ -21,10 +21,10 @@ class UserSessionData:
 
 @dataclass(frozen=True)
 class ChatData:
-    session_state_map: Dict[str, UserSessionData] = field(default_factory=dict)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=dict)
 
 
-storage = ChatData()
+chat_data = ChatData()
 
 
 class CustomRoutingRequestHandler(RoutingRequestHandler):
@@ -49,7 +49,7 @@ class ChatUserSession:
 
             session_id = str(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
-            storage.session_state_map[session_id] = self._session
+            chat_data.user_session_by_id[session_id] = self._session
 
             return create_response(ensure_bytes(session_id))
 
