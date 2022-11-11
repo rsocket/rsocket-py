@@ -131,6 +131,9 @@ class UserSession:
         @router.fire_and_forget('statistics')
         async def receive_statistics(payload: Payload):
             statistics = ClientStatistics(**json.loads(utf8_decode(payload.data)))
+
+            logging.info('Received client statistics. memory usage: %s', statistics.memory_usage)
+
             self._session.statistics = statistics
 
         @router.channel('statistics')
