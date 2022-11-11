@@ -32,8 +32,13 @@ class ChatClient:
         return self
 
     async def join(self, channel_name: str):
-        join_request = Payload(ensure_bytes(channel_name), composite(route('join')))
-        await self._rsocket.request_response(join_request)
+        request = Payload(ensure_bytes(channel_name), composite(route('channel.join')))
+        await self._rsocket.request_response(request)
+        return self
+
+    async def leave(self, channel_name: str):
+        request = Payload(ensure_bytes(channel_name), composite(route('channel.leave')))
+        await self._rsocket.request_response(request)
         return self
 
     def listen_for_messages(self):

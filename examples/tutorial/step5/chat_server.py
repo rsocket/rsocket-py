@@ -90,14 +90,14 @@ class UserSession:
 
             return create_response(ensure_bytes(session_id))
 
-        @router.response('join')
+        @router.response('channel.join')
         async def join_channel(payload: Payload) -> Awaitable[Payload]:
             channel_name = payload.data.decode('utf-8')
             ensure_channel_exists(channel_name)
             storage.channel_users[channel_name].add(self._session.session_id)
             return create_response()
 
-        @router.response('leave')
+        @router.response('channel.leave')
         async def leave_channel(payload: Payload) -> Awaitable[Payload]:
             channel_name = payload.data.decode('utf-8')
             storage.channel_users[channel_name].discard(self._session.session_id)
