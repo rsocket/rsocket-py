@@ -34,16 +34,16 @@ class UserSessionData:
 class ChatData:
     channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    session_state_map: Dict[str, UserSessionData] = field(default_factory=dict)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=dict)
 
 
-storage = ChatData()
+chat_data = ChatData()
 
 
 def ensure_channel_exists(channel_name: str):
-    if channel_name not in storage.channel_users:
-        storage.channel_users[channel_name] = set()
-        storage.channel_messages[channel_name] = Queue()
+    if channel_name not in chat_data.channel_users:
+        chat_data.channel_users[channel_name] = set()
+        chat_data.channel_messages[channel_name] = Queue()
         asyncio.create_task(channel_message_delivery(channel_name))
 
 
@@ -51,12 +51,12 @@ async def channel_message_delivery(channel_name: str):
     logging.info('Starting channel delivery %s', channel_name)
     while True:
         try:
-            message = await storage.channel_messages[channel_name].get()
-            for session_id in storage.channel_users[channel_name]:
+            message = await chat_data.channel_messages[channel_name].get()
+            for session_id in chat_data.channel_users[channel_name]:
                 user_specific_message = Message(user=message.user,
                                                 content=message.content,
                                                 channel=channel_name)
-                storage.session_state_map[session_id].messages.put_nowait(user_specific_message)
+                chat_data.user_session_by_id[session_id].messages.put_nowait(user_specific_message)
         except Exception as exception:
             logging.error(str(exception), exc_info=True)
 
@@ -79,7 +79,7 @@ class UserSession:
             logging.info(f'New user: {username}')
             session_id = str(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
-            storage.session_state_map[session_id] = self._session
+            chat_data.user_session_by_id[session_id] = self._session
 
             return create_response(ensure_bytes(session_id))
 
@@ -87,20 +87,20 @@ class UserSession:
         async def join_channel(payload: Payload) -> Awaitable[Payload]:
             channel_name = payload.data.decode('utf-8')
             ensure_channel_exists(channel_name)
-            storage.channel_users[channel_name].add(self._session.session_id)
+            chat_data.channel_users[channel_name].add(self._session.session_id)
             return create_response()
 
         @router.response('channel.leave')
         async def leave_channel(payload: Payload) -> Awaitable[Payload]:
             channel_name = payload.data.decode('utf-8')
-            storage.channel_users[channel_name].discard(self._session.session_id)
+            chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
 
         @router.stream('channels')
         async def get_channels():
-            count = len(storage.channel_messages)
+            count = len(chat_data.channel_messages)
             generator = ((Payload(ensure_bytes(channel)), index == count) for (index, channel) in
-                         enumerate(storage.channel_messages.keys(), 1))
+                         enumerate(chat_data.channel_messages.keys(), 1))
             return StreamFromGenerator(lambda: generator)
 
         @router.response('message')
@@ -109,9 +109,9 @@ class UserSession:
 
             if message.channel is not None:
                 channel_message = Message(self._session.username, message.content, message.channel)
-                await storage.channel_messages[message.channel].put(channel_message)
+                await chat_data.channel_messages[message.channel].put(channel_message)
             elif message.user is not None:
-                sessions = [session for session in storage.session_state_map.values() if
+                sessions = [session for session in chat_data.user_session_by_id.values() if
                             session.username == message.user]
 
                 if len(sessions) > 0:
