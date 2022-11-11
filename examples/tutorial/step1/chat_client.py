@@ -13,8 +13,6 @@ from rsocket.transports.tcp import TransportTCP
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
-        self._listen_task = None
-        self._session_id = None
 
     async def login(self, username: str):
         payload = Payload(ensure_bytes(username), composite(route('login')))

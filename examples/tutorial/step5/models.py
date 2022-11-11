@@ -23,7 +23,7 @@ class ServerStatisticsRequest:
 
 @dataclass(frozen=True)
 class ClientStatistics:
-    memory_usage: Optional[int] = None
+    memory_usage: Optional[float] = None
 
 
 chat_filename_mimetype = b'chat/file-name'

@@ -24,7 +24,7 @@ from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
 
-@dataclass(frozen=True)
+@dataclass()
 class UserSessionData:
     username: str
     session_id: str
@@ -210,8 +210,7 @@ class UserSession:
                         next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
                         self._subscriber.on_next(next_payload)
 
-            session_id = composite_metadata.find_by_mimetype(b'chat/session-id')[0].content.decode('utf-8')
-            return MessagePublisher(storage.session_state_map[session_id])
+            return MessagePublisher(self._session)
 
         return router
 

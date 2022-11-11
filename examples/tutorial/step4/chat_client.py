@@ -1,8 +1,8 @@
 import asyncio
 import json
 import logging
-from asyncio import Event
-from typing import List
+from asyncio import Event, Task
+from typing import List, Optional
 
 from reactivex import operators
 
@@ -43,8 +43,8 @@ class StatisticsHandler(DefaultPublisher, DefaultSubscriber):
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
-        self._listen_task = None
-        self._session_id = None
+        self._listen_task: Optional[Task] = None
+        self._session_id: Optional[str] = None
 
     async def login(self, username: str):
         payload = Payload(ensure_bytes(username), composite(route('login')))
@@ -80,6 +80,9 @@ class ChatClient:
         messages_done = asyncio.Event()
         self._listen_task.add_done_callback(lambda _: messages_done.set())
         await messages_done.wait()
+
+    async def stop_listening_for_messages(self):
+        self._listen_task.cancel()
 
     async def private_message(self, username: str, content: str):
         print(f'Sending {content} to user {username}')
@@ -155,8 +158,13 @@ async def main():
             else:
                 print(f'Downloaded file: {len(download.data)} bytes')
 
-            asyncio.wait_for(user2.wait_for_messages(), 3)
+            try:
+                await asyncio.wait_for(user2.wait_for_messages(), 3)
+            except asyncio.TimeoutError:
+                pass
 
+            await user1.stop_listening_for_messages()
+            await user2.stop_listening_for_messages()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

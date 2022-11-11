@@ -1,12 +1,13 @@
 import asyncio
 import json
 import logging
-from typing import List
+from asyncio import Task
+from typing import List, Optional
 
 from reactivex import operators
 
 from examples.tutorial.step5.models import Message
-from rsocket.extensions.helpers import composite, route, metadata_item
+from rsocket.extensions.helpers import composite, route
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import single_transport_provider, utf8_decode
@@ -23,8 +24,8 @@ def encode_dataclass(obj):
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
-        self._listen_task = None
-        self._session_id = None
+        self._listen_task: Optional[Task] = None
+        self._session_id: Optional[str] = None
 
     async def login(self, username: str):
         payload = Payload(ensure_bytes(username), composite(route('login')))
@@ -54,6 +55,9 @@ class ChatClient:
                                     on_error=lambda exception: print(exception)))
 
         self._listen_task = asyncio.create_task(listen_for_messages(self._rsocket))
+
+    async def stop_listening_for_messages(self):
+        self._listen_task.cancel()
 
     async def wait_for_messages(self):
         messages_done = asyncio.Event()
@@ -105,8 +109,13 @@ async def main():
             await user1.private_message('user2', 'private message from user1')
             await user1.channel_message('channel1', 'channel message from user1')
 
-            asyncio.wait_for(user2.wait_for_messages(), 3)
+            try:
+                await asyncio.wait_for(user2.wait_for_messages(), 3)
+            except asyncio.TimeoutError:
+                pass
 
+            await user1.stop_listening_for_messages()
+            await user2.stop_listening_for_messages()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
