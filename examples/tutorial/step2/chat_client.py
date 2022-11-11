@@ -75,7 +75,7 @@ async def main():
 
             await user1.private_message('user2', 'private message from user1')
 
-            await user2.wait_for_messages()
+            asyncio.wait_for(user2.wait_for_messages(), 3)
 
 
 if __name__ == '__main__':

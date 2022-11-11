@@ -169,7 +169,7 @@ async def main():
             else:
                 print(f'Downloaded file: {len(download.data)} bytes')
 
-            await user1.wait_for_messages()
+            asyncio.wait_for(user2.wait_for_messages(), 3)
 
 
 if __name__ == '__main__':
