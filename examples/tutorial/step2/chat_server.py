@@ -6,9 +6,8 @@ from asyncio import Queue
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Awaitable
 
+from examples.tutorial.step2.models import Message
 from more_itertools import first
-
-from examples.tutorial.step2.models import (Message)
 from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -37,10 +36,6 @@ class ChatData:
 storage = ChatData()
 
 
-def get_session_id(composite_metadata: CompositeMetadata):
-    return utf8_decode(composite_metadata.find_by_mimetype(b'chat/session-id')[0].content)
-
-
 def find_session_by_username(username: str) -> Optional[UserSessionData]:
     return first((session for session in storage.session_state_map.values() if
                   session.username == username), None)
@@ -50,10 +45,6 @@ class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[UserSessionData] = None
-
-    def remove(self):
-        print(f'Removing session: {self._session.session_id}')
-        del storage.session_state_map[self._session.session_id]
 
     def router_factory(self):
         router = RequestRouter()
@@ -101,7 +92,7 @@ class ChatUserSession:
                         next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
                         self._subscriber.on_next(next_payload)
 
-            return MessagePublisher(storage.session_state_map[get_session_id(composite_metadata)])
+            return MessagePublisher(self._session)
 
         return router
 
@@ -110,10 +101,6 @@ class CustomRoutingRequestHandler(RoutingRequestHandler):
     def __init__(self, session: ChatUserSession):
         super().__init__(session.router_factory())
         self._session = session
-
-    async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        self._session.remove()
-        return await super().on_close(rsocket, exception)
 
 
 def handler_factory():
