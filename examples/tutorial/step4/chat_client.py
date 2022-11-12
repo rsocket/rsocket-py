@@ -9,6 +9,7 @@ from reactivex import operators
 from examples.tutorial.step5.models import Message, chat_filename_mimetype, ServerStatistics
 from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
+from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import composite, route, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
@@ -106,17 +107,13 @@ class ChatClient:
 
     async def list_files(self) -> List[str]:
         request = Payload(metadata=composite(route('file_names')))
-        return await ReactiveXClient(self._rsocket).request_stream(
-            request
-        ).pipe(operators.map(lambda x: utf8_decode(x.data)),
-               operators.to_list())
+        response = await AwaitableRSocket(self._rsocket).request_stream(request)
+        return list(map(lambda _: utf8_decode(_.data), response))
 
     async def list_channels(self) -> List[str]:
         request = Payload(metadata=composite(route('channels')))
-        return await ReactiveXClient(self._rsocket).request_stream(
-            request
-        ).pipe(operators.map(lambda x: utf8_decode(x.data)),
-               operators.to_list())
+        response = await AwaitableRSocket(self._rsocket).request_stream(request)
+        return list(map(lambda _: utf8_decode(_.data), response))
 
 
 async def main():
@@ -167,6 +164,7 @@ async def main():
 
             await user1.stop_listening_for_messages()
             await user2.stop_listening_for_messages()
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

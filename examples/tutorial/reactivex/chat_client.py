@@ -46,18 +46,18 @@ class ChatClient:
         return self
 
     def listen_for_messages(self):
-        def print_message(data):
+        def print_message(data: bytes):
             message = Message(**json.loads(data))
             print(f'{message.user} ({message.channel}): {message.content}')
 
-        async def listen_for_messages(client):
-            await ReactiveXClient(client).request_stream(Payload(metadata=composite(
+        async def listen_for_messages():
+            await ReactiveXClient(self._rsocket).request_stream(Payload(metadata=composite(
                 route('messages.incoming')
             ))).pipe(
                 operators.do_action(on_next=lambda value: print_message(value.data),
                                     on_error=lambda exception: print(exception)))
 
-        self._listen_task = asyncio.create_task(listen_for_messages(self._rsocket))
+        self._listen_task = asyncio.create_task(listen_for_messages())
 
     async def wait_for_messages(self):
         messages_done = asyncio.Event()
@@ -129,7 +129,7 @@ class ChatClient:
         request = Payload(metadata=composite(route('channels')))
         return await ReactiveXClient(self._rsocket).request_stream(
             request
-        ).pipe(operators.map(lambda x: utf8_decode(x.data)),
+        ).pipe(operators.map(lambda _: utf8_decode(_.data)),
                operators.to_list())
 
 
@@ -184,6 +184,7 @@ async def main():
 
             await user1.stop_listening_for_messages()
             await user2.stop_listening_for_messages()
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
