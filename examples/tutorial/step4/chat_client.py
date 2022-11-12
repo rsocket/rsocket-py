@@ -123,11 +123,13 @@ async def main():
     connection1 = await asyncio.open_connection('localhost', 6565)
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection1)),
-                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client1:
+                             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
+                             fragment_size_bytes=1_000_000) as client1:
         connection2 = await asyncio.open_connection('localhost', 6565)
 
         async with RSocketClient(single_transport_provider(TransportTCP(*connection2)),
-                                 metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client2:
+                                 metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
+                                 fragment_size_bytes=1_000_000) as client2:
 
             user1 = ChatClient(client1)
             user2 = ChatClient(client2)

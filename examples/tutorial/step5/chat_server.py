@@ -234,7 +234,9 @@ def handler_factory():
 
 async def run_server():
     def session(*connection):
-        RSocketServer(TransportTCP(*connection), handler_factory=handler_factory)
+        RSocketServer(TransportTCP(*connection),
+                      handler_factory=handler_factory,
+                      fragment_size_bytes=1_000_000)
 
     async with await asyncio.start_server(session, 'localhost', 6565) as server:
         await server.serve_forever()
