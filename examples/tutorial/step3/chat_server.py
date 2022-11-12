@@ -8,10 +8,9 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
 
 from examples.tutorial.step5.models import (Message, chat_filename_mimetype, ClientStatistics)
-from reactivestreams.publisher import DefaultPublisher
+from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
-from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
@@ -97,7 +96,7 @@ class UserSession:
             return create_response()
 
         @router.stream('channels')
-        async def get_channels():
+        async def get_channels() -> Publisher:
             count = len(chat_data.channel_messages)
             generator = ((Payload(ensure_bytes(channel)), index == count) for (index, channel) in
                          enumerate(chat_data.channel_messages.keys(), 1))
@@ -120,7 +119,7 @@ class UserSession:
             return create_response()
 
         @router.stream('messages.incoming')
-        async def messages_incoming(composite_metadata: CompositeMetadata):
+        async def messages_incoming() -> Publisher:
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
                 def __init__(self, session: UserSessionData):
                     self._session = session

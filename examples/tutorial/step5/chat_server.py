@@ -5,11 +5,11 @@ import uuid
 from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set, Awaitable
+from typing import Dict, Optional, Set, Awaitable, Tuple
 
 from examples.tutorial.step5.models import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
                                             ServerStatistics)
-from reactivestreams.publisher import DefaultPublisher
+from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
@@ -115,14 +115,14 @@ class UserSession:
                                    composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype)))
 
         @router.stream('file_names')
-        async def get_file_names():
+        async def get_file_names() -> Publisher:
             count = len(chat_data.files)
             generator = ((Payload(ensure_bytes(file_name)), index == count) for (index, file_name) in
                          enumerate(chat_data.files.keys(), 1))
             return StreamFromGenerator(lambda: generator)
 
         @router.stream('channels')
-        async def get_channels():
+        async def get_channels() -> Publisher:
             count = len(chat_data.channel_messages)
             generator = ((Payload(ensure_bytes(channel)), index == count) for (index, channel) in
                          enumerate(chat_data.channel_messages.keys(), 1))
@@ -137,7 +137,7 @@ class UserSession:
             self._session.statistics = statistics
 
         @router.channel('statistics')
-        async def send_statistics(payload: Payload):
+        async def send_statistics() -> Tuple[Optional[Publisher], Optional[Subscriber]]:
 
             class StatisticsChannel(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
 
@@ -194,7 +194,7 @@ class UserSession:
             return create_response()
 
         @router.stream('messages.incoming')
-        async def messages_incoming(composite_metadata: CompositeMetadata):
+        async def messages_incoming() -> Publisher:
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
                 def __init__(self, session: UserSessionData):
                     self._session = session

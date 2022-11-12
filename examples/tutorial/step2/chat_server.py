@@ -6,12 +6,12 @@ from asyncio import Queue
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Awaitable
 
-from examples.tutorial.step2.models import Message
 from more_itertools import first
-from reactivestreams.publisher import DefaultPublisher
+
+from examples.tutorial.step2.models import Message
+from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
-from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
@@ -72,7 +72,7 @@ class ChatUserSession:
             return create_response()
 
         @router.stream('messages.incoming')
-        async def messages_incoming(composite_metadata: CompositeMetadata):
+        async def messages_incoming() -> Publisher:
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
                 def __init__(self, session: UserSessionData):
                     self._session = session
