@@ -3,7 +3,14 @@ Changelog
 
 v0.4.4
 ======
-- Fragmentation fix - empty payload (either in request or response) with fragmentation enabled failed to send.
+- Fragmentation fix - empty payload (either in request or response) with fragmentation enabled failed to send
+- Breaking change: *on_connection_lost* was renamed to *on_close*. An *on_connection_error* method was added to handle initial connection errors
+- Routing request handler:
+    - Throws an RSocketUnknownRoute exception which results in an error frame on the requester side
+    - Added error logging for response/stream/channel requests
+- Added *create_response* helper method as shorthand for creating a future with a Payload
+- Added *utf8_decode* helper. Decodes bytes to utf-8. If data is None, returns None.
+- Refactoring client reconnect flow
 
 v0.4.3
 ======
