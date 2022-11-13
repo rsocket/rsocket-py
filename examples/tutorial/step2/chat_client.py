@@ -59,7 +59,7 @@ class ChatClient:
             Payload(metadata=composite(route('messages.incoming')))
         ).subscribe(self._subscriber)
 
-    async def stop_listening_for_messages(self):
+    def stop_listening_for_messages(self):
         self._subscriber.cancel()
 
     async def wait_for_messages(self):
@@ -95,7 +95,7 @@ async def main():
             except asyncio.TimeoutError:
                 pass
 
-            await user2.stop_listening_for_messages()
+            user2.stop_listening_for_messages()
 
 
 if __name__ == '__main__':

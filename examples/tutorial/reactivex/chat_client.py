@@ -2,8 +2,8 @@ import asyncio
 import json
 import logging
 import resource
-from asyncio import Event
-from typing import List
+from asyncio import Event, Task
+from typing import List, Optional
 
 from reactivex import operators
 
@@ -27,8 +27,9 @@ def encode_dataclass(obj):
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
-        self._listen_task = None
-        self._session_id = None
+        self._listen_task: Optional[Task] = None
+        self._statistics_task: Optional[Task] = None
+        self._session_id: Optional[str] = None
 
     async def login(self, username: str):
         payload = Payload(ensure_bytes(username), composite(route('login')))
@@ -64,7 +65,7 @@ class ChatClient:
         self._listen_task.add_done_callback(lambda _: messages_done.set())
         await messages_done.wait()
 
-    async def stop_listening_for_messages(self):
+    def stop_listening_for_messages(self):
         self._listen_task.cancel()
 
     async def send_statistics(self):
@@ -182,8 +183,8 @@ async def main():
             except asyncio.TimeoutError:
                 pass
 
-            await user1.stop_listening_for_messages()
-            await user2.stop_listening_for_messages()
+            user1.stop_listening_for_messages()
+            user2.stop_listening_for_messages()
 
 
 if __name__ == '__main__':

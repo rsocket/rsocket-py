@@ -82,7 +82,7 @@ class ChatClient:
         self._listen_task.add_done_callback(lambda _: messages_done.set())
         await messages_done.wait()
 
-    async def stop_listening_for_messages(self):
+    def stop_listening_for_messages(self):
         self._listen_task.cancel()
 
     async def private_message(self, username: str, content: str):
@@ -162,8 +162,8 @@ async def main():
             except asyncio.TimeoutError:
                 pass
 
-            await user1.stop_listening_for_messages()
-            await user2.stop_listening_for_messages()
+            user1.stop_listening_for_messages()
+            user2.stop_listening_for_messages()
 
 
 if __name__ == '__main__':

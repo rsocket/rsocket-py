@@ -56,7 +56,7 @@ class ChatClient:
 
         self._listen_task = asyncio.create_task(listen_for_messages(self._rsocket))
 
-    async def stop_listening_for_messages(self):
+    def stop_listening_for_messages(self):
         self._listen_task.cancel()
 
     async def wait_for_messages(self):
@@ -114,8 +114,8 @@ async def main():
             except asyncio.TimeoutError:
                 pass
 
-            await user1.stop_listening_for_messages()
-            await user2.stop_listening_for_messages()
+            user1.stop_listening_for_messages()
+            user2.stop_listening_for_messages()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
