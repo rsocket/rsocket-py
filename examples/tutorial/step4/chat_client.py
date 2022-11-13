@@ -97,16 +97,16 @@ class ChatClient:
 
     async def upload(self, file_name, content):
         await self._rsocket.request_response(Payload(content, composite(
-            route('upload'),
+            route('file.upload'),
             metadata_item(ensure_bytes(file_name), chat_filename_mimetype)
         )))
 
     async def download(self, file_name):
         return await self._rsocket.request_response(Payload(
-            metadata=composite(route('download'), metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
+            metadata=composite(route('file.download'), metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
 
     async def list_files(self) -> List[str]:
-        request = Payload(metadata=composite(route('file_names')))
+        request = Payload(metadata=composite(route('files')))
         response = await AwaitableRSocket(self._rsocket).request_stream(request)
         return list(map(lambda _: utf8_decode(_.data), response))
 

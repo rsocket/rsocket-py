@@ -103,18 +103,18 @@ class UserSession:
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
 
-        @router.response('upload')
+        @router.response('file.upload')
         async def upload_file(payload: Payload, composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
             chat_data.files[get_file_name(composite_metadata)] = payload.data
             return create_response()
 
-        @router.response('download')
+        @router.response('file.download')
         async def download_file(composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
             file_name = get_file_name(composite_metadata)
             return create_response(chat_data.files[file_name],
                                    composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype)))
 
-        @router.stream('file_names')
+        @router.stream('files')
         async def get_file_names() -> Publisher:
             count = len(chat_data.files)
             generator = ((Payload(ensure_bytes(file_name)), index == count) for (index, file_name) in
