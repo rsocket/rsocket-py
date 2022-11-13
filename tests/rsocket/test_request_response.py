@@ -112,7 +112,11 @@ async def test_request_response_bidirectional(pipe):
     assert response.metadata == b'(server (client metadata))'
 
 
-async def test_request_response_fragmented(lazy_pipe):
+@pytest.mark.parametrize('data_size_multiplier', (
+        1,
+        10
+))
+async def test_request_response_fragmented(lazy_pipe, data_size_multiplier):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
             return future_from_payload(request)
@@ -120,7 +124,21 @@ async def test_request_response_fragmented(lazy_pipe):
     async with lazy_pipe(
             server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 64},
             client_arguments={'fragment_size_bytes': 64}) as (server, client):
-        data = b'dog-dog-dog-dog-dog-dog-dog-dog-dog' * 10
+        data = b'dog-dog-dog-dog-dog-dog-dog-dog-dog' * data_size_multiplier
         response = await client.request_response(Payload(data, b'cat'))
 
         assert response.data == b'data: ' + data
+
+
+async def test_request_response_fragmented_empty_payload(lazy_pipe):
+    class Handler(BaseRequestHandler):
+        async def request_response(self, request: Payload):
+            return create_future(Payload())
+
+    async with lazy_pipe(
+            server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 64},
+            client_arguments={'fragment_size_bytes': 64}) as (server, client):
+        response = await client.request_response(Payload())
+
+        assert response.data == b''
+        assert response.metadata == b''

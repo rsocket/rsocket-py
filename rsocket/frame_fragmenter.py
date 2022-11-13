@@ -38,6 +38,10 @@ class FrameFragmenter:
 
     def __iter__(self):
 
+        if self._data_length == 0 and self._metadata_length == 0:
+            yield Fragment(None, None, is_last=True, is_first=True)
+            return
+
         data_reader = BytesIO(self.data)
         metadata_reader = BytesIO(self.metadata)
 

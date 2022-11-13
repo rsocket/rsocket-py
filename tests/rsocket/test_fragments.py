@@ -15,6 +15,7 @@ def test_create_data():
 
 
 @pytest.mark.parametrize('data, metadata, fragment_size_bytes, expected_frame_count', (
+        (b'', b'', 64, 1),  # empty payload
         (b'', create_data(b'123abc456def', 20), 64, 5),  # only data
         (create_data(b'123abc456def', 20), b'', 64, 5),  # only metadata
         (create_data(b'123abc456def', 20), create_data(b'123abc456def', 20, 55), 64, 6),  # metadata fits in first frame
