@@ -11,6 +11,7 @@ v0.4.4
 - Added *create_response* helper method as shorthand for creating a future with a Payload
 - Added *utf8_decode* helper. Decodes bytes to utf-8. If data is None, returns None.
 - Refactoring client reconnect flow
+- Added example code for tutorial on rsocket.io
 
 v0.4.3
 ======
