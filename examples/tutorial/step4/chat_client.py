@@ -140,7 +140,6 @@ async def main():
             await user1.join('channel1')
             await user2.join('channel1')
 
-            print(f'Files: {await user1.list_files()}')
             print(f'Channels: {await user1.list_channels()}')
 
             await user1.private_message('user2', 'private message from user1')
@@ -149,6 +148,8 @@ async def main():
             file_contents = b'abcdefg1234567'
             file_name = 'file_name_1.txt'
             await user1.upload(file_name, file_contents)
+
+            print(f'Files: {await user1.list_files()}')
 
             download = await user2.download(file_name)
 
