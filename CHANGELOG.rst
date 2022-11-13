@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+v0.4.4
+======
+- Fragmentation fix - empty payload (either in request or response) with fragmentation enabled failed to send.
+
 v0.4.3
 ======
 - Command line fixes:

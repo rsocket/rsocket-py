@@ -5,7 +5,7 @@ with open('README.md') as fd:
 
 setup(
     name='rsocket',
-    version='0.4.3',
+    version='0.4.4',
     description='Python RSocket library',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -23,6 +23,10 @@ setup(
         'quart': {'quart >= 0.15.0'},
         'quic': {'aioquic >= 0.9.0'},
         'cli': {'asyncclick >= 8.0.0'}
+    },
+    project_urls={
+        'Documentation': 'https://rsocket.io/guides/rsocket-py',
+        'Changelog': 'https://github.com/rsocket/rsocket-py/blob/master/CHANGELOG.rst'
     },
     entry_points={
         'console_scripts': [
