@@ -19,6 +19,7 @@ from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from tests.rsocket.helpers import get_components
 
 
+@pytest.mark.allow_error_log(regex_filter='Stream error')
 @pytest.mark.parametrize('success_count, request_limit', (
         (0, 2),
         (2, 2),

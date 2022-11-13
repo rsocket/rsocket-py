@@ -1,8 +1,7 @@
-from typing import Union, Optional
+from typing import Optional
 
 from rsocket.frame_helpers import ensure_bytes, safe_len
-
-ByteTypes = Union[bytes, bytearray]
+from rsocket.local_typing import ByteTypes
 
 
 class Payload:

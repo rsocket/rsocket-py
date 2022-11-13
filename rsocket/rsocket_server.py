@@ -15,7 +15,7 @@ class RSocketServer(RSocketBase):
 
     def __init__(self,
                  transport: Transport,
-                 handler_factory: Callable[[RSocketBase], RequestHandler] = BaseRequestHandler,
+                 handler_factory: Callable[[], RequestHandler] = BaseRequestHandler,
                  honor_lease=False,
                  lease_publisher: Optional[Publisher] = None,
                  request_queue_size: int = 0,

@@ -1,7 +1,7 @@
 import asyncio
 from asyncio import Task
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Awaitable
 from typing import TypeVar
 from typing import Union, Callable, Optional, Tuple
 
@@ -12,6 +12,7 @@ from rsocket.exceptions import RSocketTransportError
 from rsocket.extensions.mimetype import WellKnownType
 from rsocket.frame import Frame
 from rsocket.frame_helpers import serialize_128max_value, parse_type
+from rsocket.local_typing import ByteTypes
 from rsocket.logger import logger
 from rsocket.payload import Payload
 
@@ -26,6 +27,10 @@ def create_future(value: Optional[Any] = _default) -> asyncio.Future:
         future.set_result(value)
 
     return future
+
+
+def create_response(data: Optional[ByteTypes] = None, metadata: Optional[ByteTypes] = None) -> Awaitable[Payload]:
+    return create_future(Payload(data, metadata))
 
 
 def create_error_future(exception: Exception) -> asyncio.Future:
@@ -112,5 +117,11 @@ async def cancel_if_task_exists(task: Optional[Task]):
             await task
         except asyncio.CancelledError:
             logger().debug('Asyncio task cancellation error: %s', task)
-        except RuntimeError:
+        except Exception:
             logger().warning('Runtime error canceling task: %s', task, exc_info=True)
+
+
+def utf8_decode(data: bytes):
+    if data is not None:
+        return data.decode('utf-8')
+    return None

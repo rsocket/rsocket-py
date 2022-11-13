@@ -22,7 +22,7 @@ or install any of the extras:
 Example:
 
 ```shell
-pip install --pre rsocket[reactivex]
+pip install rsocket[reactivex]
 ```
 
 Alternatively, download the source code, build a package:

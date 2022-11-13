@@ -128,7 +128,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._stream_control = StreamControl(self._get_first_stream_id())
         self._is_closing = False
 
-    def stop_all_streams(self, error_code=ErrorCode.CANCELED, data=b''):
+    def stop_all_streams(self, error_code=ErrorCode.CONNECTION_ERROR, data=b''):
         self._stream_control.stop_all_streams(error_code, data)
 
     def _start_tasks(self):
@@ -321,17 +321,23 @@ class RSocketBase(RSocket, RSocketInternal):
             await self._receiver_listen()
         except asyncio.CancelledError:
             logger().debug('%s: Asyncio task canceled: receiver', self._log_identifier())
-        except RSocketTransportError as exception:
-            await self._on_connection_lost(exception)
+        except RSocketTransportError:
+            pass
         except Exception:
             logger().error('%s: Unknown error', self._log_identifier(), exc_info=True)
             raise
 
-    async def _on_connection_lost(self, exception: Exception):
+        await self._on_connection_closed()
+
+    async def _on_connection_error(self, exception: Exception):
         logger().warning(str(exception))
         logger().debug(str(exception), exc_info=exception)
-        self.stop_all_streams(ErrorCode.CONNECTION_ERROR, b'Connection error')
-        await self._handler.on_connection_lost(self, exception)
+        await self._handler.on_connection_error(self, exception)
+
+    async def _on_connection_closed(self):
+        self.stop_all_streams()
+        await self._handler.on_close(self)
+        await self._stop_tasks()
 
     @abc.abstractmethod
     def is_server_alive(self) -> bool:
@@ -426,13 +432,11 @@ class RSocketBase(RSocket, RSocketInternal):
 
                     if self._send_queue.empty():
                         await transport.on_send_queue_empty()
-            except RSocketTransportError as exception:
-                await self._on_connection_lost(exception)
+            except RSocketTransportError:
+                pass
 
         except asyncio.CancelledError:
             logger().debug('%s: Asyncio task canceled: sender', self._log_identifier())
-        except RSocketTransportError as exception:
-            await self._on_connection_lost(exception)
         except Exception:
             logger().error('%s: RSocket error', self._log_identifier(), exc_info=True)
             raise
@@ -442,11 +446,14 @@ class RSocketBase(RSocket, RSocketInternal):
     async def close(self):
         logger().debug('%s: Closing', self._log_identifier())
 
+        await self._stop_tasks()
+
+        await self._close_transport()
+
+    async def _stop_tasks(self):
         self._is_closing = True
         await cancel_if_task_exists(self._sender_task)
         await cancel_if_task_exists(self._receiver_task)
-
-        await self._close_transport()
 
     async def _close_transport(self):
         if self._current_transport().done():

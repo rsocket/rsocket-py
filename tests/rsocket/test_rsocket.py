@@ -61,7 +61,7 @@ async def test_rsocket_max_server_keepalive_reached_and_request_canceled_explici
             await client.request_response(Payload(b'dog', b'cat'))
 
         assert exc_info.value.data == 'Server not alive'
-        assert exc_info.value.error_code == ErrorCode.CANCELED
+        assert exc_info.value.error_code == ErrorCode.CONNECTION_ERROR
 
 
 async def test_rsocket_keepalive(pipe, caplog):

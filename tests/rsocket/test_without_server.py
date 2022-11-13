@@ -1,4 +1,5 @@
 import asyncio
+from typing import Optional
 
 import pytest
 
@@ -12,8 +13,8 @@ from rsocket.transports.tcp import TransportTCP
 @pytest.mark.allow_error_log()
 async def test_connection_never_established(unused_tcp_port: int):
     class ClientHandler(BaseRequestHandler):
-        async def on_connection_lost(self, rsocket, exception: Exception):
-            logger().info('Test Reconnecting')
+        async def on_close(self, rsocket, exception: Optional[Exception] = None):
+            logger().info('Test Reconnecting (closed)')
             await rsocket.reconnect()
 
     async def transport_provider():

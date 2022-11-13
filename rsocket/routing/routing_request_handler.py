@@ -53,6 +53,8 @@ class RoutingRequestHandler(BaseRequestHandler):
         try:
             return await self._parse_and_route(FrameType.REQUEST_CHANNEL, payload)
         except Exception as exception:
+            logger().error('Request channel error: %s', payload, exc_info=True)
+
             return ErrorStream(exception), NullSubscriber()
 
     async def request_fire_and_forget(self, payload: Payload):
@@ -65,12 +67,16 @@ class RoutingRequestHandler(BaseRequestHandler):
         try:
             return await self._parse_and_route(FrameType.REQUEST_RESPONSE, payload)
         except Exception as exception:
+            logger().error('Request response error: %s', payload, exc_info=True)
+
             return create_error_future(exception)
 
     async def request_stream(self, payload: Payload) -> Publisher:
         try:
             return await self._parse_and_route(FrameType.REQUEST_STREAM, payload)
         except Exception as exception:
+            logger().error('Request stream error: %s', payload, exc_info=True)
+
             return ErrorStream(exception)
 
     async def on_metadata_push(self, payload: Payload):

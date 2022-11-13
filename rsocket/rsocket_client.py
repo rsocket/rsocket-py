@@ -66,9 +66,12 @@ class RSocketClient(RSocketBase):
 
         try:
             await self._connect_new_transport()
+        except RSocketNoAvailableTransport:
+            logger().error('%s: No available transport', self._log_identifier(), exc_info=True)
+            return
         except Exception as exception:
             logger().error('%s: Connection error', self._log_identifier(), exc_info=True)
-            await self._on_connection_lost(exception)
+            await self._on_connection_error(exception)
             return
 
         return await super().connect()
@@ -96,6 +99,7 @@ class RSocketClient(RSocketBase):
         await self._close()
 
     async def _close(self, reconnect=False):
+
         if not reconnect:
             await cancel_if_task_exists(self._reconnect_task)
         else:
@@ -111,23 +115,28 @@ class RSocketClient(RSocketBase):
         return 1
 
     async def reconnect(self):
+        logger().info('%s: Reconnecting', self._log_identifier())
+
         self._connect_request_event.set()
 
     async def _reconnect_listener(self):
         try:
             while True:
-                await self._connect_request_event.wait()
+                try:
+                    await self._connect_request_event.wait()
 
-                logger().debug('%s: Got reconnect request', self._log_identifier())
+                    logger().debug('%s: Got reconnect request', self._log_identifier())
 
-                if self._connecting:
-                    continue
+                    if self._connecting:
+                        continue
 
-                self._connecting = True
-                self._connect_request_event.clear()
-                await self._close(reconnect=True)
-                self._next_transport = create_future()
-                await self.connect()
+                    self._connecting = True
+                    self._connect_request_event.clear()
+                    await self._close(reconnect=True)
+                    self._next_transport = create_future()
+                    await self.connect()
+                finally:
+                    self._connect_request_event.clear()
         except CancelledError:
             logger().debug('%s: Asyncio task canceled: reconnect_listener', self._log_identifier())
         except Exception:

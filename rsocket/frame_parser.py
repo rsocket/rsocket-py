@@ -1,12 +1,11 @@
 import struct
 from typing import AsyncGenerator
 
-from rsocket import frame
 from rsocket.logger import logger
 
 __all__ = ['FrameParser']
 
-from rsocket.frame import Frame, InvalidFrame
+from rsocket.frame import Frame, InvalidFrame, parse_or_ignore
 
 
 class FrameParser:
@@ -29,8 +28,7 @@ class FrameParser:
                 return
 
             try:
-                new_frame = frame.parse_or_ignore(
-                    self._buffer[frame_length_byte_count:length + frame_length_byte_count])
+                new_frame = parse_or_ignore(self._buffer[frame_length_byte_count:length + frame_length_byte_count])
 
                 if new_frame is not None:
                     yield new_frame

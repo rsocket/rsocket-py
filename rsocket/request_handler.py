@@ -58,7 +58,11 @@ class RequestHandler(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def on_connection_lost(self, rsocket, exception):
+    async def on_connection_error(self, rsocket, exception: Exception):
+        ...
+
+    @abstractmethod
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
         ...
 
     # noinspection PyMethodMayBeStatic
@@ -94,8 +98,11 @@ class BaseRequestHandler(RequestHandler):
     async def on_error(self, error_code: ErrorCode, payload: Payload):
         logger().error('Error handler: %s, %s', error_code.name, payload)
 
-    async def on_connection_lost(self, rsocket, exception: Exception):
-        await rsocket.close()
+    async def on_connection_error(self, rsocket, exception: Exception):
+        pass
+
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
+        pass
 
     async def on_keepalive_timeout(self,
                                    time_since_last_keepalive: timedelta,
