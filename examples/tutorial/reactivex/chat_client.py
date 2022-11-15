@@ -21,6 +21,18 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
 
+class StatisticsControl:
+    def __init__(self):
+        self.queue = Queue()
+
+    def set_requested_statistics(self, ids: List[str]):
+        self.queue.put_nowait(dataclass_to_payload(ServerStatisticsRequest(ids=ids)))
+
+    def set_period(self, period: timedelta):
+        self.queue.put_nowait(
+            dataclass_to_payload(ServerStatisticsRequest(period_seconds=int(period.total_seconds()))))
+
+
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
@@ -66,21 +78,10 @@ class ChatClient:
                           metadata=composite(route('statistics')))
         await self._rsocket.fire_and_forget(payload)
 
-    def listen_for_statistics(self) -> 'StatisticsControl':
+    def listen_for_statistics(self) -> StatisticsControl:
         def print_statistics(value: bytes):
             statistics = ServerStatistics(**json.loads(utf8_decode(value)))
             print(f'users: {statistics.user_count}, channels: {statistics.channel_count}')
-
-        class StatisticsControl:
-            def __init__(self):
-                self.queue = Queue()
-
-            def set_requested_statistics(self, ids: List[str]):
-                self.queue.put_nowait(dataclass_to_payload(ServerStatisticsRequest(ids=ids)))
-
-            def set_period(self, period: timedelta):
-                self.queue.put_nowait(
-                    dataclass_to_payload(ServerStatisticsRequest(period_seconds=int(period.total_seconds()))))
 
         control = StatisticsControl()
 
@@ -101,7 +102,6 @@ class ChatClient:
 
     def stop_listening_for_statistics(self):
         self._statistics_task.cancel()
-
 
     async def private_message(self, username: str, content: str):
         print(f'Sending {content} to user {username}')

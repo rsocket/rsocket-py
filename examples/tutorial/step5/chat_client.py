@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import resource
-from asyncio import Event, Task
+from asyncio import Event
 from datetime import timedelta
 from typing import List, Optional
 
@@ -21,13 +21,35 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
 
+class StatisticsHandler(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
+
+    def __init__(self):
+        super().__init__()
+        self.done = Event()
+
+    def on_next(self, value: Payload, is_complete=False):
+        statistics = ServerStatistics(**json.loads(utf8_decode(value.data)))
+        print(statistics)
+
+        if is_complete:
+            self.done.set()
+
+    def cancel(self):
+        self.subscription.cancel()
+
+    def set_requested_statistics(self, ids: List[str]):
+        self._subscriber.on_next(dataclass_to_payload(ServerStatisticsRequest(ids=ids)))
+
+    def set_period(self, period: timedelta):
+        self._subscriber.on_next(
+            dataclass_to_payload(ServerStatisticsRequest(period_seconds=int(period.total_seconds()))))
 
 
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
-        self._listen_task: Optional[Task] = None
-        self._statistics_task: Optional[Task] = None
+        self._message_subscriber: Optional = None
+        self._statistics_subscriber: Optional[StatisticsHandler] = None
         self._session_id: Optional[str] = None
 
     async def login(self, username: str):
@@ -84,29 +106,7 @@ class ChatClient:
                           metadata=composite(route('statistics')))
         await self._rsocket.fire_and_forget(payload)
 
-    def listen_for_statistics(self) -> 'StatisticsHandler':
-        class StatisticsHandler(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
-
-            def __init__(self):
-                super().__init__()
-                self.done = Event()
-
-            def on_next(self, value: Payload, is_complete=False):
-                statistics = ServerStatistics(**json.loads(utf8_decode(value.data)))
-                print(statistics)
-
-                if is_complete:
-                    self.done.set()
-
-            def cancel(self):
-                self.subscription.cancel()
-
-            def set_requested_statistics(self, ids: List[str]):
-                self._subscriber.on_next(dataclass_to_payload(ServerStatisticsRequest(ids=ids)))
-
-            def set_period(self, period: timedelta):
-                self._subscriber.on_next(
-                    dataclass_to_payload(ServerStatisticsRequest(period_seconds=int(period.total_seconds()))))
+    def listen_for_statistics(self) -> StatisticsHandler:
 
         self._statistics_subscriber = StatisticsHandler()
         self._rsocket.request_channel(Payload(metadata=composite(
