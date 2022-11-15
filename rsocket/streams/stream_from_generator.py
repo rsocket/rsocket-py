@@ -1,7 +1,7 @@
 import abc
 import asyncio
 from datetime import timedelta
-from typing import AsyncGenerator, Tuple, Optional
+from typing import AsyncGenerator, Tuple, Optional, Callable, Generator
 
 from reactivestreams.subscriber import Subscriber
 from rsocket.helpers import DefaultPublisherSubscription
@@ -18,7 +18,7 @@ _finished_iterator = object()
 class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
 
     def __init__(self,
-                 generator,
+                 generator: Callable[[], Generator[Tuple[Payload, bool], None, None]],
                  delay_between_messages=timedelta(0),
                  on_cancel=None,
                  on_complete=None):

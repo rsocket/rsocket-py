@@ -15,8 +15,8 @@ class RequestChannelRequester(RequestChannelCommon):
                  socket: RSocket,
                  payload: Payload,
                  remote_publisher: Optional[Publisher] = None,
-                 sending_done_event: Optional[asyncio.Event] = None):
-        super().__init__(socket, remote_publisher, sending_done_event)
+                 sending_done: Optional[asyncio.Event] = None):
+        super().__init__(socket, remote_publisher, sending_done)
         self._payload = payload
 
     def setup(self):

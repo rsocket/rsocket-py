@@ -39,3 +39,4 @@ class RequestResponseRequester(StreamHandler):
 
     def cancel(self):
         self.send_cancel()
+        self._finish_stream()

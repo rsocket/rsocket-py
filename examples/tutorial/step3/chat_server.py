@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
 
-from examples.tutorial.step5.models import (Message, chat_filename_mimetype, ClientStatistics)
+from examples.tutorial.step3.models import (Message, chat_filename_mimetype)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -26,7 +26,6 @@ class UserSessionData:
     username: str
     session_id: str
     messages: Queue = field(default_factory=Queue)
-    statistics: Optional[ClientStatistics] = None
 
 
 @dataclass(frozen=True)

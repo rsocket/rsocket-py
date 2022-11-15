@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
 
-from examples.tutorial.step5.models import (Message, chat_filename_mimetype)
+from examples.tutorial.step4.models import (Message, chat_filename_mimetype)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription

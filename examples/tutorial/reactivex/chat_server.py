@@ -7,13 +7,14 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable, Tuple
 
-from examples.tutorial.step5.models import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
-                                            ServerStatistics)
+from examples.tutorial.reactivex.models import (Message, chat_filename_mimetype, ClientStatistics,
+                                                ServerStatisticsRequest, ServerStatistics)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
-from reactivestreams.subscription import DefaultSubscription
+from reactivestreams.subscription import DefaultSubscription, Subscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
+from rsocket.frame import MAX_REQUEST_N
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
@@ -149,6 +150,10 @@ class UserSession:
                 def cancel(self):
                     self._sender.cancel()
 
+                def on_subscribe(self, subscription: Subscription):
+                    super().on_subscribe(subscription)
+                    subscription.request(MAX_REQUEST_N)
+
                 def subscribe(self, subscriber: Subscriber):
                     super().subscribe(subscriber)
                     subscriber.on_subscribe(self)
@@ -166,6 +171,8 @@ class UserSession:
 
                 def on_next(self, value: Payload, is_complete=False):
                     request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
+
+                    logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
 
                     if request.ids is not None:
                         self._requested_statistics.ids = request.ids

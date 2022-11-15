@@ -16,10 +16,10 @@ class LoadBalancerRSocket(RSocket):
 
     def request_channel(self,
                         payload: Payload,
-                        local_publisher: Optional[Publisher] = None,
+                        publisher: Optional[Publisher] = None,
                         sending_done: Optional[asyncio.Event] = None) -> Union[Any, Publisher]:
         return self._select_client().request_channel(
-            payload, local_publisher, sending_done
+            payload, publisher, sending_done
         )
 
     def request_response(self, payload: Payload) -> Awaitable[Payload]:

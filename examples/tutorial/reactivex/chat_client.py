@@ -2,26 +2,23 @@ import asyncio
 import json
 import logging
 import resource
-from asyncio import Event, Task
+from asyncio import Task, Queue
+from datetime import timedelta
 from typing import List, Optional
 
 from reactivex import operators
 
-from examples.tutorial.step5.models import Message, chat_filename_mimetype, ServerStatistics, ClientStatistics
-from reactivestreams.publisher import DefaultPublisher
-from reactivestreams.subscriber import DefaultSubscriber
+from examples.tutorial.reactivex.models import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
+                                                ServerStatisticsRequest, encode_dataclass, dataclass_to_payload)
 from rsocket.extensions.helpers import composite, route, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import single_transport_provider, utf8_decode
 from rsocket.payload import Payload
+from rsocket.reactivex.back_pressure_publisher import from_async_generator, queue_to_async_generator
 from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
-
-
-def encode_dataclass(obj):
-    return ensure_bytes(json.dumps(obj.__dict__))
 
 
 class ChatClient:
@@ -60,11 +57,6 @@ class ChatClient:
 
         self._listen_task = asyncio.create_task(listen_for_messages())
 
-    async def wait_for_messages(self):
-        messages_done = asyncio.Event()
-        self._listen_task.add_done_callback(lambda _: messages_done.set())
-        await messages_done.wait()
-
     def stop_listening_for_messages(self):
         self._listen_task.cancel()
 
@@ -74,30 +66,42 @@ class ChatClient:
                           metadata=composite(route('statistics')))
         await self._rsocket.fire_and_forget(payload)
 
-    def listen_for_statistics(self):
-        class StatisticsHandler(DefaultPublisher, DefaultSubscriber):
+    def listen_for_statistics(self) -> 'StatisticsControl':
+        def print_statistics(value: bytes):
+            statistics = ServerStatistics(**json.loads(utf8_decode(value)))
+            print(f'users: {statistics.user_count}, channels: {statistics.channel_count}')
 
+        class StatisticsControl:
             def __init__(self):
-                super().__init__()
-                self.done = Event()
+                self.queue = Queue()
 
-            def on_next(self, value: Payload, is_complete=False):
-                statistics = ServerStatistics(**json.loads(utf8_decode(value.data)))
-                print(statistics)
+            def set_requested_statistics(self, ids: List[str]):
+                self.queue.put_nowait(dataclass_to_payload(ServerStatisticsRequest(ids=ids)))
 
-                if is_complete:
-                    self.done.set()
+            def set_period(self, period: timedelta):
+                self.queue.put_nowait(
+                    dataclass_to_payload(ServerStatisticsRequest(period_seconds=int(period.total_seconds()))))
 
-        async def listen_for_statistics(client: RSocketClient, subscriber):
-            client.request_channel(Payload(metadata=composite(
-                route('statistics')
-            ))).subscribe(subscriber)
+        control = StatisticsControl()
 
-            await subscriber.done.wait()
+        async def listen_for_statistics():
+            await ReactiveXClient(self._rsocket).request_channel(
+                Payload(encode_dataclass(ServerStatisticsRequest(period_seconds=2)),
+                        metadata=composite(
+                            route('statistics')
+                        )),
+                observable=from_async_generator(queue_to_async_generator(control.queue))
+            ).pipe(
+                operators.do_action(on_next=lambda value: print_statistics(value.data),
+                                    on_error=lambda exception: print(exception)))
 
-        statistics_handler = StatisticsHandler()
-        self._statistics_task = asyncio.create_task(
-            listen_for_statistics(self._rsocket, statistics_handler))
+        self._statistics_task = asyncio.create_task(listen_for_statistics())
+
+        return control
+
+    def stop_listening_for_statistics(self):
+        self._statistics_task.cancel()
+
 
     async def private_message(self, username: str, content: str):
         print(f'Sending {content} to user {username}')
@@ -159,7 +163,13 @@ async def main():
             await user2.join('channel1')
 
             await user1.send_statistics()
-            user1.listen_for_statistics()
+
+            statistics_control = user1.listen_for_statistics()
+            await asyncio.sleep(5)
+
+            statistics_control.set_requested_statistics(['users'])
+            await asyncio.sleep(5)
+            user1.stop_listening_for_statistics()
 
             print(f'Files: {await user1.list_files()}')
             print(f'Channels: {await user1.list_channels()}')
@@ -178,10 +188,7 @@ async def main():
             else:
                 print(f'Downloaded file: {len(download.data)} bytes')
 
-            try:
-                await asyncio.wait_for(user2.wait_for_messages(), 3)
-            except asyncio.TimeoutError:
-                pass
+            await asyncio.sleep(3)
 
             user1.stop_listening_for_messages()
             user2.stop_listening_for_messages()

@@ -1,3 +1,4 @@
+import asyncio
 from typing import List, Optional
 
 from reactivestreams.publisher import Publisher
@@ -34,10 +35,13 @@ class AwaitableRSocket:
     async def request_channel(self,
                               payload: Payload,
                               publisher: Optional[Publisher] = None,
-                              limit_rate=MAX_REQUEST_N) -> List[Payload]:
+                              limit_rate=MAX_REQUEST_N,
+                              sending_done: Optional[asyncio.Event] = None) -> List[Payload]:
         subscriber = CollectorSubscriber(limit_rate)
 
-        self._rsocket.request_channel(payload, publisher).initial_request_n(limit_rate).subscribe(subscriber)
+        self._rsocket.request_channel(payload,
+                                      publisher=publisher,
+                                      sending_done=sending_done).initial_request_n(limit_rate).subscribe(subscriber)
 
         return await subscriber.run()
 

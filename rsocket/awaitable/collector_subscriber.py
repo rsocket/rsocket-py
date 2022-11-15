@@ -1,11 +1,11 @@
 import asyncio
 
 from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import DefaultSubscription
+from reactivestreams.subscription import DefaultSubscription, Subscription
 from rsocket.frame import MAX_REQUEST_N
 
 
-class CollectorSubscriber(Subscriber):
+class CollectorSubscriber(Subscriber, Subscription):
 
     def __init__(self, limit_rate=MAX_REQUEST_N, limit_count=None) -> None:
         self._limit_count = limit_count
@@ -22,6 +22,12 @@ class CollectorSubscriber(Subscriber):
 
     def on_subscribe(self, subscription: DefaultSubscription):
         self.subscription = subscription
+
+    def cancel(self):
+        self.subscription.cancel()
+
+    def request(self, n: int):
+        self.subscription.request(n)
 
     def on_next(self, value, is_complete=False):
         self.values.append(value)

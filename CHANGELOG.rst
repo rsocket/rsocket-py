@@ -1,6 +1,14 @@
 Changelog
 ---------
 
+v0.4.5
+======
+- Breaking change: Normalized the request_channel method argument names across implementations (vanilla, reactivex etc.):
+    - **local_publisher** renamed to **publisher**
+    - **sending_done_event** renamed to **sending_done**
+- Bug fix: fixed channel stream being released prematurely when canceled by requester, and responder side still working
+- CollectorSubscriber : exposed subscription methods directly instead of relying on internal **subscription** variable
+
 v0.4.4
 ======
 - Fragmentation fix - empty payload (either in request or response) with fragmentation enabled failed to send

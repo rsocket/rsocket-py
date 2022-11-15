@@ -1,4 +1,5 @@
 import asyncio
+from asyncio import Event
 from typing import Tuple, AsyncGenerator, Optional
 
 import pytest
@@ -129,23 +130,24 @@ async def test_rx_support_request_channel_server_take_only_n(pipe: Tuple[RSocket
     received_messages = []
     items_generated = 0
     maximum_message_count = 3
-    wait_for_server_finish = asyncio.Event()
+    responder_receiving_done = asyncio.Event()
 
     class Handler(BaseRequestHandler, DefaultSubscriber):
 
         def on_next(self, value: Payload, is_complete=False):
             received_messages.append(value)
+
             if len(received_messages) < take_only_n:
                 self.subscription.request(1)
             else:
                 self.subscription.cancel()
-                wait_for_server_finish.set()
+                responder_receiving_done.set()
 
         def on_complete(self):
-            wait_for_server_finish.set()
+            responder_receiving_done.set()
 
         async def on_error(self, error_code: ErrorCode, payload: Payload):
-            wait_for_server_finish.set()
+            responder_receiving_done.set()
 
         def on_subscribe(self, subscription: Subscription):
             super().on_subscribe(subscription)
@@ -164,14 +166,18 @@ async def test_rx_support_request_channel_server_take_only_n(pipe: Tuple[RSocket
             items_generated += 1
             yield Payload('Feed Item: {}'.format(x).encode('utf-8'))
 
+    requester_sending_done = Event()
+
     await rx_client.request_channel(
         Payload(b'request text'),
-        observable=rx.from_iterable(generator())
+        observable=rx.from_iterable(generator()),
+        sending_done=requester_sending_done
     ).pipe(
         operators.to_list()
     )
 
-    await wait_for_server_finish.wait()
+    await responder_receiving_done.wait()
+    await requester_sending_done.wait()
 
     maximum_message_received = min(maximum_message_count, take_only_n)
 
