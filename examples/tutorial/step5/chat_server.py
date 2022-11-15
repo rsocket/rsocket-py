@@ -68,7 +68,7 @@ def get_file_name(composite_metadata):
     return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
-class UserSession:
+class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[UserSessionData] = None
@@ -178,6 +178,8 @@ class UserSession:
                 def on_next(self, value: Payload, is_complete=False):
                     request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
 
+                    logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
+
                     if request.ids is not None:
                         self._requested_statistics.ids = request.ids
 
@@ -229,7 +231,7 @@ class UserSession:
 
 
 class CustomRoutingRequestHandler(RoutingRequestHandler):
-    def __init__(self, session: UserSession):
+    def __init__(self, session: ChatUserSession):
         super().__init__(session.router_factory())
         self._session = session
 
@@ -239,7 +241,7 @@ class CustomRoutingRequestHandler(RoutingRequestHandler):
 
 
 def handler_factory():
-    return CustomRoutingRequestHandler(UserSession())
+    return CustomRoutingRequestHandler(ChatUserSession())
 
 
 async def run_server():

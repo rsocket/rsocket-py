@@ -8,13 +8,12 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable, Tuple
 
 from examples.tutorial.reactivex.models import (Message, chat_filename_mimetype, ClientStatistics,
-                                                ServerStatisticsRequest, ServerStatistics)
+                                                ServerStatisticsRequest, ServerStatistics, dataclass_to_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
-from reactivestreams.subscription import DefaultSubscription, Subscription
+from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
-from rsocket.frame import MAX_REQUEST_N
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
@@ -69,7 +68,7 @@ def get_file_name(composite_metadata):
     return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
-class UserSession:
+class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[UserSessionData] = None
@@ -150,10 +149,6 @@ class UserSession:
                 def cancel(self):
                     self._sender.cancel()
 
-                def on_subscribe(self, subscription: Subscription):
-                    super().on_subscribe(subscription)
-                    subscription.request(MAX_REQUEST_N)
-
                 def subscribe(self, subscriber: Subscriber):
                     super().subscribe(subscriber)
                     subscriber.on_subscribe(self)
@@ -161,13 +156,24 @@ class UserSession:
 
                 async def _statistics_sender(self):
                     while True:
-                        await asyncio.sleep(self._requested_statistics.period_seconds)
-                        next_message = ServerStatistics(
-                            user_count=len(chat_data.user_session_by_id),
-                            channel_count=len(chat_data.channel_messages)
-                        )
-                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
-                        self._subscriber.on_next(next_payload)
+                        try:
+                            await asyncio.sleep(self._requested_statistics.period_seconds)
+                            next_message = self.new_statistics_data()
+
+                            self._subscriber.on_next(dataclass_to_payload(next_message))
+                        except Exception:
+                            logging.error('Statistics', exc_info=True)
+
+                def new_statistics_data(self):
+                    statistics_data = {}
+
+                    if 'users' in self._requested_statistics.ids:
+                        statistics_data['user_count'] = len(chat_data.user_session_by_id)
+
+                    if 'channels' in self._requested_statistics.ids:
+                        statistics_data['channel_count'] = len(chat_data.channel_messages)
+
+                    return ServerStatistics(**statistics_data)
 
                 def on_next(self, value: Payload, is_complete=False):
                     request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
@@ -217,8 +223,7 @@ class UserSession:
                 async def _message_sender(self):
                     while True:
                         next_message = await self._session.messages.get()
-                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
-                        self._subscriber.on_next(next_payload)
+                        self._subscriber.on_next(dataclass_to_payload(next_message))
 
             return MessagePublisher(self._session)
 
@@ -226,7 +231,7 @@ class UserSession:
 
 
 class CustomRoutingRequestHandler(RoutingRequestHandler):
-    def __init__(self, session: UserSession):
+    def __init__(self, session: ChatUserSession):
         super().__init__(session.router_factory())
         self._session = session
 
@@ -236,7 +241,7 @@ class CustomRoutingRequestHandler(RoutingRequestHandler):
 
 
 def handler_factory():
-    return CustomRoutingRequestHandler(UserSession())
+    return CustomRoutingRequestHandler(ChatUserSession())
 
 
 async def run_server():

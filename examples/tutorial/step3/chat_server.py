@@ -7,7 +7,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
 
-from examples.tutorial.step3.models import (Message, chat_filename_mimetype)
+from more_itertools import first
+
+from examples.tutorial.step3.models import (Message, chat_filename_mimetype, dataclass_to_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -38,6 +40,11 @@ class ChatData:
 chat_data = ChatData()
 
 
+def find_session_by_username(username: str) -> Optional[UserSessionData]:
+    return first((session for session in chat_data.user_session_by_id.values() if
+                  session.username == username), None)
+
+
 def ensure_channel_exists(channel_name: str):
     if channel_name not in chat_data.channel_users:
         chat_data.channel_users[channel_name] = set()
@@ -63,7 +70,7 @@ def get_file_name(composite_metadata):
     return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
-class UserSession:
+class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[UserSessionData] = None
@@ -109,11 +116,9 @@ class UserSession:
                 channel_message = Message(self._session.username, message.content, message.channel)
                 await chat_data.channel_messages[message.channel].put(channel_message)
             elif message.user is not None:
-                sessions = [session for session in chat_data.user_session_by_id.values() if
-                            session.username == message.user]
+                session = find_session_by_username(message.user)
 
-                if len(sessions) > 0:
-                    await sessions[0].messages.put(message)
+                await session.messages.put(message)
 
             return create_response()
 
@@ -134,8 +139,7 @@ class UserSession:
                 async def _message_sender(self):
                     while True:
                         next_message = await self._session.messages.get()
-                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
-                        self._subscriber.on_next(next_payload)
+                        self._subscriber.on_next(dataclass_to_payload(next_message))
 
             return MessagePublisher(self._session)
 
@@ -143,13 +147,13 @@ class UserSession:
 
 
 class CustomRoutingRequestHandler(RoutingRequestHandler):
-    def __init__(self, session: UserSession):
+    def __init__(self, session: ChatUserSession):
         super().__init__(session.router_factory())
         self._session = session
 
 
 def handler_factory():
-    return CustomRoutingRequestHandler(UserSession())
+    return CustomRoutingRequestHandler(ChatUserSession())
 
 
 async def run_server():

@@ -127,7 +127,7 @@ class ChatClient:
         request = Payload(metadata=composite(route('files')))
         return await ReactiveXClient(self._rsocket).request_stream(
             request
-        ).pipe(operators.map(lambda x: utf8_decode(x.data)),
+        ).pipe(operators.map(lambda _: utf8_decode(_.data)),
                operators.to_list())
 
     async def list_channels(self) -> List[str]:
@@ -180,6 +180,8 @@ async def main():
             file_contents = b'abcdefg1234567'
             file_name = 'file_name_1.txt'
             await user1.upload(file_name, file_contents)
+
+            print(f'Files: {await user1.list_files()}')
 
             download = await user2.download(file_name)
 

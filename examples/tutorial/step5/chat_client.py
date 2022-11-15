@@ -68,9 +68,9 @@ class ChatClient:
         return self
 
     def listen_for_messages(self):
-        def print_message(data):
+        def print_message(data: bytes):
             message = Message(**json.loads(data))
-            print(f'{message.user} : {message.content}')
+            print(f'{message.user} ({message.channel}): {message.content}')
 
         class MessageListener(DefaultSubscriber, DefaultSubscription):
             def __init__(self):
@@ -190,6 +190,8 @@ async def main():
             file_contents = b'abcdefg1234567'
             file_name = 'file_name_1.txt'
             await user1.upload(file_name, file_contents)
+
+            print(f'Files: {await user1.list_files()}')
 
             download = await user2.download(file_name)
 

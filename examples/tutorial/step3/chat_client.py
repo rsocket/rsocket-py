@@ -3,28 +3,23 @@ import json
 import logging
 from typing import List, Optional
 
-from reactivex import operators
-
-from examples.tutorial.step3.models import Message
+from examples.tutorial.step3.models import Message, encode_dataclass
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
+from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import composite, route
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import single_transport_provider, utf8_decode
 from rsocket.payload import Payload
-from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
-
-
-def encode_dataclass(obj):
-    return ensure_bytes(json.dumps(obj.__dict__))
 
 
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
+        self._message_subscriber: Optional = None
         self._session_id: Optional[str] = None
 
     async def login(self, username: str):
@@ -87,10 +82,8 @@ class ChatClient:
 
     async def list_channels(self) -> List[str]:
         request = Payload(metadata=composite(route('channels')))
-        return await ReactiveXClient(self._rsocket).request_stream(
-            request
-        ).pipe(operators.map(lambda x: utf8_decode(x.data)),
-               operators.to_list())
+        response = await AwaitableRSocket(self._rsocket).request_stream(request)
+        return list(map(lambda _: utf8_decode(_.data), response))
 
 
 async def main():
