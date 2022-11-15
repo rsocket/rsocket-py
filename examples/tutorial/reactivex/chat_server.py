@@ -5,22 +5,28 @@ import uuid
 from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set, Awaitable, Tuple
+from typing import Dict, Optional, Set
+
+import reactivex
+from reactivex import Observable
 
 from examples.tutorial.reactivex.models import (Message, chat_filename_mimetype, ClientStatistics,
                                                 ServerStatisticsRequest, ServerStatistics, dataclass_to_payload)
-from reactivestreams.publisher import DefaultPublisher, Publisher
+from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
 from rsocket.frame_helpers import ensure_bytes
-from rsocket.helpers import utf8_decode, create_response
+from rsocket.helpers import utf8_decode
 from rsocket.payload import Payload
+from rsocket.reactivex.from_rsocket_publisher import from_rsocket_publisher
+from rsocket.reactivex.reactivex_channel import ReactivexChannel
+from rsocket.reactivex.reactivex_handler_adapter import reactivex_handler_factory
+from rsocket.reactivex.subscriber_adapter import SubscriberAdapter
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
-from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
 
@@ -81,52 +87,47 @@ class ChatUserSession:
         router = RequestRouter()
 
         @router.response('login')
-        async def login(payload: Payload) -> Awaitable[Payload]:
+        async def login(payload: Payload) -> Observable:
             username = utf8_decode(payload.data)
             logging.info(f'New user: {username}')
             session_id = str(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
 
-            return create_response(ensure_bytes(session_id))
+            return reactivex.of(Payload(ensure_bytes(session_id)))
 
         @router.response('channel.join')
-        async def join_channel(payload: Payload) -> Awaitable[Payload]:
+        async def join_channel(payload: Payload) -> Observable:
             channel_name = payload.data.decode('utf-8')
             ensure_channel_exists(channel_name)
             chat_data.channel_users[channel_name].add(self._session.session_id)
-            return create_response()
+            return reactivex.empty()
 
         @router.response('channel.leave')
-        async def leave_channel(payload: Payload) -> Awaitable[Payload]:
+        async def leave_channel(payload: Payload) -> Observable:
             channel_name = payload.data.decode('utf-8')
             chat_data.channel_users[channel_name].discard(self._session.session_id)
-            return create_response()
+            return reactivex.empty()
 
         @router.response('file.upload')
-        async def upload_file(payload: Payload, composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
+        async def upload_file(payload: Payload, composite_metadata: CompositeMetadata) -> Observable:
             chat_data.files[get_file_name(composite_metadata)] = payload.data
-            return create_response()
+            return reactivex.empty()
 
         @router.response('file.download')
-        async def download_file(composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
+        async def download_file(composite_metadata: CompositeMetadata) -> Observable:
             file_name = get_file_name(composite_metadata)
-            return create_response(chat_data.files[file_name],
-                                   composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype)))
+            return reactivex.of(Payload(chat_data.files[file_name],
+                                        composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
 
         @router.stream('files')
-        async def get_file_names() -> Publisher:
-            count = len(chat_data.files)
-            generator = ((Payload(ensure_bytes(file_name)), index == count) for (index, file_name) in
-                         enumerate(chat_data.files.keys(), 1))
-            return StreamFromGenerator(lambda: generator)
+        async def get_file_names() -> Observable:
+            return reactivex.from_iterable((Payload(ensure_bytes(file_name)) for file_name in chat_data.files.keys()))
 
         @router.stream('channels')
-        async def get_channels() -> Publisher:
-            count = len(chat_data.channel_messages)
-            generator = ((Payload(ensure_bytes(channel)), index == count) for (index, channel) in
-                         enumerate(chat_data.channel_messages.keys(), 1))
-            return StreamFromGenerator(lambda: generator)
+        async def get_channels() -> Observable:
+            return reactivex.from_iterable(
+                (Payload(ensure_bytes(channel)) for channel in chat_data.channel_messages.keys()))
 
         @router.fire_and_forget('statistics')
         async def receive_statistics(payload: Payload):
@@ -137,7 +138,7 @@ class ChatUserSession:
             self._session.statistics = statistics
 
         @router.channel('statistics')
-        async def send_statistics() -> Tuple[Optional[Publisher], Optional[Subscriber]]:
+        async def send_statistics() -> ReactivexChannel:
 
             class StatisticsChannel(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
 
@@ -188,10 +189,12 @@ class ChatUserSession:
 
             response = StatisticsChannel(self._session)
 
-            return response, response
+            return ReactivexChannel(from_rsocket_publisher(response),
+                                    SubscriberAdapter(response),
+                                    limit_rate=2)
 
         @router.response('message')
-        async def send_message(payload: Payload) -> Awaitable[Payload]:
+        async def send_message(payload: Payload) -> Observable:
             message = Message(**json.loads(payload.data))
 
             if message.channel is not None:
@@ -204,10 +207,10 @@ class ChatUserSession:
                 if len(sessions) > 0:
                     await sessions[0].messages.put(message)
 
-            return create_response()
+            return reactivex.empty()
 
         @router.stream('messages.incoming')
-        async def messages_incoming() -> Publisher:
+        async def messages_incoming() -> Observable:
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
                 def __init__(self, session: UserSessionData):
                     self._session = session
@@ -225,7 +228,7 @@ class ChatUserSession:
                         next_message = await self._session.messages.get()
                         self._subscriber.on_next(dataclass_to_payload(next_message))
 
-            return MessagePublisher(self._session)
+            return from_rsocket_publisher(MessagePublisher(self._session))
 
         return router
 
@@ -247,7 +250,7 @@ def handler_factory():
 async def run_server():
     def session(*connection):
         RSocketServer(TransportTCP(*connection),
-                      handler_factory=handler_factory,
+                      handler_factory=reactivex_handler_factory(handler_factory),
                       fragment_size_bytes=1_000_000)
 
     async with await asyncio.start_server(session, 'localhost', 6565) as server:
