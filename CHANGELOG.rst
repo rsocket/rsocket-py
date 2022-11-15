@@ -8,6 +8,7 @@ v0.4.5
     - **sending_done_event** renamed to **sending_done**
 - Bug fix: fixed channel stream being released prematurely when canceled by requester, and responder side still working
 - CollectorSubscriber : exposed subscription methods directly instead of relying on internal **subscription** variable
+- reactivex server side request_response allowed to return reactivex.empty().
 
 v0.4.4
 ======
