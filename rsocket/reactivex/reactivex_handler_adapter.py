@@ -8,10 +8,10 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from rsocket.error_codes import ErrorCode
 from rsocket.payload import Payload
+from rsocket.request_handler import RequestHandler
 from rsocket.reactivex.back_pressure_publisher import BackPressurePublisher
 from rsocket.reactivex.from_rsocket_publisher import RxSubscriberFromObserver
 from rsocket.reactivex.reactivex_handler import ReactivexHandler
-from rsocket.request_handler import RequestHandler
 
 
 def reactivex_handler_factory(handler_factory: Callable[[], ReactivexHandler]):

@@ -30,6 +30,10 @@ async def observable_to_async_event_generator(observable: Observable):
         queue.task_done()
 
 
+def from_async_generator(generator, feedback: Optional[Observable] = None) -> Observable:
+    return from_aiter(generator.__aiter__(), feedback)
+
+
 def from_aiter(iterator, feedback: Optional[Observable] = None):
     # noinspection PyUnusedLocal
     def on_subscribe(observer: Observer, scheduler):
@@ -79,8 +83,8 @@ class BackPressurePublisher(DefaultPublisherSubscription):
     def subscribe(self, subscriber: Subscriber):
         super().subscribe(subscriber)
         self._feedback = Subject()
-        async_iterator = observable_to_async_event_generator(self._wrapped_observable).__aiter__()
-        from_aiter(async_iterator, self._feedback).subscribe(SubscriberAdapter(subscriber))
+        async_generator = observable_to_async_event_generator(self._wrapped_observable)
+        from_async_generator(async_generator, self._feedback).subscribe(SubscriberAdapter(subscriber))
 
     def request(self, n: int):
         self._feedback.on_next(n)

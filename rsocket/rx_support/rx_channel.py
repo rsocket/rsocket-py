@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from rx.core.typing import Observer, Observable
+from rx.core.typing import Observable, Observer
 
 from rsocket.frame import MAX_REQUEST_N
 

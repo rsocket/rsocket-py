@@ -15,9 +15,10 @@ from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import single_transport_provider, utf8_decode
 from rsocket.payload import Payload
-from rsocket.reactivex.back_pressure_publisher import from_async_generator, queue_to_async_generator
+from rsocket.reactivex.back_pressure_publisher import from_async_generator
 from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.rsocket_client import RSocketClient
+from rsocket.streams.helpers import queue_to_async_generator
 from rsocket.transports.tcp import TransportTCP
 
 

@@ -93,6 +93,9 @@ class BaseRxHandler(RxHandler):
     async def on_keepalive_timeout(self, time_since_last_keepalive: timedelta, rsocket):
         pass
 
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
+        pass
+
     async def on_connection_error(self, rsocket, exception: Exception):
         pass
 

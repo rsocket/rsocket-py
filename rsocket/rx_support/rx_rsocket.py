@@ -1,5 +1,7 @@
 import asyncio
-from typing import Optional
+from asyncio import Future
+
+from typing import Optional, cast
 
 import rx
 from rx import Observable
@@ -20,7 +22,7 @@ class RxRSocket:
         return from_rsocket_publisher(response_publisher, request_limit)
 
     def request_response(self, request: Payload) -> Observable:
-        return rx.from_future(self._rsocket.request_response(request))
+        return rx.from_future(cast(Future, self._rsocket.request_response(request)))
 
     def request_channel(self,
                         request: Payload,
@@ -37,11 +39,11 @@ class RxRSocket:
         ).initial_request_n(request_limit)
         return from_rsocket_publisher(response_publisher, request_limit)
 
-    def fire_and_forget(self, request: Payload) -> rx.Observable:
-        return rx.from_future(self._rsocket.fire_and_forget(request))
+    def fire_and_forget(self, request: Payload) -> Observable:
+        return rx.from_future(cast(Future, self._rsocket.fire_and_forget(request)))
 
-    def metadata_push(self, metadata: bytes) -> rx.Observable:
-        return rx.from_future(self._rsocket.metadata_push(metadata))
+    def metadata_push(self, metadata: bytes) -> Observable:
+        return rx.from_future(cast(Future, self._rsocket.metadata_push(metadata)))
 
     async def connect(self):
         return await self._rsocket.connect()
