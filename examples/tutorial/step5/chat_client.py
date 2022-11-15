@@ -2,34 +2,54 @@ import asyncio
 import json
 import logging
 import resource
-from asyncio import Event, Task
+from asyncio import Event
+from datetime import timedelta
 from typing import List, Optional
 
-from reactivex import operators
-
-from examples.tutorial.step5.models import Message, chat_filename_mimetype, ServerStatistics, ClientStatistics
+from examples.tutorial.step5.models import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
+                                            ServerStatisticsRequest, encode_dataclass, dataclass_to_payload)
 from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import DefaultSubscriber
+from reactivestreams.subscription import DefaultSubscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import composite, route, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import single_transport_provider, utf8_decode
 from rsocket.payload import Payload
-from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
 
-def encode_dataclass(obj):
-    return ensure_bytes(json.dumps(obj.__dict__))
+class StatisticsHandler(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
+
+    def __init__(self):
+        super().__init__()
+        self.done = Event()
+
+    def on_next(self, value: Payload, is_complete=False):
+        statistics = ServerStatistics(**json.loads(utf8_decode(value.data)))
+        print(statistics)
+
+        if is_complete:
+            self.done.set()
+
+    def cancel(self):
+        self.subscription.cancel()
+
+    def set_requested_statistics(self, ids: List[str]):
+        self._subscriber.on_next(dataclass_to_payload(ServerStatisticsRequest(ids=ids)))
+
+    def set_period(self, period: timedelta):
+        self._subscriber.on_next(
+            dataclass_to_payload(ServerStatisticsRequest(period_seconds=int(period.total_seconds()))))
 
 
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
-        self._listen_task: Optional[Task] = None
-        self._statistics_task: Optional[Task] = None
+        self._message_subscriber: Optional = None
+        self._statistics_subscriber: Optional[StatisticsHandler] = None
         self._session_id: Optional[str] = None
 
     async def login(self, username: str):
@@ -48,26 +68,37 @@ class ChatClient:
         return self
 
     def listen_for_messages(self):
-        def print_message(data):
+        def print_message(data: bytes):
             message = Message(**json.loads(data))
             print(f'{message.user} ({message.channel}): {message.content}')
 
-        async def listen_for_messages(client):
-            await ReactiveXClient(client).request_stream(Payload(metadata=composite(
-                route('messages.incoming')
-            ))).pipe(
-                operators.do_action(on_next=lambda value: print_message(value.data),
-                                    on_error=lambda exception: print(exception)))
+        class MessageListener(DefaultSubscriber, DefaultSubscription):
+            def __init__(self):
+                super().__init__()
+                self.messages_done = asyncio.Event()
 
-        self._listen_task = asyncio.create_task(listen_for_messages(self._rsocket))
+            def on_next(self, value, is_complete=False):
+                print_message(value.data)
 
-    async def wait_for_messages(self):
-        messages_done = asyncio.Event()
-        self._listen_task.add_done_callback(lambda _: messages_done.set())
-        await messages_done.wait()
+                if is_complete:
+                    self.messages_done.set()
+
+            def on_error(self, exception: Exception):
+                print(exception)
+
+            def cancel(self):
+                self.subscription.cancel()
+
+            def on_complete(self):
+                self.messages_done.set()
+
+        self._message_subscriber = MessageListener()
+        self._rsocket.request_stream(
+            Payload(metadata=composite(route('messages.incoming')))
+        ).subscribe(self._message_subscriber)
 
     def stop_listening_for_messages(self):
-        self._listen_task.cancel()
+        self._message_subscriber.cancel()
 
     async def send_statistics(self):
         memory_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -75,33 +106,16 @@ class ChatClient:
                           metadata=composite(route('statistics')))
         await self._rsocket.fire_and_forget(payload)
 
-    def listen_for_statistics(self):
-        class StatisticsHandler(DefaultPublisher, DefaultSubscriber):
+    def listen_for_statistics(self) -> StatisticsHandler:
 
-            def __init__(self):
-                super().__init__()
-                self.done = Event()
-
-            def on_next(self, value: Payload, is_complete=False):
-                statistics = ServerStatistics(**json.loads(utf8_decode(value.data)))
-                print(statistics)
-
-                if is_complete:
-                    self.done.set()
-
-        async def listen_for_statistics(client: RSocketClient, subscriber):
-            client.request_channel(Payload(metadata=composite(
-                route('statistics')
-            ))).subscribe(subscriber)
-
-            await subscriber.done.wait()
-
-        statistics_handler = StatisticsHandler()
-        self._statistics_task = asyncio.create_task(
-            listen_for_statistics(self._rsocket, statistics_handler))
+        self._statistics_subscriber = StatisticsHandler()
+        self._rsocket.request_channel(Payload(metadata=composite(
+            route('statistics')
+        )), publisher=self._statistics_subscriber).subscribe(self._statistics_subscriber)
+        return self._statistics_subscriber
 
     def stop_listening_for_statistics(self):
-        self._statistics_task.cancel()
+        self._statistics_subscriber.cancel()
 
     async def private_message(self, username: str, content: str):
         print(f'Sending {content} to user {username}')
@@ -159,7 +173,11 @@ async def main():
             await user2.join('channel1')
 
             await user1.send_statistics()
-            user1.listen_for_statistics()
+
+            statistics_listener = user1.listen_for_statistics()
+            await asyncio.sleep(5)
+
+            statistics_listener.set_requested_statistics(['users'])
             await asyncio.sleep(5)
             user1.stop_listening_for_statistics()
 
@@ -173,6 +191,8 @@ async def main():
             file_name = 'file_name_1.txt'
             await user1.upload(file_name, file_contents)
 
+            print(f'Files: {await user1.list_files()}')
+
             download = await user2.download(file_name)
 
             if download.data != file_contents:
@@ -180,10 +200,7 @@ async def main():
             else:
                 print(f'Downloaded file: {len(download.data)} bytes')
 
-            try:
-                await asyncio.wait_for(user2.wait_for_messages(), 3)
-            except asyncio.TimeoutError:
-                pass
+            await asyncio.sleep(3)
 
             user1.stop_listening_for_messages()
             user2.stop_listening_for_messages()

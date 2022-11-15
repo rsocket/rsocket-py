@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from asyncio import Task
 from typing import Optional
 
 from rsocket.extensions.helpers import composite, route
@@ -15,7 +14,6 @@ from rsocket.transports.tcp import TransportTCP
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
-        self._listen_task: Optional[Task] = None
         self._session_id: Optional[str] = None
 
     async def login(self, username: str):

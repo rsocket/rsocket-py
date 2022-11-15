@@ -8,7 +8,7 @@ from typing import Dict, Optional, Awaitable
 
 from more_itertools import first
 
-from examples.tutorial.step2.models import Message
+from examples.tutorial.step2.models import Message, dataclass_to_payload
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -76,7 +76,6 @@ class ChatUserSession:
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
                 def __init__(self, session: UserSessionData):
                     self._session = session
-                    self._sender = None
 
                 def cancel(self):
                     self._sender.cancel()
@@ -89,8 +88,7 @@ class ChatUserSession:
                 async def _message_sender(self):
                     while True:
                         next_message = await self._session.messages.get()
-                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
-                        self._subscriber.on_next(next_payload)
+                        self._subscriber.on_next(dataclass_to_payload(next_message))
 
             return MessagePublisher(self._session)
 

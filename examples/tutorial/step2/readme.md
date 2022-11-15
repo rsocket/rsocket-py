@@ -1,0 +1,1 @@
+Basic server side session for logged in user

@@ -26,14 +26,14 @@ class RxRSocket:
                         request: Payload,
                         request_limit: int = MAX_REQUEST_N,
                         observable: Optional[Observable] = None,
-                        sending_done_event: Optional[asyncio.Event] = None) -> Observable:
+                        sending_done: Optional[asyncio.Event] = None) -> Observable:
         if observable is not None:
-            local_publisher = BackPressurePublisher(observable)
+            requester_publisher = BackPressurePublisher(observable)
         else:
-            local_publisher = None
+            requester_publisher = None
 
         response_publisher = self._rsocket.request_channel(
-            request, local_publisher, sending_done_event
+            request, requester_publisher, sending_done
         ).initial_request_n(request_limit)
         return from_rsocket_publisher(response_publisher, request_limit)
 

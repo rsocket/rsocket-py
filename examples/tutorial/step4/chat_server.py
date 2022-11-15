@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
 
-from examples.tutorial.step5.models import (Message, chat_filename_mimetype)
+from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -23,7 +23,7 @@ from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
 
-@dataclass(frozen=True)
+@dataclass()
 class UserSessionData:
     username: str
     session_id: str
@@ -41,7 +41,7 @@ class ChatData:
 chat_data = ChatData()
 
 
-def ensure_channel_exists(channel_name):
+def ensure_channel_exists(channel_name: str):
     if channel_name not in chat_data.channel_users:
         chat_data.channel_users[channel_name] = set()
         chat_data.channel_messages[channel_name] = Queue()
@@ -134,7 +134,8 @@ class ChatUserSession:
                 channel_message = Message(self._session.username, message.content, message.channel)
                 await chat_data.channel_messages[message.channel].put(channel_message)
             elif message.user is not None:
-                sessions = [session for session in chat_data.user_session_by_id.values() if session.username == message.user]
+                sessions = [session for session in chat_data.user_session_by_id.values() if
+                            session.username == message.user]
 
                 if len(sessions) > 0:
                     await sessions[0].messages.put(message)
@@ -158,8 +159,7 @@ class ChatUserSession:
                 async def _message_sender(self):
                     while True:
                         next_message = await self._session.messages.get()
-                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
-                        self._subscriber.on_next(next_payload)
+                        self._subscriber.on_next(dataclass_to_payload(next_message))
 
             return MessagePublisher(self._session)
 

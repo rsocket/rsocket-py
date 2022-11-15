@@ -20,8 +20,8 @@ class RequestStreamRequester(StreamHandler, DefaultPublisherSubscription):
         self._send_stream_request(self.payload)
 
     def cancel(self):
-        super().cancel()
         self.send_cancel()
+        self._finish_stream()
 
     def request(self, n: int):
         self.send_request_n(n)

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable, Tuple
 
 from examples.tutorial.step5.models import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
-                                            ServerStatistics)
+                                            ServerStatistics, dataclass_to_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -68,7 +68,7 @@ def get_file_name(composite_metadata):
     return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
-class UserSession:
+class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[UserSessionData] = None
@@ -156,16 +156,29 @@ class UserSession:
 
                 async def _statistics_sender(self):
                     while True:
-                        await asyncio.sleep(self._requested_statistics.period_seconds)
-                        next_message = ServerStatistics(
-                            user_count=len(chat_data.user_session_by_id),
-                            channel_count=len(chat_data.channel_messages)
-                        )
-                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
-                        self._subscriber.on_next(next_payload)
+                        try:
+                            await asyncio.sleep(self._requested_statistics.period_seconds)
+                            next_message = self.new_statistics_data()
+
+                            self._subscriber.on_next(dataclass_to_payload(next_message))
+                        except Exception:
+                            logging.error('Statistics', exc_info=True)
+
+                def new_statistics_data(self):
+                    statistics_data = {}
+
+                    if 'users' in self._requested_statistics.ids:
+                        statistics_data['user_count'] = len(chat_data.user_session_by_id)
+
+                    if 'channels' in self._requested_statistics.ids:
+                        statistics_data['channel_count'] = len(chat_data.channel_messages)
+
+                    return ServerStatistics(**statistics_data)
 
                 def on_next(self, value: Payload, is_complete=False):
                     request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
+
+                    logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
 
                     if request.ids is not None:
                         self._requested_statistics.ids = request.ids
@@ -210,8 +223,7 @@ class UserSession:
                 async def _message_sender(self):
                     while True:
                         next_message = await self._session.messages.get()
-                        next_payload = Payload(ensure_bytes(json.dumps(next_message.__dict__)))
-                        self._subscriber.on_next(next_payload)
+                        self._subscriber.on_next(dataclass_to_payload(next_message))
 
             return MessagePublisher(self._session)
 
@@ -219,7 +231,7 @@ class UserSession:
 
 
 class CustomRoutingRequestHandler(RoutingRequestHandler):
-    def __init__(self, session: UserSession):
+    def __init__(self, session: ChatUserSession):
         super().__init__(session.router_factory())
         self._session = session
 
@@ -229,7 +241,7 @@ class CustomRoutingRequestHandler(RoutingRequestHandler):
 
 
 def handler_factory():
-    return CustomRoutingRequestHandler(UserSession())
+    return CustomRoutingRequestHandler(ChatUserSession())
 
 
 async def run_server():

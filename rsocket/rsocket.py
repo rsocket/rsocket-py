@@ -14,7 +14,7 @@ class RSocket(metaclass=abc.ABCMeta):
     def request_channel(
             self,
             payload: Payload,
-            local_publisher: Optional[Publisher] = None,
+            publisher: Optional[Publisher] = None,
             sending_done: Optional[asyncio.Event] = None) -> Union[Any, Publisher]:
         ...
 

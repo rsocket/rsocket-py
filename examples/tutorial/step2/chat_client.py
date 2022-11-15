@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Optional
 
-from examples.tutorial.step2.models import Message
+from examples.tutorial.step2.models import Message, encode_dataclass
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.helpers import composite, route
@@ -15,13 +15,10 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
 
-def encode_dataclass(obj):
-    return ensure_bytes(json.dumps(obj.__dict__))
-
-
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
+        self._message_subscriber: Optional = None
         self._session_id: Optional[str] = None
 
     async def login(self, username: str):
@@ -54,16 +51,13 @@ class ChatClient:
             def on_complete(self):
                 self.messages_done.set()
 
-        self._subscriber = MessageListener()
+        self._message_subscriber = MessageListener()
         self._rsocket.request_stream(
             Payload(metadata=composite(route('messages.incoming')))
-        ).subscribe(self._subscriber)
+        ).subscribe(self._message_subscriber)
 
     def stop_listening_for_messages(self):
-        self._subscriber.cancel()
-
-    async def wait_for_messages(self):
-        await self._subscriber.messages_done.wait()
+        self._message_subscriber.cancel()
 
     async def private_message(self, username: str, content: str):
         print(f'Sending {content} to user {username}')
@@ -90,10 +84,7 @@ async def main():
 
             await user1.private_message('user2', 'private message from user1')
 
-            try:
-                await asyncio.wait_for(user2.wait_for_messages(), 3)
-            except asyncio.TimeoutError:
-                pass
+            await asyncio.sleep(3)
 
             user2.stop_listening_for_messages()
 

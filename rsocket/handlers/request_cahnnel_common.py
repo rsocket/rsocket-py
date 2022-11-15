@@ -43,9 +43,9 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
     def __init__(self,
                  socket: RSocket,
                  remote_publisher: Optional[Publisher] = None,
-                 sending_done_event: Optional[asyncio.Event] = None):
+                 sending_done: Optional[asyncio.Event] = None):
         super().__init__(socket)
-        self._sending_done_event = sending_done_event
+        self._sending_done = sending_done
         self.remote_subscriber = None
         self._sent_complete = False
         self._received_complete = False
@@ -111,11 +111,11 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
 
     def cancel(self):
         self.send_cancel()
-        self._set_sending_done()
+        self.mark_completed_and_finish(received=True)
 
     def _set_sending_done(self):
-        if self._sending_done_event is not None:
-            self._sending_done_event.set()
+        if self._sending_done is not None:
+            self._sending_done.set()
 
     def request(self, n: int):
         self.send_request_n(n)
