@@ -18,7 +18,8 @@ from rsocket.extensions.helpers import composite, metadata_item
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode
 from rsocket.payload import Payload
-from rsocket.reactivex.back_pressure_publisher import from_observable_with_backpressure, observable_from_queue
+from rsocket.reactivex.back_pressure_publisher import (from_observable_with_backpressure, observable_from_queue,
+                                                       observable_from_async_generator)
 from rsocket.reactivex.reactivex_channel import ReactivexChannel
 from rsocket.reactivex.reactivex_handler_adapter import reactivex_handler_factory
 from rsocket.routing.request_router import RequestRouter
@@ -155,15 +156,11 @@ class ChatUserSession:
         @router.channel('statistics')
         async def send_statistics() -> ReactivexChannel:
 
-            statistics_queue = Queue()
-
-            async def statistics_sender():
+            async def statistics_generator():
                 while True:
                     try:
                         await asyncio.sleep(self._session.requested_statistics.period_seconds)
-                        next_message = new_statistics_data(self._session.requested_statistics)
-
-                        statistics_queue.put_nowait(next_message)
+                        yield new_statistics_data(self._session.requested_statistics)
                     except Exception:
                         logging.error('Statistics', exc_info=True)
 
@@ -178,21 +175,13 @@ class ChatUserSession:
                 if request.period_seconds is not None:
                     self._session.requested_statistics.period_seconds = request.period_seconds
 
-            def observable_factory(backpressure: Subject):
-                sender = asyncio.create_task(statistics_sender())
-
-                def cancel_sender():
-                    sender.cancel()
-
-                backpressure.subscribe(on_completed=cancel_sender)
-                return observable_from_queue(
-                    statistics_queue, backpressure
-                ).pipe(
-                    operators.map(dataclass_to_payload)
-                )
-
             return ReactivexChannel(
-                from_observable_with_backpressure(observable_factory),
+                from_observable_with_backpressure(
+                    lambda backpressure: observable_from_async_generator(
+                        statistics_generator(), backpressure
+                    ).pipe(
+                        operators.map(dataclass_to_payload)
+                    )),
                 Observer(on_next=on_next),
                 limit_rate=2)
 

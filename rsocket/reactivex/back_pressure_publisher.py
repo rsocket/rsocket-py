@@ -18,7 +18,8 @@ from rsocket.reactivex.subscriber_adapter import SubscriberAdapter
 __all__ = [
     'observable_to_publisher',
     'from_observable_with_backpressure',
-    'observable_from_queue'
+    'observable_from_queue',
+    'observable_from_async_generator'
 ]
 
 from rsocket.streams.helpers import async_generator_from_queue
