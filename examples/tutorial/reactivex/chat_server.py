@@ -110,7 +110,7 @@ class ChatUserSession:
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
 
-            return reactivex.of(Payload(ensure_bytes(session_id)))
+            return reactivex.just(Payload(ensure_bytes(session_id)))
 
         @router.response('channel.join')
         async def join_channel(payload: Payload) -> Observable:
@@ -133,7 +133,7 @@ class ChatUserSession:
         @router.response('file.download')
         async def download_file(composite_metadata: CompositeMetadata) -> Observable:
             file_name = get_file_name(composite_metadata)
-            return reactivex.of(Payload(chat_data.files[file_name],
+            return reactivex.just(Payload(chat_data.files[file_name],
                                         composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
 
         @router.stream('files')

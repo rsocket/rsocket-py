@@ -24,9 +24,11 @@ async def test_helper(request_n, generate_n, expected_n):
     )
 
     feedback.on_next(request_n)
+    feedback.on_completed()
 
     result = await task
 
     assert len(result) == expected_n
 
     await asyncio.sleep(1) # wait for task to finish
+

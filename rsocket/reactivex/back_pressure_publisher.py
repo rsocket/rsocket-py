@@ -73,12 +73,10 @@ def observable_from_async_generator(iterator, backpressure) -> Observable:
                             observer.on_next(value)
                         except StopAsyncIteration:
                             observer.on_completed()
-                            sender.cancel()
                             return
                         except Exception as exception:
                             logger().error(str(exception), exc_info=True)
                             observer.on_error(exception)
-                            sender.cancel()
                             return
             except Exception as exception:
                 logger().error(str(exception), exc_info=True)
