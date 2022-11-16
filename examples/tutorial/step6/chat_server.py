@@ -5,16 +5,17 @@ import uuid
 from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set, Awaitable
+from typing import Dict, Optional, Set, Awaitable, Tuple
 
 from more_itertools import first
 
-from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload)
+from examples.tutorial.step5.models import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
+                                            ServerStatistics, dataclass_to_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
-from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.extensions.helpers import composite, metadata_item
+from rsocket.extensions.helpers import composite, metadata_item, route
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
@@ -30,6 +31,7 @@ class UserSessionData:
     username: str
     session_id: str
     messages: Queue = field(default_factory=Queue)
+    statistics: Optional[ClientStatistics] = None
 
 
 @dataclass(frozen=True)
@@ -43,7 +45,7 @@ class ChatData:
 chat_data = ChatData()
 
 
-def ensure_channel_exists(channel_name: str):
+def ensure_channel_exists(channel_name):
     if channel_name not in chat_data.channel_users:
         chat_data.channel_users[channel_name] = set()
         chat_data.channel_messages[channel_name] = Queue()
@@ -133,6 +135,68 @@ class ChatUserSession:
                          enumerate(chat_data.channel_messages.keys(), 1))
             return StreamFromGenerator(lambda: generator)
 
+        @router.fire_and_forget('statistics')
+        async def receive_statistics(payload: Payload):
+            statistics = ClientStatistics(**json.loads(utf8_decode(payload.data)))
+
+            logging.info('Received client statistics. memory usage: %s', statistics.memory_usage)
+
+            self._session.statistics = statistics
+
+        @router.channel('statistics')
+        async def send_statistics() -> Tuple[Optional[Publisher], Optional[Subscriber]]:
+
+            class StatisticsChannel(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
+
+                def __init__(self, session: UserSessionData):
+                    super().__init__()
+                    self._session = session
+                    self._requested_statistics = ServerStatisticsRequest()
+
+                def cancel(self):
+                    self._sender.cancel()
+
+                def subscribe(self, subscriber: Subscriber):
+                    super().subscribe(subscriber)
+                    subscriber.on_subscribe(self)
+                    self._sender = asyncio.create_task(self._statistics_sender())
+
+                async def _statistics_sender(self):
+                    while True:
+                        try:
+                            await asyncio.sleep(self._requested_statistics.period_seconds)
+                            next_message = self.new_statistics_data()
+
+                            self._subscriber.on_next(dataclass_to_payload(next_message))
+                        except Exception:
+                            logging.error('Statistics', exc_info=True)
+
+                def new_statistics_data(self):
+                    statistics_data = {}
+
+                    if 'users' in self._requested_statistics.ids:
+                        statistics_data['user_count'] = len(chat_data.user_session_by_id)
+
+                    if 'channels' in self._requested_statistics.ids:
+                        statistics_data['channel_count'] = len(chat_data.channel_messages)
+
+                    return ServerStatistics(**statistics_data)
+
+                def on_next(self, value: Payload, is_complete=False):
+                    request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
+
+                    logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
+
+                    if request.ids is not None:
+                        self._requested_statistics.ids = request.ids
+
+                    if request.period_seconds is not None:
+                        self._requested_statistics.period_seconds = request.period_seconds
+
+            response = StatisticsChannel(self._session)
+
+            return response, response
+
         @router.response('message')
         async def send_message(payload: Payload) -> Awaitable[Payload]:
             message = Message(**json.loads(payload.data))
@@ -188,10 +252,13 @@ def handler_factory():
 
 
 async def run_server():
-    def session(*connection):
-        RSocketServer(TransportTCP(*connection),
-                      handler_factory=handler_factory,
-                      fragment_size_bytes=1_000_000)
+    async def session(*connection):
+        server = RSocketServer(TransportTCP(*connection),
+                               handler_factory=handler_factory,
+                               fragment_size_bytes=1_000_000)
+
+        response = await server.request_response(Payload(metadata=composite(route('time'))))
+        print(f'Client time: {response.data}')
 
     async with await asyncio.start_server(session, 'localhost', 6565) as server:
         await server.serve_forever()

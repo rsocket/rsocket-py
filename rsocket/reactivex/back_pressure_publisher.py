@@ -53,7 +53,7 @@ async def task_from_awaitable(future):
     return task
 
 
-def observable_from_async_generator(iterator, backpressure) -> Observable:
+def observable_from_async_generator(iterator, backpressure: Subject) -> Observable:
     # noinspection PyUnusedLocal
     def on_subscribe(observer: Observer, scheduler):
 
@@ -81,6 +81,7 @@ def observable_from_async_generator(iterator, backpressure) -> Observable:
             except Exception as exception:
                 logger().error(str(exception), exc_info=True)
                 observer.on_error(exception)
+
         def cancel_sender():
             sender.cancel()
 
@@ -112,11 +113,11 @@ async def observable_to_async_event_generator(observable: Observable) -> AsyncGe
         queue.task_done()
 
 
-def from_async_event_generator(generator: AsyncGenerator[Notification, None], backpressure: Observable) -> Observable:
+def from_async_event_generator(generator: AsyncGenerator[Notification, None], backpressure: Subject) -> Observable:
     return from_async_event_iterator(generator.__aiter__(), backpressure)
 
 
-def from_async_event_iterator(iterator, backpressure: Observable) -> Observable:
+def from_async_event_iterator(iterator, backpressure: Subject) -> Observable:
     # noinspection PyUnusedLocal
     def on_subscribe(observer: Observer, scheduler):
 

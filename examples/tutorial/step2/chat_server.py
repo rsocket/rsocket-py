@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import uuid
 from asyncio import Queue
@@ -8,7 +7,7 @@ from typing import Dict, Optional, Awaitable
 
 from more_itertools import first
 
-from examples.tutorial.step2.models import Message, dataclass_to_payload
+from examples.tutorial.step2.models import Message, dataclass_to_payload, decode_dataclass
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -63,11 +62,15 @@ class ChatUserSession:
 
         @router.response('message')
         async def send_message(payload: Payload) -> Awaitable[Payload]:
-            message = Message(**json.loads(payload.data))
+            message = decode_dataclass(payload, Message)
+
+            logging.info('Received message for user: %s', message.user)
+
+            target_message = Message(self._session.username, message.content)
 
             session = find_session_by_username(message.user)
 
-            await session.messages.put(message)
+            await session.messages.put(target_message)
 
             return create_response()
 

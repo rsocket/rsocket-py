@@ -137,14 +137,15 @@ class ChatUserSession:
                                           composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
 
         @router.stream('files')
-        async def get_file_names() -> Observable:
+        async def get_file_names() -> Callable[[Subject], Observable]:
             async def generator():
                 for file_name in chat_data.files.keys():
                     yield file_name
 
-            return observable_from_async_generator(generator()).pipe(
-                operators.map(lambda file_anme: Payload(ensure_bytes(file_name)))
-            )
+            return from_observable_with_backpressure(
+                lambda backpressure: observable_from_async_generator(generator(), backpressure).pipe(
+                    operators.map(lambda file_name: Payload(ensure_bytes(file_name)))
+                ))
 
         @router.stream('channels')
         async def get_channels() -> Observable:
@@ -197,13 +198,13 @@ class ChatUserSession:
 
             logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
 
+            target_message = Message(self._session.username, message.content, message.channel)
+
             if message.channel is not None:
-                channel_message = Message(self._session.username, message.content, message.channel)
-                await chat_data.channel_messages[message.channel].put(channel_message)
+                await chat_data.channel_messages[message.channel].put(target_message)
             elif message.user is not None:
                 session = find_session_by_username(message.user)
-
-                await session.messages.put(message)
+                await session.messages.put(target_message)
 
             return reactivex.empty()
 

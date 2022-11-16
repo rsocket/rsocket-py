@@ -112,13 +112,15 @@ class ChatUserSession:
         async def send_message(payload: Payload) -> Awaitable[Payload]:
             message = Message(**json.loads(payload.data))
 
+            logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
+
+            target_message = Message(self._session.username, message.content, message.channel)
+
             if message.channel is not None:
-                channel_message = Message(self._session.username, message.content, message.channel)
-                await chat_data.channel_messages[message.channel].put(channel_message)
+                await chat_data.channel_messages[message.channel].put(target_message)
             elif message.user is not None:
                 session = find_session_by_username(message.user)
-
-                await session.messages.put(message)
+                await session.messages.put(target_message)
 
             return create_response()
 
