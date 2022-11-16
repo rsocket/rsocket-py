@@ -98,6 +98,3 @@ class BaseRxHandler(RxHandler):
 
     async def on_connection_error(self, rsocket, exception: Exception):
         pass
-
-    async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        pass
