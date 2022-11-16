@@ -81,16 +81,17 @@ def observable_from_async_generator(iterator, backpressure) -> Observable:
             except Exception as exception:
                 logger().error(str(exception), exc_info=True)
                 observer.on_error(exception)
-
-        sender = asyncio.create_task(_aio_next())
-
         def cancel_sender():
             sender.cancel()
 
-        return backpressure.subscribe(
+        result = backpressure.subscribe(
             on_next=request_next_n,
             on_completed=cancel_sender
         )
+
+        sender = asyncio.create_task(_aio_next())
+
+        return result
 
     return reactivex.create(on_subscribe)
 
