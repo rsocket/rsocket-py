@@ -123,8 +123,15 @@ class ChatClient:
         )))
 
     async def download(self, file_name):
-        return await self._rsocket.request_response(Payload(
-            metadata=composite(route('file.download'), metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
+        request = Payload(metadata=composite(
+            route('file.download'),
+            metadata_item(ensure_bytes(file_name), chat_filename_mimetype))
+        )
+
+        return await ReactiveXClient(self._rsocket).request_response(request).pipe(
+            operators.map(lambda _:_.data),
+            operators.last()
+        )
 
     async def list_files(self) -> List[str]:
         request = Payload(metadata=composite(route('files')))
@@ -189,12 +196,12 @@ async def files_example(user1, user2):
 
     print(f'Files: {await user1.list_files()}')
 
-    download = await user2.download(file_name)
+    download_data = await user2.download(file_name)
 
-    if download.data != file_contents:
+    if download_data != file_contents:
         raise Exception('File download failed')
     else:
-        print(f'Downloaded file: {len(download.data)} bytes')
+        print(f'Downloaded file: {len(download_data)} bytes')
 
 
 async def statistics_example(user1):

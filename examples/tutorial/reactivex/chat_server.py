@@ -134,11 +134,17 @@ class ChatUserSession:
         async def download_file(composite_metadata: CompositeMetadata) -> Observable:
             file_name = get_file_name(composite_metadata)
             return reactivex.just(Payload(chat_data.files[file_name],
-                                        composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
+                                          composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
 
         @router.stream('files')
         async def get_file_names() -> Observable:
-            return reactivex.from_iterable((Payload(ensure_bytes(file_name)) for file_name in chat_data.files.keys()))
+            async def generator():
+                for file_name in chat_data.files.keys():
+                    yield file_name
+
+            return observable_from_async_generator(generator()).pipe(
+                operators.map(lambda file_anme: Payload(ensure_bytes(file_name)))
+            )
 
         @router.stream('channels')
         async def get_channels() -> Observable:
