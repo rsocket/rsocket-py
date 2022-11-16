@@ -51,8 +51,10 @@ class ChatClient:
         self._message_subscriber: Optional = None
         self._statistics_subscriber: Optional[StatisticsHandler] = None
         self._session_id: Optional[str] = None
+        self._username: Optional[str] = None
 
     async def login(self, username: str):
+        self._username = username
         payload = Payload(ensure_bytes(username), composite(route('login')))
         self._session_id = (await self._rsocket.request_response(payload)).data
         return self
@@ -70,7 +72,7 @@ class ChatClient:
     def listen_for_messages(self):
         def print_message(data: bytes):
             message = Message(**json.loads(data))
-            print(f'{message.user} ({message.channel}): {message.content}')
+            print(f'{self._username}: from {message.user} ({message.channel}): {message.content}')
 
         class MessageListener(DefaultSubscriber, DefaultSubscription):
             def __init__(self):
@@ -166,44 +168,57 @@ async def main():
             await user1.login('user1')
             await user2.login('user2')
 
-            user1.listen_for_messages()
-            user2.listen_for_messages()
+            await messaging_example(user1, user2)
+            await statistics_example(user1)
+            await files_example(user1, user2)
 
-            await user1.join('channel1')
-            await user2.join('channel1')
 
-            await user1.send_statistics()
+async def messaging_example(user1, user2):
+    user1.listen_for_messages()
+    user2.listen_for_messages()
 
-            statistics_listener = user1.listen_for_statistics()
-            await asyncio.sleep(5)
+    await user1.join('channel1')
+    await user2.join('channel1')
 
-            statistics_listener.set_requested_statistics(['users'])
-            await asyncio.sleep(5)
-            user1.stop_listening_for_statistics()
+    print(f'Channels: {await user1.list_channels()}')
 
-            print(f'Files: {await user1.list_files()}')
-            print(f'Channels: {await user1.list_channels()}')
+    await user1.private_message('user2', 'private message from user1')
+    await user1.channel_message('channel1', 'channel message from user1')
 
-            await user1.private_message('user2', 'private message from user1')
-            await user1.channel_message('channel1', 'channel message from user1')
+    await asyncio.sleep(1)
 
-            file_contents = b'abcdefg1234567'
-            file_name = 'file_name_1.txt'
-            await user1.upload(file_name, file_contents)
+    user1.stop_listening_for_messages()
+    user2.stop_listening_for_messages()
 
-            print(f'Files: {await user1.list_files()}')
 
-            download = await user2.download(file_name)
+async def files_example(user1, user2):
+    file_contents = b'abcdefg1234567'
+    file_name = 'file_name_1.txt'
 
-            if download.data != file_contents:
-                raise Exception('File download failed')
-            else:
-                print(f'Downloaded file: {len(download.data)} bytes')
+    await user1.upload(file_name, file_contents)
 
-            await asyncio.sleep(3)
+    print(f'Files: {await user1.list_files()}')
 
-            user1.stop_listening_for_messages()
-            user2.stop_listening_for_messages()
+    download = await user2.download(file_name)
+
+    if download.data != file_contents:
+        raise Exception('File download failed')
+    else:
+        print(f'Downloaded file: {len(download.data)} bytes')
+
+
+async def statistics_example(user1):
+    await user1.send_statistics()
+
+    statistics_control = user1.listen_for_statistics()
+
+    await asyncio.sleep(5)
+
+    statistics_control.set_requested_statistics(['users'])
+
+    await asyncio.sleep(5)
+
+    user1.stop_listening_for_statistics()
 
 
 if __name__ == '__main__':

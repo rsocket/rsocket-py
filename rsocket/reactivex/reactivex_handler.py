@@ -1,9 +1,9 @@
 from abc import abstractmethod
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Union, Callable
 
 import reactivex
-from reactivex import Observable
+from reactivex import Observable, Subject
 
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.composite_metadata import CompositeMetadata
@@ -39,7 +39,7 @@ class ReactivexHandler:
         ...
 
     @abstractmethod
-    async def request_stream(self, payload: Payload) -> Observable:
+    async def request_stream(self, payload: Payload) -> Union[Observable, Callable[[Subject], Observable]]:
         ...
 
     @abstractmethod
@@ -97,7 +97,4 @@ class BaseReactivexHandler(ReactivexHandler):
         pass
 
     async def on_connection_error(self, rsocket, exception: Exception):
-        pass
-
-    async def on_close(self, rsocket, exception: Optional[Exception] = None):
         pass

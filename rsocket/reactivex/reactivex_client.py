@@ -1,16 +1,15 @@
 import asyncio
 from asyncio import Future
-
-from typing import Optional, cast
+from typing import Optional, cast, Union, Callable
 
 import reactivex
-from reactivex import Observable
+from reactivex import Observable, Subject
 
 from rsocket.frame import MAX_REQUEST_N
 from rsocket.payload import Payload
-from rsocket.rsocket import RSocket
-from rsocket.reactivex.back_pressure_publisher import BackPressurePublisher
+from rsocket.reactivex.back_pressure_publisher import observable_to_publisher
 from rsocket.reactivex.from_rsocket_publisher import from_rsocket_publisher
+from rsocket.rsocket import RSocket
 
 
 class ReactiveXClient:
@@ -27,12 +26,9 @@ class ReactiveXClient:
     def request_channel(self,
                         request: Payload,
                         request_limit: int = MAX_REQUEST_N,
-                        observable: Optional[Observable] = None,
+                        observable: Optional[Union[Observable, Callable[[Subject], Observable]]] = None,
                         sending_done: Optional[asyncio.Event] = None) -> Observable:
-        if observable is not None:
-            requester_publisher = BackPressurePublisher(observable)
-        else:
-            requester_publisher = None
+        requester_publisher = observable_to_publisher(observable)
 
         response_publisher = self._rsocket.request_channel(
             request, requester_publisher, sending_done

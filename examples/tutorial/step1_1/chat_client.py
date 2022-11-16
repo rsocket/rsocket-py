@@ -15,8 +15,10 @@ class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
         self._session_id: Optional[str] = None
+        self._username: Optional[str] = None
 
     async def login(self, username: str):
+        self._username = username
         payload = Payload(ensure_bytes(username), composite(route('login')))
         self._session_id = (await self._rsocket.request_response(payload)).data
         return self

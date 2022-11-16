@@ -8,10 +8,10 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from rsocket.error_codes import ErrorCode
 from rsocket.payload import Payload
-from rsocket.request_handler import RequestHandler
-from rsocket.reactivex.back_pressure_publisher import BackPressurePublisher
+from rsocket.reactivex.back_pressure_publisher import observable_to_publisher
 from rsocket.reactivex.from_rsocket_publisher import RxSubscriberFromObserver
 from rsocket.reactivex.reactivex_handler import ReactivexHandler
+from rsocket.request_handler import RequestHandler
 
 
 def reactivex_handler_factory(handler_factory: Callable[[], ReactivexHandler]):
@@ -35,10 +35,8 @@ class ReactivexHandlerAdapter(RequestHandler):
     async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
         reactivex_channel = await self.delegate.request_channel(payload)
 
-        publisher = None
         subscriber = None
-        if reactivex_channel.observable is not None:
-            publisher = BackPressurePublisher(reactivex_channel.observable)
+        publisher = observable_to_publisher(reactivex_channel.observable)
 
         if reactivex_channel.observer is not None:
             subscriber = RxSubscriberFromObserver(reactivex_channel.observer,
@@ -57,8 +55,7 @@ class ReactivexHandlerAdapter(RequestHandler):
         )
 
     async def request_stream(self, payload: Payload) -> Publisher:
-        observable = await self.delegate.request_stream(payload)
-        return BackPressurePublisher(observable)
+        return observable_to_publisher(await self.delegate.request_stream(payload))
 
     async def on_error(self, error_code: ErrorCode, payload: Payload):
         await self.delegate.on_error(error_code, payload)
