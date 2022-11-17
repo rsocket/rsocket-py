@@ -1,9 +1,10 @@
 from abc import abstractmethod
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Union, Callable
 
 import rx
 from rx import Observable
+from rx.core.typing import Subject
 
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.composite_metadata import CompositeMetadata
@@ -39,7 +40,7 @@ class RxHandler:
         ...
 
     @abstractmethod
-    async def request_stream(self, payload: Payload) -> Observable:
+    async def request_stream(self, payload: Payload) -> Union[Observable, Callable[[Subject], Observable]]:
         ...
 
     @abstractmethod
