@@ -20,6 +20,10 @@ from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
 
 
+class SessionId(str):  # allow weak reference
+    pass
+
+
 @dataclass(frozen=True)
 class UserSessionData:
     username: str
@@ -54,7 +58,7 @@ class ChatUserSession:
 
             logging.info(f'New user: {username}')
 
-            session_id = str(uuid.uuid4())
+            session_id = SessionId(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
 

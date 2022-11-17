@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import create_future, utf8_decode
@@ -24,4 +25,5 @@ async def run_server():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     asyncio.run(run_server())

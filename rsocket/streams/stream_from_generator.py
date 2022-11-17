@@ -38,7 +38,9 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
 
     def subscribe(self, subscriber: Subscriber):
         super().subscribe(subscriber)
-        self._payload_feeder = asyncio.create_task(self.feed_subscriber())
+
+        if self._payload_feeder is None:
+            self._payload_feeder = asyncio.create_task(self.feed_subscriber())
 
     def request(self, n: int):
         if self._n_feeder is None:
@@ -55,6 +57,7 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
 
                 async for payload, is_complete in self._generate_next_n(n):
                     await self._queue.put((payload, is_complete))
+
         except FinishedIterator:
             self._queue.put_nowait((Payload(), True))
         except asyncio.CancelledError:

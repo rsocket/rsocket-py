@@ -76,6 +76,11 @@ class RSocketClient(RSocketBase):
 
         return await super().connect()
 
+    async def _stop_tasks(self):
+        await super()._stop_tasks()
+        await cancel_if_task_exists(self._keepalive_task)
+        self._keepalive_task = None
+
     async def _connect_new_transport(self):
         try:
             new_transport = await self._get_new_transport()

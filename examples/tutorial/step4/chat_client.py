@@ -39,6 +39,11 @@ class ChatClient:
         await self._rsocket.request_response(request)
         return self
 
+    async def get_users(self, channel_name: str) -> List[str]:
+        request = Payload(ensure_bytes(channel_name), composite(route('channel.users')))
+        users = await AwaitableRSocket(self._rsocket).request_stream(request)
+        return [utf8_decode(user.data) for user in users]
+
     def listen_for_messages(self):
         def print_message(data: bytes):
             message = Message(**json.loads(data))
@@ -128,15 +133,21 @@ async def messaging_example(user1: ChatClient, user2: ChatClient):
     user1.listen_for_messages()
     user2.listen_for_messages()
 
-    await user1.join('channel1')
-    await user2.join('channel1')
+    channel_name = 'channel1'
+
+    await user1.join(channel_name)
+    await user2.join(channel_name)
 
     print(f'Channels: {await user1.list_channels()}')
+    print(f'Channel {channel_name} users: {await user1.get_users(channel_name)}')
 
     await user1.private_message('user2', 'private message from user1')
-    await user1.channel_message('channel1', 'channel message from user1')
+    await user1.channel_message(channel_name, 'channel message from user1')
 
     await asyncio.sleep(1)
+
+    await user1.leave(channel_name)
+    print(f'Channel {channel_name} users: {await user1.get_users(channel_name)}')
 
     user1.stop_listening_for_messages()
     user2.stop_listening_for_messages()

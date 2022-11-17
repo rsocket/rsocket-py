@@ -1,6 +1,6 @@
 import asyncio
 import logging
-
+from weakref import WeakKeyDictionary
 import pytest
 
 
@@ -16,3 +16,16 @@ async def test_reader(event_loop: asyncio.AbstractEventLoop):
     reason='This is testing the fixture which should cause the test to fail if there is an error log')
 async def test_fail_on_error_log(fail_on_error_log):
     logging.error("this should not happen")
+
+
+def test_weak_ref():
+    class S(str):
+        pass
+    d = WeakKeyDictionary()
+    a = S('abc')
+    d[a] = 1
+    assert len(d) == 1
+
+    del a
+
+    assert len(d) == 0

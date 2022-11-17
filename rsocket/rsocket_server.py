@@ -3,7 +3,7 @@ from typing import Optional, Union, Callable
 
 from reactivestreams.publisher import Publisher
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.helpers import create_future
+from rsocket.helpers import create_future, noop
 from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import RequestHandler, BaseRequestHandler
@@ -27,7 +27,7 @@ class RSocketServer(RSocketBase):
                  fragment_size_bytes: Optional[int] = None,
                  on_ready: Optional[Callable[[RSocketBase], None]] = None
                  ):
-        self._on_ready = on_ready or (lambda x: None)
+        self._on_ready = on_ready or noop
         self._transport = transport
 
         super().__init__(handler_factory,

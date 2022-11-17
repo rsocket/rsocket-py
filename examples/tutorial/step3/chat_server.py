@@ -6,6 +6,7 @@ from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
+from weakref import WeakValueDictionary, WeakSet
 
 from more_itertools import first
 
@@ -23,6 +24,10 @@ from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
 
+class SessionId(str):  # allow weak reference
+    pass
+
+
 @dataclass(frozen=True)
 class UserSessionData:
     username: str
@@ -32,9 +37,9 @@ class UserSessionData:
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
+    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(WeakSet))
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=dict)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
@@ -82,7 +87,7 @@ class ChatUserSession:
         async def login(payload: Payload) -> Awaitable[Payload]:
             username = utf8_decode(payload.data)
             logging.info(f'New user: {username}')
-            session_id = str(uuid.uuid4())
+            session_id = SessionId(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
 

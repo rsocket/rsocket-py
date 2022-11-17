@@ -6,7 +6,7 @@ from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Callable
-
+from weakref import WeakValueDictionary, WeakSet
 import reactivex
 from more_itertools import first
 from reactivex import Observable, operators, Subject, Observer
@@ -28,6 +28,10 @@ from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
 
 
+class SessionId(str):  # allow weak reference
+    pass
+
+
 @dataclass()
 class UserSessionData:
     username: str
@@ -39,10 +43,10 @@ class UserSessionData:
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
+    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(WeakSet))
     files: Dict[str, bytes] = field(default_factory=dict)
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=dict)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
@@ -50,7 +54,7 @@ chat_data = ChatData()
 
 def ensure_channel_exists(channel_name):
     if channel_name not in chat_data.channel_users:
-        chat_data.channel_users[channel_name] = set()
+        chat_data.channel_users[channel_name] = WeakSet()
         chat_data.channel_messages[channel_name] = Queue()
         asyncio.create_task(channel_message_delivery(channel_name))
 
@@ -106,7 +110,7 @@ class ChatUserSession:
         async def login(payload: Payload) -> Observable:
             username = utf8_decode(payload.data)
             logging.info(f'New user: {username}')
-            session_id = str(uuid.uuid4())
+            session_id = SessionId(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
 
