@@ -3,6 +3,7 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Awaitable
+from weakref import WeakValueDictionary
 
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
@@ -25,7 +26,7 @@ class UserSessionData:
 
 @dataclass(frozen=True)
 class ChatData:
-    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=dict)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()

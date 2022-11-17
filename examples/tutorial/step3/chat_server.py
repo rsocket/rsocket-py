@@ -4,6 +4,7 @@ import uuid
 from asyncio import Queue
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Awaitable
+from weakref import WeakValueDictionary
 
 from more_itertools import first
 
@@ -33,7 +34,7 @@ class UserSessionData:
 
 @dataclass(frozen=True)
 class ChatData:
-    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=dict)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
