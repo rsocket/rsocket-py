@@ -42,6 +42,7 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
         await server.close()
 
         service.close()
+        await service.wait_closed()
 
     service: Optional[Server] = None
     server: Optional[RSocketServer] = None
