@@ -5,7 +5,7 @@ import re
 import pytest
 
 from rsocket.frame_parser import FrameParser
-from tests.tools.fixtures_aiohttp import pipe_factory_aiohttp_websocket
+from tests.tools.helpers_aiohttp import pipe_factory_aiohttp_websocket
 from tests.tools.fixtures_aioquic import pipe_factory_quic
 from tests.tools.fixtures_http3 import pipe_factory_http3
 from tests.tools.fixtures_quart import pipe_factory_quart_websocket
@@ -14,7 +14,6 @@ from tests.tools.fixtures_tcp import pipe_factory_tcp
 pytest_plugins = [
     "tests.tools.fixtures_shared",
     "tests.tools.fixtures_aiohttp",
-    "tests.tools.fixtures_aioquic",
 ]
 
 

@@ -33,20 +33,7 @@ async def test_request_fire_and_forget(lazy_pipe):
         assert handler.received_payload.data == b'dog'
         assert handler.received_payload.metadata == b'cat'
 
-
-async def test_request_fire_and_forget_wait(lazy_pipe):
-    handler: Optional[FireAndForgetHandler] = None
-
-    def handler_factory():
-        nonlocal handler
-        handler = FireAndForgetHandler()
-        return handler
-
-    async with lazy_pipe(
-            server_arguments={'handler_factory': handler_factory}) as (server, client):
-        await client.fire_and_forget(Payload(b'dog', b'cat'))
-
-        await asyncio.sleep(1)  # allow test server to handle request
+    await asyncio.sleep(2)  # wait for server to close
 
 
 async def test_request_fire_and_forget_awaitable_client(lazy_pipe):

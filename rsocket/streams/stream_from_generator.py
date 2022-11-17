@@ -56,7 +56,9 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
                 n = await self._request_n_queue.get()
 
                 async for payload, is_complete in self._generate_next_n(n):
-                    await self._queue.put((payload, is_complete))
+                    self._queue.put_nowait((payload, is_complete))
+                    if is_complete:
+                        return
 
         except FinishedIterator:
             self._queue.put_nowait((Payload(), True))
@@ -88,16 +90,17 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
 
     def _cancel_feeders(self):
         self._cancel_payload_feeder()
-
         self._cancel_n_feeder()
 
     def _cancel_payload_feeder(self):
         if self._payload_feeder is not None:
             self._payload_feeder.cancel()
+            self._payload_feeder = None
 
     def _cancel_n_feeder(self):
         if self._n_feeder is not None:
             self._n_feeder.cancel()
+            self._n_feeder = None
 
     async def feed_subscriber(self):
 

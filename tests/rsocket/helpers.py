@@ -49,11 +49,13 @@ def to_test_response_payload(request):
 def assert_no_open_streams(client: RSocketBase, server: RSocketBase):
     logger().info('Checking for open client streams')
 
-    assert len(client._stream_control._streams) == 0, 'Client has open streams'
+    if client is not None:
+        assert len(client._stream_control._streams) == 0, 'Client has open streams'
 
     logger().info('Checking for open server streams')
 
-    assert len(server._stream_control._streams) == 0, 'Server has open streams'
+    if server is not None:
+        assert len(server._stream_control._streams) == 0, 'Server has open streams'
 
 
 class IdentifiedHandler(BaseRequestHandler):

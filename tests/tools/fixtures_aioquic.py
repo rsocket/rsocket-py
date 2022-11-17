@@ -9,7 +9,7 @@ from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.aioquic_transport import rsocket_connect, rsocket_serve
 from tests.rsocket.helpers import assert_no_open_streams
-from tests.tools.fixtures_shared import quic_client_configuration
+from tests.tools.herlpers import quic_client_configuration
 
 
 @asynccontextmanager
@@ -39,18 +39,20 @@ async def pipe_factory_quic(generate_test_certificates,
                                       on_server_create=store_server,
                                       **(server_arguments or {}))
 
-    # from datetime import timedelta
-    # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
-    client_arguments = client_arguments or {}
-    # client_arguments.update(test_overrides)
-    async with rsocket_connect('localhost', unused_tcp_port,
-                               configuration=quic_client_configuration(certificate)) as transport:
-        async with RSocketClient(single_transport_provider(transport),
-                                 **client_arguments) as client:
-            await wait_for_server.wait()
-            yield server, client
+    try:
+        # from datetime import timedelta
+        # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
+        client_arguments = client_arguments or {}
+        # client_arguments.update(test_overrides)
+        async with rsocket_connect('localhost', unused_tcp_port,
+                                   configuration=quic_client_configuration(certificate)) as transport:
+            async with RSocketClient(single_transport_provider(transport),
+                                     **client_arguments) as client:
+                await wait_for_server.wait()
+                yield server, client
+    finally:
+        if server is not None:
+            await server.close()
 
-    await server.close()
-    assert_no_open_streams(client, server)
-
-    quic_server.close()
+        assert_no_open_streams(client, server)
+        quic_server.close()
