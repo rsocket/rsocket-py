@@ -33,7 +33,7 @@ async def test_request_fire_and_forget(lazy_pipe):
         assert handler.received_payload.data == b'dog'
         assert handler.received_payload.metadata == b'cat'
 
-    await asyncio.sleep(2) # wait for server to finish
+    await asyncio.sleep(2)  # wait for server to finish
 
 
 async def test_request_fire_and_forget_wait(lazy_pipe):
