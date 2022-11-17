@@ -57,6 +57,8 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
 
                 async for payload, is_complete in self._generate_next_n(n):
                     await self._queue.put((payload, is_complete))
+                    if is_complete:
+                        return
 
         except FinishedIterator:
             self._queue.put_nowait((Payload(), True))
