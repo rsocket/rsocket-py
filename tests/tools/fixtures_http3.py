@@ -31,18 +31,18 @@ async def pipe_factory_http3(generate_test_certificates,
                                            private_key=private_key,
                                            on_server_create=store_server,
                                            **(server_arguments or {}))
+    try:
+        # from datetime import timedelta
+        # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
+        client_arguments = client_arguments or {}
+        # client_arguments.update(test_overrides)
+        async with http3_ws_transport(certificate, f'wss://localhost:{unused_tcp_port}/ws') as transport:
+            async with RSocketClient(single_transport_provider(transport),
+                                     **client_arguments) as client:
+                await wait_for_server.wait()
+                yield server, client
+    finally:
+        await server.close()
+        assert_no_open_streams(client, server)
 
-    # from datetime import timedelta
-    # test_overrides = {'keep_alive_period': timedelta(minutes=20)}
-    client_arguments = client_arguments or {}
-    # client_arguments.update(test_overrides)
-    async with http3_ws_transport(certificate, f'wss://localhost:{unused_tcp_port}/ws') as transport:
-        async with RSocketClient(single_transport_provider(transport),
-                                 **client_arguments) as client:
-            await wait_for_server.wait()
-            yield server, client
-
-    await server.close()
-    assert_no_open_streams(client, server)
-
-    http3_server.close()
+        http3_server.close()
