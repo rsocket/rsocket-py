@@ -11,7 +11,7 @@ from reactivestreams.subscription import DefaultSubscription
 from rsocket.exceptions import RSocketTransportError
 from rsocket.extensions.mimetype import WellKnownType
 from rsocket.frame import Frame
-from rsocket.frame_helpers import serialize_128max_value, parse_type
+from rsocket.frame_helpers import serialize_128max_value, parse_type, safe_len
 from rsocket.local_typing import ByteTypes
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -125,3 +125,11 @@ def utf8_decode(data: bytes):
     if data is not None:
         return data.decode('utf-8')
     return None
+
+
+def is_empty_payload(payload: Payload):
+    return safe_len(payload.data) == 0 and safe_len(payload.metadata) == 0
+
+
+def is_non_empty_payload(payload: Payload):
+    return not is_empty_payload(payload)
