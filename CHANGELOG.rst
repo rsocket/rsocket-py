@@ -3,12 +3,16 @@ Changelog
 
 v0.4.5
 ======
-- Breaking change: Normalized the request_channel method argument names across implementations (vanilla, reactivex etc.):
+- Breaking change: Normalized the request_channel method argument names across implementations and added where missing (vanilla, reactivex etc.):
     - **local_publisher** renamed to **publisher**
     - **sending_done_event** renamed to **sending_done**
+- Breaking change: ReactiveX clients will remove empty payload from request_response Observable, resulting in an actually empty Observable
 - Bug fix: fixed channel stream being released prematurely when canceled by requester, and responder side still working
 - CollectorSubscriber : exposed subscription methods directly instead of relying on internal **subscription** variable
-- reactivex server side request_response allowed to return reactivex.empty().
+- Reactivex server side request_response allowed to return reactivex.empty(). Library code will replace with empty Payload when needed
+- Added EmptyStream for use in stream and channel responses
+- Removed cyclic references in RSocketBase which caused old sessions not to be released
+- Tutorial code: release logged out users from global chat data (weak references)
 
 v0.4.4
 ======

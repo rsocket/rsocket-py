@@ -89,19 +89,6 @@ class RSocketBase(RSocket, RSocketInternal):
         self._connecting = True
         self._fragment_size_bytes = fragment_size_bytes
 
-        self._async_frame_handler_by_type: Dict[Type[Frame], Any] = {
-            RequestResponseFrame: self.handle_request_response,
-            RequestStreamFrame: self.handle_request_stream,
-            RequestChannelFrame: self.handle_request_channel,
-            SetupFrame: self.handle_setup,
-            RequestFireAndForgetFrame: self.handle_fire_and_forget,
-            MetadataPushFrame: self.handle_metadata_push,
-            ResumeFrame: self.handle_resume,
-            LeaseFrame: self.handle_lease,
-            KeepAliveFrame: self.handle_keep_alive,
-            ErrorFrame: self.handle_error
-        }
-
         self._setup_internals()
 
     def get_fragment_size_bytes(self) -> Optional[int]:
@@ -344,6 +331,18 @@ class RSocketBase(RSocket, RSocketInternal):
         ...
 
     async def _receiver_listen(self):
+        async_frame_handler_by_type: Dict[Type[Frame], Any] = {
+            RequestResponseFrame: self.handle_request_response,
+            RequestStreamFrame: self.handle_request_stream,
+            RequestChannelFrame: self.handle_request_channel,
+            SetupFrame: self.handle_setup,
+            RequestFireAndForgetFrame: self.handle_fire_and_forget,
+            MetadataPushFrame: self.handle_metadata_push,
+            ResumeFrame: self.handle_resume,
+            LeaseFrame: self.handle_lease,
+            KeepAliveFrame: self.handle_keep_alive,
+            ErrorFrame: self.handle_error
+        }
 
         transport = await self._current_transport()
         while self.is_server_alive():
@@ -352,7 +351,7 @@ class RSocketBase(RSocket, RSocketInternal):
                 break
             async for frame in next_frame_generator:
                 try:
-                    await self._handle_next_frame(frame)
+                    await self._handle_next_frame(frame, async_frame_handler_by_type)
                 except RSocketProtocolError as exception:
                     logger().error('%s: Protocol error %s', self._log_identifier(), str(exception))
                     self.send_error(frame.stream_id, exception)
@@ -362,7 +361,7 @@ class RSocketBase(RSocket, RSocketInternal):
                     logger().error('%s: Unknown error', self._log_identifier(), exc_info=True)
                     self.send_error(frame.stream_id, exception)
 
-    async def _handle_next_frame(self, frame: Frame):
+    async def _handle_next_frame(self, frame: Frame, async_frame_handler_by_type):
 
         log_frame(frame, self._log_identifier())
 
@@ -378,15 +377,15 @@ class RSocketBase(RSocket, RSocketInternal):
 
         if (complete_frame.stream_id == CONNECTION_STREAM_ID or
                 isinstance(complete_frame, initiate_request_frame_types)):
-            await self._handle_frame_by_type(complete_frame)
+            await self._handle_frame_by_type(complete_frame, async_frame_handler_by_type)
         elif self._stream_control.handle_stream(complete_frame):
             return
         else:
             logger().debug('%s: Dropping frame from unknown stream %d', self._log_identifier(),
                            complete_frame.stream_id)
 
-    async def _handle_frame_by_type(self, frame: Frame):
-        frame_handler = self._async_frame_handler_by_type.get(type(frame), async_noop)
+    async def _handle_frame_by_type(self, frame: Frame, async_frame_handler_by_type):
+        frame_handler = async_frame_handler_by_type.get(type(frame), async_noop)
         await frame_handler(frame)
 
     def _send_new_keepalive(self, data: bytes = b''):
@@ -451,9 +450,13 @@ class RSocketBase(RSocket, RSocketInternal):
         await self._close_transport()
 
     async def _stop_tasks(self):
+        logger().info('Cleaning up RSocket')  # todo: debug
+
         self._is_closing = True
         await cancel_if_task_exists(self._sender_task)
+        self._sender_task = None
         await cancel_if_task_exists(self._receiver_task)
+        self._receiver_task = None
 
     async def _close_transport(self):
         if self._current_transport().done():

@@ -15,7 +15,7 @@ from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import single_transport_provider, utf8_decode
 from rsocket.payload import Payload
-from rsocket.reactivex.back_pressure_publisher import from_async_generator, queue_to_async_generator
+from rsocket.reactivex.back_pressure_publisher import observable_from_queue, from_observable_with_backpressure
 from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
@@ -39,8 +39,10 @@ class ChatClient:
         self._listen_task: Optional[Task] = None
         self._statistics_task: Optional[Task] = None
         self._session_id: Optional[str] = None
+        self._username: Optional[str] = None
 
     async def login(self, username: str):
+        self._username = username
         payload = Payload(ensure_bytes(username), composite(route('login')))
         self._session_id = (await self._rsocket.request_response(payload)).data
         return self
@@ -58,7 +60,7 @@ class ChatClient:
     def listen_for_messages(self):
         def print_message(data: bytes):
             message = Message(**json.loads(data))
-            print(f'{message.user} ({message.channel}): {message.content}')
+            print(f'{self._username}: from {message.user} ({message.channel}): {message.content}')
 
         async def listen_for_messages():
             await ReactiveXClient(self._rsocket).request_stream(Payload(metadata=composite(
@@ -91,7 +93,8 @@ class ChatClient:
                         metadata=composite(
                             route('statistics')
                         )),
-                observable=from_async_generator(queue_to_async_generator(control.queue))
+                observable=from_observable_with_backpressure(
+                    lambda backpressure: observable_from_queue(control.queue, backpressure))
             ).pipe(
                 operators.do_action(on_next=lambda value: print_statistics(value.data),
                                     on_error=lambda exception: print(exception)))
@@ -120,8 +123,15 @@ class ChatClient:
         )))
 
     async def download(self, file_name):
-        return await self._rsocket.request_response(Payload(
-            metadata=composite(route('file.download'), metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
+        request = Payload(metadata=composite(
+            route('file.download'),
+            metadata_item(ensure_bytes(file_name), chat_filename_mimetype))
+        )
+
+        return await ReactiveXClient(self._rsocket).request_response(request).pipe(
+            operators.map(lambda _:_.data),
+            operators.last()
+        )
 
     async def list_files(self) -> List[str]:
         request = Payload(metadata=composite(route('files')))
@@ -149,51 +159,63 @@ async def main():
         async with RSocketClient(single_transport_provider(TransportTCP(*connection2)),
                                  metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
                                  fragment_size_bytes=1_000_000) as client2:
-
             user1 = ChatClient(client1)
             user2 = ChatClient(client2)
 
             await user1.login('user1')
             await user2.login('user2')
 
-            user1.listen_for_messages()
-            user2.listen_for_messages()
+            await messaging_example(user1, user2)
+            await statistics_example(user1)
+            await files_example(user1, user2)
 
-            await user1.join('channel1')
-            await user2.join('channel1')
 
-            await user1.send_statistics()
+async def messaging_example(user1, user2):
+    user1.listen_for_messages()
+    user2.listen_for_messages()
 
-            statistics_control = user1.listen_for_statistics()
-            await asyncio.sleep(5)
+    await user1.join('channel1')
+    await user2.join('channel1')
 
-            statistics_control.set_requested_statistics(['users'])
-            await asyncio.sleep(5)
-            user1.stop_listening_for_statistics()
+    print(f'Channels: {await user1.list_channels()}')
 
-            print(f'Files: {await user1.list_files()}')
-            print(f'Channels: {await user1.list_channels()}')
+    await user1.private_message('user2', 'private message from user1')
+    await user1.channel_message('channel1', 'channel message from user1')
 
-            await user1.private_message('user2', 'private message from user1')
-            await user1.channel_message('channel1', 'channel message from user1')
+    await asyncio.sleep(1)
 
-            file_contents = b'abcdefg1234567'
-            file_name = 'file_name_1.txt'
-            await user1.upload(file_name, file_contents)
+    user1.stop_listening_for_messages()
+    user2.stop_listening_for_messages()
 
-            print(f'Files: {await user1.list_files()}')
 
-            download = await user2.download(file_name)
+async def files_example(user1, user2):
+    file_contents = b'abcdefg1234567'
+    file_name = 'file_name_1.txt'
 
-            if download.data != file_contents:
-                raise Exception('File download failed')
-            else:
-                print(f'Downloaded file: {len(download.data)} bytes')
+    await user1.upload(file_name, file_contents)
 
-            await asyncio.sleep(3)
+    print(f'Files: {await user1.list_files()}')
 
-            user1.stop_listening_for_messages()
-            user2.stop_listening_for_messages()
+    download_data = await user2.download(file_name)
+
+    if download_data != file_contents:
+        raise Exception('File download failed')
+    else:
+        print(f'Downloaded file: {len(download_data)} bytes')
+
+
+async def statistics_example(user1):
+    await user1.send_statistics()
+
+    statistics_control = user1.listen_for_statistics()
+
+    await asyncio.sleep(5)
+
+    statistics_control.set_requested_statistics(['users'])
+
+    await asyncio.sleep(5)
+
+    user1.stop_listening_for_statistics()
 
 
 if __name__ == '__main__':

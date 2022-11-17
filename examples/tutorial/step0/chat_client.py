@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from rsocket.helpers import single_transport_provider, utf8_decode
 from rsocket.payload import Payload
@@ -16,4 +17,5 @@ async def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     asyncio.run(main())

@@ -14,6 +14,7 @@ from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.reactivex.reactivex_client import ReactiveXClient
+from rsocket.streams.empty_stream import EmptyStream
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 
 
@@ -41,6 +42,24 @@ async def test_rx_support_request_stream_properly_finished(pipe: Tuple[RSocketSe
     assert received_messages[0] == b'Feed Item: 0'
     assert received_messages[1] == b'Feed Item: 1'
     assert received_messages[2] == b'Feed Item: 2'
+
+
+async def test_rx_support_request_stream_empty_stream(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+
+    class Handler(BaseRequestHandler):
+        async def request_stream(self, payload: Payload) -> Publisher:
+            return EmptyStream()
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = ReactiveXClient(client)
+    received_messages = await rx_client.request_stream(Payload(b'request text'),
+                                                       request_limit=2).pipe(
+        operators.to_list()
+    )
+
+    assert len(received_messages) == 0
 
 
 async def test_rx_support_request_stream_immediate_complete(pipe: Tuple[RSocketServer, RSocketClient]):
@@ -86,6 +105,23 @@ async def test_rx_support_request_response_properly_finished(pipe: Tuple[RSocket
     )
 
     assert received_message == b'Response'
+
+
+async def test_rx_support_request_response_empty_response(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = pipe
+
+    class Handler(BaseRequestHandler):
+        async def request_response(self, payload: Payload) -> Future:
+            return create_future(Payload())
+
+    server.set_handler_using_factory(Handler)
+
+    rx_client = ReactiveXClient(client)
+    received_message = await rx_client.request_response(Payload(b'request text')).pipe(
+        operators.single_or_default(None)
+    )
+
+    assert received_message is None
 
 
 async def test_rx_support_request_channel_properly_finished(pipe: Tuple[RSocketServer, RSocketClient]):

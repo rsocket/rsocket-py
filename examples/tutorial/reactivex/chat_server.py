@@ -5,29 +5,31 @@ import uuid
 from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set
-
+from typing import Dict, Optional, Set, Callable
+from weakref import WeakValueDictionary, WeakSet
 import reactivex
-from reactivex import Observable
+from more_itertools import first
+from reactivex import Observable, operators, Subject, Observer
 
 from examples.tutorial.reactivex.models import (Message, chat_filename_mimetype, ClientStatistics,
                                                 ServerStatisticsRequest, ServerStatistics, dataclass_to_payload)
-from reactivestreams.publisher import DefaultPublisher
-from reactivestreams.subscriber import Subscriber, DefaultSubscriber
-from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode
 from rsocket.payload import Payload
-from rsocket.reactivex.from_rsocket_publisher import from_rsocket_publisher
+from rsocket.reactivex.back_pressure_publisher import (from_observable_with_backpressure, observable_from_queue,
+                                                       observable_from_async_generator)
 from rsocket.reactivex.reactivex_channel import ReactivexChannel
 from rsocket.reactivex.reactivex_handler_adapter import reactivex_handler_factory
-from rsocket.reactivex.subscriber_adapter import SubscriberAdapter
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
+
+
+class SessionId(str):  # allow weak reference
+    pass
 
 
 @dataclass()
@@ -36,14 +38,15 @@ class UserSessionData:
     session_id: str
     messages: Queue = field(default_factory=Queue)
     statistics: Optional[ClientStatistics] = None
+    requested_statistics: ServerStatisticsRequest = field(default_factory=ServerStatisticsRequest)
 
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
+    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(WeakSet))
     files: Dict[str, bytes] = field(default_factory=dict)
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=dict)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
@@ -51,7 +54,7 @@ chat_data = ChatData()
 
 def ensure_channel_exists(channel_name):
     if channel_name not in chat_data.channel_users:
-        chat_data.channel_users[channel_name] = set()
+        chat_data.channel_users[channel_name] = WeakSet()
         chat_data.channel_messages[channel_name] = Queue()
         asyncio.create_task(channel_message_delivery(channel_name))
 
@@ -74,6 +77,23 @@ def get_file_name(composite_metadata):
     return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
+def find_session_by_username(username: str) -> Optional[UserSessionData]:
+    return first((session for session in chat_data.user_session_by_id.values() if
+                  session.username == username), None)
+
+
+def new_statistics_data(requested_statistics: ServerStatisticsRequest):
+    statistics_data = {}
+
+    if 'users' in requested_statistics.ids:
+        statistics_data['user_count'] = len(chat_data.user_session_by_id)
+
+    if 'channels' in requested_statistics.ids:
+        statistics_data['channel_count'] = len(chat_data.channel_messages)
+
+    return ServerStatistics(**statistics_data)
+
+
 class ChatUserSession:
 
     def __init__(self):
@@ -90,11 +110,11 @@ class ChatUserSession:
         async def login(payload: Payload) -> Observable:
             username = utf8_decode(payload.data)
             logging.info(f'New user: {username}')
-            session_id = str(uuid.uuid4())
+            session_id = SessionId(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
 
-            return reactivex.of(Payload(ensure_bytes(session_id)))
+            return reactivex.just(Payload(ensure_bytes(session_id)))
 
         @router.response('channel.join')
         async def join_channel(payload: Payload) -> Observable:
@@ -117,12 +137,19 @@ class ChatUserSession:
         @router.response('file.download')
         async def download_file(composite_metadata: CompositeMetadata) -> Observable:
             file_name = get_file_name(composite_metadata)
-            return reactivex.of(Payload(chat_data.files[file_name],
-                                        composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
+            return reactivex.just(Payload(chat_data.files[file_name],
+                                          composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype))))
 
         @router.stream('files')
-        async def get_file_names() -> Observable:
-            return reactivex.from_iterable((Payload(ensure_bytes(file_name)) for file_name in chat_data.files.keys()))
+        async def get_file_names() -> Callable[[Subject], Observable]:
+            async def generator():
+                for file_name in chat_data.files.keys():
+                    yield file_name
+
+            return from_observable_with_backpressure(
+                lambda backpressure: observable_from_async_generator(generator(), backpressure).pipe(
+                    operators.map(lambda file_name: Payload(ensure_bytes(file_name)))
+                ))
 
         @router.stream('channels')
         async def get_channels() -> Observable:
@@ -140,95 +167,60 @@ class ChatUserSession:
         @router.channel('statistics')
         async def send_statistics() -> ReactivexChannel:
 
-            class StatisticsChannel(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
+            async def statistics_generator():
+                while True:
+                    try:
+                        await asyncio.sleep(self._session.requested_statistics.period_seconds)
+                        yield new_statistics_data(self._session.requested_statistics)
+                    except Exception:
+                        logging.error('Statistics', exc_info=True)
 
-                def __init__(self, session: UserSessionData):
-                    super().__init__()
-                    self._session = session
-                    self._requested_statistics = ServerStatisticsRequest()
+            def on_next(value: Payload):
+                request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
 
-                def cancel(self):
-                    self._sender.cancel()
+                logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
 
-                def subscribe(self, subscriber: Subscriber):
-                    super().subscribe(subscriber)
-                    subscriber.on_subscribe(self)
-                    self._sender = asyncio.create_task(self._statistics_sender())
+                if request.ids is not None:
+                    self._session.requested_statistics.ids = request.ids
 
-                async def _statistics_sender(self):
-                    while True:
-                        try:
-                            await asyncio.sleep(self._requested_statistics.period_seconds)
-                            next_message = self.new_statistics_data()
+                if request.period_seconds is not None:
+                    self._session.requested_statistics.period_seconds = request.period_seconds
 
-                            self._subscriber.on_next(dataclass_to_payload(next_message))
-                        except Exception:
-                            logging.error('Statistics', exc_info=True)
-
-                def new_statistics_data(self):
-                    statistics_data = {}
-
-                    if 'users' in self._requested_statistics.ids:
-                        statistics_data['user_count'] = len(chat_data.user_session_by_id)
-
-                    if 'channels' in self._requested_statistics.ids:
-                        statistics_data['channel_count'] = len(chat_data.channel_messages)
-
-                    return ServerStatistics(**statistics_data)
-
-                def on_next(self, value: Payload, is_complete=False):
-                    request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
-
-                    logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
-
-                    if request.ids is not None:
-                        self._requested_statistics.ids = request.ids
-
-                    if request.period_seconds is not None:
-                        self._requested_statistics.period_seconds = request.period_seconds
-
-            response = StatisticsChannel(self._session)
-
-            return ReactivexChannel(from_rsocket_publisher(response),
-                                    SubscriberAdapter(response),
-                                    limit_rate=2)
+            return ReactivexChannel(
+                from_observable_with_backpressure(
+                    lambda backpressure: observable_from_async_generator(
+                        statistics_generator(), backpressure
+                    ).pipe(
+                        operators.map(dataclass_to_payload)
+                    )),
+                Observer(on_next=on_next),
+                limit_rate=2)
 
         @router.response('message')
         async def send_message(payload: Payload) -> Observable:
             message = Message(**json.loads(payload.data))
 
-            if message.channel is not None:
-                channel_message = Message(self._session.username, message.content, message.channel)
-                await chat_data.channel_messages[message.channel].put(channel_message)
-            elif message.user is not None:
-                sessions = [session for session in chat_data.user_session_by_id.values() if
-                            session.username == message.user]
+            logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
 
-                if len(sessions) > 0:
-                    await sessions[0].messages.put(message)
+            target_message = Message(self._session.username, message.content, message.channel)
+
+            if message.channel is not None:
+                await chat_data.channel_messages[message.channel].put(target_message)
+            elif message.user is not None:
+                session = find_session_by_username(message.user)
+                await session.messages.put(target_message)
 
             return reactivex.empty()
 
         @router.stream('messages.incoming')
-        async def messages_incoming() -> Observable:
-            class MessagePublisher(DefaultPublisher, DefaultSubscription):
-                def __init__(self, session: UserSessionData):
-                    self._session = session
-
-                def cancel(self):
-                    self._sender.cancel()
-
-                def subscribe(self, subscriber: Subscriber):
-                    super(MessagePublisher, self).subscribe(subscriber)
-                    subscriber.on_subscribe(self)
-                    self._sender = asyncio.create_task(self._message_sender())
-
-                async def _message_sender(self):
-                    while True:
-                        next_message = await self._session.messages.get()
-                        self._subscriber.on_next(dataclass_to_payload(next_message))
-
-            return from_rsocket_publisher(MessagePublisher(self._session))
+        async def messages_incoming() -> Callable[[Subject], Observable]:
+            return from_observable_with_backpressure(
+                lambda backpressure: observable_from_queue(
+                    self._session.messages, backpressure
+                ).pipe(
+                    operators.map(dataclass_to_payload)
+                )
+            )
 
         return router
 

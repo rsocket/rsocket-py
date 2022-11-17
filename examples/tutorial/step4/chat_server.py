@@ -6,6 +6,9 @@ from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
+from weakref import WeakValueDictionary, WeakSet
+
+from more_itertools import first
 
 from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
@@ -19,23 +22,28 @@ from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
+from rsocket.streams.empty_stream import EmptyStream
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
+
+
+class SessionId(str):  # allow weak reference
+    pass
 
 
 @dataclass()
 class UserSessionData:
     username: str
-    session_id: str
+    session_id: SessionId
     messages: Queue = field(default_factory=Queue)
 
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
+    channel_users: Dict[str, Set[SessionId]] = field(default_factory=lambda: defaultdict(WeakSet))
     files: Dict[str, bytes] = field(default_factory=dict)
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=dict)
+    user_session_by_id: Dict[SessionId, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
@@ -43,7 +51,7 @@ chat_data = ChatData()
 
 def ensure_channel_exists(channel_name: str):
     if channel_name not in chat_data.channel_users:
-        chat_data.channel_users[channel_name] = set()
+        chat_data.channel_users[channel_name] = WeakSet()
         chat_data.channel_messages[channel_name] = Queue()
         asyncio.create_task(channel_message_delivery(channel_name))
 
@@ -66,6 +74,18 @@ def get_file_name(composite_metadata):
     return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
+def find_session_by_username(username: str) -> Optional[UserSessionData]:
+    return first((session for session in chat_data.user_session_by_id.values() if
+                  session.username == username), None)
+
+
+def find_username_by_session(session_id: SessionId) -> Optional[str]:
+    session = chat_data.user_session_by_id.get(session_id)
+    if session is None:
+        return None
+    return session.username
+
+
 class ChatUserSession:
 
     def __init__(self):
@@ -82,7 +102,7 @@ class ChatUserSession:
         async def login(payload: Payload) -> Awaitable[Payload]:
             username = utf8_decode(payload.data)
             logging.info(f'New user: {username}')
-            session_id = str(uuid.uuid4())
+            session_id = SessionId(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
 
@@ -100,6 +120,20 @@ class ChatUserSession:
             channel_name = payload.data.decode('utf-8')
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
+
+        @router.stream('channel.users')
+        async def get_channel_users(payload: Payload) -> Publisher:
+            channel_name = utf8_decode(payload.data)
+
+            if channel_name not in chat_data.channel_users:
+                return EmptyStream()
+
+            count = len(chat_data.channel_users[channel_name])
+            generator = ((Payload(ensure_bytes(find_username_by_session(session_id))), index == count) for
+                         (index, session_id) in
+                         enumerate(chat_data.channel_users[channel_name], 1))
+
+            return StreamFromGenerator(lambda: generator)
 
         @router.response('file.upload')
         async def upload_file(payload: Payload, composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
@@ -130,15 +164,15 @@ class ChatUserSession:
         async def send_message(payload: Payload) -> Awaitable[Payload]:
             message = Message(**json.loads(payload.data))
 
-            if message.channel is not None:
-                channel_message = Message(self._session.username, message.content, message.channel)
-                await chat_data.channel_messages[message.channel].put(channel_message)
-            elif message.user is not None:
-                sessions = [session for session in chat_data.user_session_by_id.values() if
-                            session.username == message.user]
+            logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
 
-                if len(sessions) > 0:
-                    await sessions[0].messages.put(message)
+            target_message = Message(self._session.username, message.content, message.channel)
+
+            if message.channel is not None:
+                await chat_data.channel_messages[message.channel].put(target_message)
+            elif message.user is not None:
+                session = find_session_by_username(message.user)
+                await session.messages.put(target_message)
 
             return create_response()
 

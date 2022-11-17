@@ -20,16 +20,18 @@ class ChatClient:
         self._rsocket = rsocket
         self._message_subscriber: Optional = None
         self._session_id: Optional[str] = None
+        self._username: Optional[str] = None
 
     async def login(self, username: str):
+        self._username = username
         payload = Payload(ensure_bytes(username), composite(route('login')))
         self._session_id = (await self._rsocket.request_response(payload)).data
         return self
 
     def listen_for_messages(self):
-        def print_message(data):
+        def print_message(data: bytes):
             message = Message(**json.loads(data))
-            print(f'{message.user} : {message.content}')
+            print(f'{self._username}: from {message.user}: {message.content}')
 
         class MessageListener(DefaultSubscriber, DefaultSubscription):
             def __init__(self):
@@ -80,13 +82,19 @@ async def main():
             await user1.login('user1')
             await user2.login('user2')
 
-            user2.listen_for_messages()
+            await messaging_example(user1, user2)
 
-            await user1.private_message('user2', 'private message from user1')
 
-            await asyncio.sleep(3)
+async def messaging_example(user1: ChatClient, user2: ChatClient):
+    user1.listen_for_messages()
+    user2.listen_for_messages()
 
-            user2.stop_listening_for_messages()
+    await user1.private_message('user2', 'private message from user1')
+
+    await asyncio.sleep(1)
+
+    user1.stop_listening_for_messages()
+    user2.stop_listening_for_messages()
 
 
 if __name__ == '__main__':

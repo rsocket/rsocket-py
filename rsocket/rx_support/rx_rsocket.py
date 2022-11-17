@@ -1,13 +1,16 @@
 import asyncio
-from typing import Optional
+from asyncio import Future
+from typing import Optional, cast, Union, Callable
 
 import rx
-from rx import Observable
+from rx import Observable, operators
+from rx.core.typing import Subject
 
 from rsocket.frame import MAX_REQUEST_N
+from rsocket.helpers import is_non_empty_payload
 from rsocket.payload import Payload
+from rsocket.rx_support.back_pressure_publisher import observable_to_publisher
 from rsocket.rsocket import RSocket
-from rsocket.rx_support.back_pressure_publisher import BackPressurePublisher
 from rsocket.rx_support.from_rsocket_publisher import from_rsocket_publisher
 
 
@@ -20,28 +23,27 @@ class RxRSocket:
         return from_rsocket_publisher(response_publisher, request_limit)
 
     def request_response(self, request: Payload) -> Observable:
-        return rx.from_future(self._rsocket.request_response(request))
+        return rx.from_future(cast(Future, self._rsocket.request_response(request))).pipe(
+            operators.filter(is_non_empty_payload)
+        )
 
     def request_channel(self,
                         request: Payload,
                         request_limit: int = MAX_REQUEST_N,
-                        observable: Optional[Observable] = None,
+                        observable: Optional[Union[Observable, Callable[[Subject], Observable]]] = None,
                         sending_done: Optional[asyncio.Event] = None) -> Observable:
-        if observable is not None:
-            requester_publisher = BackPressurePublisher(observable)
-        else:
-            requester_publisher = None
+        requester_publisher = observable_to_publisher(observable)
 
         response_publisher = self._rsocket.request_channel(
             request, requester_publisher, sending_done
         ).initial_request_n(request_limit)
         return from_rsocket_publisher(response_publisher, request_limit)
 
-    def fire_and_forget(self, request: Payload) -> rx.Observable:
-        return rx.from_future(self._rsocket.fire_and_forget(request))
+    def fire_and_forget(self, request: Payload) -> Observable:
+        return rx.from_future(cast(Future, self._rsocket.fire_and_forget(request)))
 
-    def metadata_push(self, metadata: bytes) -> rx.Observable:
-        return rx.from_future(self._rsocket.metadata_push(metadata))
+    def metadata_push(self, metadata: bytes) -> Observable:
+        return rx.from_future(cast(Future, self._rsocket.metadata_push(metadata)))
 
     async def connect(self):
         return await self._rsocket.connect()

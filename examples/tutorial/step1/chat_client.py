@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Optional
 
 from rsocket.extensions.helpers import composite, route
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
@@ -13,8 +14,10 @@ from rsocket.transports.tcp import TransportTCP
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
+        self._username: Optional[str] = None
 
     async def login(self, username: str):
+        self._username = username
         payload = Payload(ensure_bytes(username), composite(route('login')))
         response = await self._rsocket.request_response(payload)
         print(f'Server response: {utf8_decode(response.data)}')

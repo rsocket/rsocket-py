@@ -1,9 +1,10 @@
 from abc import abstractmethod
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Union, Callable
 
 import rx
 from rx import Observable
+from rx.core.typing import Subject
 
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.composite_metadata import CompositeMetadata
@@ -39,7 +40,7 @@ class RxHandler:
         ...
 
     @abstractmethod
-    async def request_stream(self, payload: Payload) -> Observable:
+    async def request_stream(self, payload: Payload) -> Union[Observable, Callable[[Subject], Observable]]:
         ...
 
     @abstractmethod
@@ -93,8 +94,8 @@ class BaseRxHandler(RxHandler):
     async def on_keepalive_timeout(self, time_since_last_keepalive: timedelta, rsocket):
         pass
 
-    async def on_connection_error(self, rsocket, exception: Exception):
+    async def on_close(self, rsocket, exception: Optional[Exception] = None):
         pass
 
-    async def on_close(self, rsocket, exception: Optional[Exception] = None):
+    async def on_connection_error(self, rsocket, exception: Exception):
         pass

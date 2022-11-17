@@ -15,7 +15,7 @@ from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.extensions.helpers import composite, metadata_item
+from rsocket.extensions.helpers import composite, metadata_item, route
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
@@ -24,6 +24,7 @@ from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
+
 
 class SessionId(str):  # allow weak reference
     pass
@@ -254,10 +255,13 @@ def handler_factory():
 
 
 async def run_server():
-    def session(*connection):
-        RSocketServer(TransportTCP(*connection),
-                      handler_factory=handler_factory,
-                      fragment_size_bytes=1_000_000)
+    async def session(*connection):
+        server = RSocketServer(TransportTCP(*connection),
+                               handler_factory=handler_factory,
+                               fragment_size_bytes=1_000_000)
+
+        response = await server.request_response(Payload(metadata=composite(route('time'))))
+        print(f'Client time: {response.data}')
 
     async with await asyncio.start_server(session, 'localhost', 6565) as server:
         await server.serve_forever()

@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import logging
 import resource
@@ -15,8 +16,10 @@ from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import composite, route, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
-from rsocket.helpers import single_transport_provider, utf8_decode
+from rsocket.helpers import single_transport_provider, utf8_decode, create_response
 from rsocket.payload import Payload
+from rsocket.routing.request_router import RequestRouter
+from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
@@ -109,7 +112,6 @@ class ChatClient:
         await self._rsocket.fire_and_forget(payload)
 
     def listen_for_statistics(self) -> StatisticsHandler:
-
         self._statistics_subscriber = StatisticsHandler()
         self._rsocket.request_channel(Payload(metadata=composite(
             route('statistics')
@@ -150,18 +152,31 @@ class ChatClient:
         return list(map(lambda _: utf8_decode(_.data), response))
 
 
+router = RequestRouter()
+
+
+@router.response('time')
+def get_client_time():
+    return create_response(ensure_bytes(datetime.datetime.now().strftime('%y-%M-%d')))
+
+
+def handler_factory():
+    return RoutingRequestHandler(router)
+
+
 async def main():
     connection1 = await asyncio.open_connection('localhost', 6565)
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection1)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
-                             fragment_size_bytes=1_000_000) as client1:
+                             fragment_size_bytes=1_000_000,
+                             handler_factory=handler_factory) as client1:
         connection2 = await asyncio.open_connection('localhost', 6565)
 
         async with RSocketClient(single_transport_provider(TransportTCP(*connection2)),
                                  metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
-                                 fragment_size_bytes=1_000_000) as client2:
-
+                                 fragment_size_bytes=1_000_000,
+                                 handler_factory=handler_factory) as client2:
             user1 = ChatClient(client1)
             user2 = ChatClient(client2)
 
