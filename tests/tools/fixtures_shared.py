@@ -4,8 +4,7 @@ import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-from aioquic.quic.configuration import QuicConfiguration
-from cryptography.hazmat.primitives import serialization
+
 
 
 def generate_certificate(*, alternative_names, common_name, hash_algorithm, key):
@@ -50,11 +49,4 @@ def generate_test_certificates():
     return generate_ec_certificate(common_name="localhost")
 
 
-def quic_client_configuration(certificate, **kwargs):
-    client_configuration = QuicConfiguration(
-        is_client=True,
-        **kwargs
-    )
-    ca_data = certificate.public_bytes(serialization.Encoding.PEM)
-    client_configuration.load_verify_locations(cadata=ca_data, cafile=None)
-    return client_configuration
+

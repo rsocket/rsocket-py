@@ -88,16 +88,17 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
 
     def _cancel_feeders(self):
         self._cancel_payload_feeder()
-
         self._cancel_n_feeder()
 
     def _cancel_payload_feeder(self):
         if self._payload_feeder is not None:
             self._payload_feeder.cancel()
+            self._payload_feeder = None
 
     def _cancel_n_feeder(self):
         if self._n_feeder is not None:
             self._n_feeder.cancel()
+            self._n_feeder = None
 
     async def feed_subscriber(self):
 

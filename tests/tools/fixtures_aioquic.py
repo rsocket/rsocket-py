@@ -9,7 +9,7 @@ from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.aioquic_transport import rsocket_connect, rsocket_serve
 from tests.rsocket.helpers import assert_no_open_streams
-from tests.tools.fixtures_shared import quic_client_configuration
+from tests.tools.herlpers import quic_client_configuration
 
 
 @asynccontextmanager
