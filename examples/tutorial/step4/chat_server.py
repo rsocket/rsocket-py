@@ -14,15 +14,12 @@ from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dat
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
-from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.extensions.helpers import composite, metadata_item
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
-from rsocket.streams.empty_stream import EmptyStream
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
@@ -31,27 +28,31 @@ class SessionId(str):  # allow weak reference
     pass
 
 
-@dataclass()
+@dataclass(frozen=True)
 class UserSessionData:
     username: str
-    session_id: SessionId
+    session_id: str
     messages: Queue = field(default_factory=Queue)
 
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[SessionId]] = field(default_factory=lambda: defaultdict(WeakSet))
-    files: Dict[str, bytes] = field(default_factory=dict)
+    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(WeakSet))
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    user_session_by_id: Dict[SessionId, UserSessionData] = field(default_factory=WeakValueDictionary)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
 
 
+def find_session_by_username(username: str) -> Optional[UserSessionData]:
+    return first((session for session in chat_data.user_session_by_id.values() if
+                  session.username == username), None)
+
+
 def ensure_channel_exists(channel_name: str):
     if channel_name not in chat_data.channel_users:
-        chat_data.channel_users[channel_name] = WeakSet()
+        chat_data.channel_users[channel_name] = set()
         chat_data.channel_messages[channel_name] = Queue()
         asyncio.create_task(channel_message_delivery(channel_name))
 
@@ -74,26 +75,10 @@ def get_file_name(composite_metadata):
     return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
-def find_session_by_username(username: str) -> Optional[UserSessionData]:
-    return first((session for session in chat_data.user_session_by_id.values() if
-                  session.username == username), None)
-
-
-def find_username_by_session(session_id: SessionId) -> Optional[str]:
-    session = chat_data.user_session_by_id.get(session_id)
-    if session is None:
-        return None
-    return session.username
-
-
 class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[UserSessionData] = None
-
-    def remove(self):
-        print(f'Removing session: {self._session.session_id}')
-        del chat_data.user_session_by_id[self._session.session_id]
 
     def router_factory(self):
         router = RequestRouter()
@@ -120,38 +105,6 @@ class ChatUserSession:
             channel_name = payload.data.decode('utf-8')
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
-
-        @router.stream('channel.users')
-        async def get_channel_users(payload: Payload) -> Publisher:
-            channel_name = utf8_decode(payload.data)
-
-            if channel_name not in chat_data.channel_users:
-                return EmptyStream()
-
-            count = len(chat_data.channel_users[channel_name])
-            generator = ((Payload(ensure_bytes(find_username_by_session(session_id))), index == count) for
-                         (index, session_id) in
-                         enumerate(chat_data.channel_users[channel_name], 1))
-
-            return StreamFromGenerator(lambda: generator)
-
-        @router.response('file.upload')
-        async def upload_file(payload: Payload, composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
-            chat_data.files[get_file_name(composite_metadata)] = payload.data
-            return create_response()
-
-        @router.response('file.download')
-        async def download_file(composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
-            file_name = get_file_name(composite_metadata)
-            return create_response(chat_data.files[file_name],
-                                   composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype)))
-
-        @router.stream('files')
-        async def get_file_names() -> Publisher:
-            count = len(chat_data.files)
-            generator = ((Payload(ensure_bytes(file_name)), index == count) for (index, file_name) in
-                         enumerate(chat_data.files.keys(), 1))
-            return StreamFromGenerator(lambda: generator)
 
         @router.stream('channels')
         async def get_channels() -> Publisher:
@@ -205,10 +158,6 @@ class CustomRoutingRequestHandler(RoutingRequestHandler):
         super().__init__(session.router_factory())
         self._session = session
 
-    async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        self._session.remove()
-        return await super().on_close(rsocket, exception)
-
 
 def handler_factory():
     return CustomRoutingRequestHandler(ChatUserSession())
@@ -216,9 +165,7 @@ def handler_factory():
 
 async def run_server():
     def session(*connection):
-        RSocketServer(TransportTCP(*connection),
-                      handler_factory=handler_factory,
-                      fragment_size_bytes=1_000_000)
+        RSocketServer(TransportTCP(*connection), handler_factory=handler_factory)
 
     async with await asyncio.start_server(session, 'localhost', 6565) as server:
         await server.serve_forever()

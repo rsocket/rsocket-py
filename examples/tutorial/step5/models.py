@@ -1,6 +1,6 @@
 import json
-from dataclasses import dataclass, field
-from typing import Optional, List
+from dataclasses import dataclass
+from typing import Optional
 
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.payload import Payload
@@ -13,27 +13,10 @@ class Message:
     channel: Optional[str] = None
 
 
-@dataclass(frozen=True)
-class ServerStatistics:
-    user_count: Optional[int] = None
-    channel_count: Optional[int] = None
-
-
-@dataclass()
-class ServerStatisticsRequest:
-    ids: Optional[List[str]] = field(default_factory=lambda: ['users', 'channels'])
-    period_seconds: Optional[int] = field(default_factory=lambda: 1)
-
-
-@dataclass(frozen=True)
-class ClientStatistics:
-    memory_usage: Optional[float] = None
-
-
 chat_filename_mimetype = b'chat/file-name'
 
 
-def encode_dataclass(obj) -> bytes:
+def encode_dataclass(obj):
     return ensure_bytes(json.dumps(obj.__dict__))
 
 

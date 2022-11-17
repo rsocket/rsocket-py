@@ -5,24 +5,23 @@ import uuid
 from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set, Awaitable
+from typing import Dict, Optional, Set, Awaitable, Tuple
 from weakref import WeakValueDictionary, WeakSet
-
 from more_itertools import first
 
-from examples.tutorial.step5.models import (Message, chat_filename_mimetype, dataclass_to_payload)
+from examples.tutorial.step6.models import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
+                                            ServerStatistics, dataclass_to_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
-from reactivestreams.subscriber import Subscriber
+from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.extensions.helpers import composite, metadata_item
+from rsocket.extensions.helpers import composite, metadata_item, route
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
-from rsocket.streams.empty_stream import EmptyStream
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
@@ -30,26 +29,26 @@ from rsocket.transports.tcp import TransportTCP
 class SessionId(str):  # allow weak reference
     pass
 
-
 @dataclass()
 class UserSessionData:
     username: str
-    session_id: SessionId
+    session_id: str
     messages: Queue = field(default_factory=Queue)
+    statistics: Optional[ClientStatistics] = None
 
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[SessionId]] = field(default_factory=lambda: defaultdict(WeakSet))
+    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(WeakSet))
     files: Dict[str, bytes] = field(default_factory=dict)
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    user_session_by_id: Dict[SessionId, UserSessionData] = field(default_factory=WeakValueDictionary)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
 
 
-def ensure_channel_exists(channel_name: str):
+def ensure_channel_exists(channel_name):
     if channel_name not in chat_data.channel_users:
         chat_data.channel_users[channel_name] = WeakSet()
         chat_data.channel_messages[channel_name] = Queue()
@@ -77,13 +76,6 @@ def get_file_name(composite_metadata):
 def find_session_by_username(username: str) -> Optional[UserSessionData]:
     return first((session for session in chat_data.user_session_by_id.values() if
                   session.username == username), None)
-
-
-def find_username_by_session(session_id: SessionId) -> Optional[str]:
-    session = chat_data.user_session_by_id.get(session_id)
-    if session is None:
-        return None
-    return session.username
 
 
 class ChatUserSession:
@@ -121,20 +113,6 @@ class ChatUserSession:
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
 
-        @router.stream('channel.users')
-        async def get_channel_users(payload: Payload) -> Publisher:
-            channel_name = utf8_decode(payload.data)
-
-            if channel_name not in chat_data.channel_users:
-                return EmptyStream()
-
-            count = len(chat_data.channel_users[channel_name])
-            generator = ((Payload(ensure_bytes(find_username_by_session(session_id))), index == count) for
-                         (index, session_id) in
-                         enumerate(chat_data.channel_users[channel_name], 1))
-
-            return StreamFromGenerator(lambda: generator)
-
         @router.response('file.upload')
         async def upload_file(payload: Payload, composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
             chat_data.files[get_file_name(composite_metadata)] = payload.data
@@ -159,6 +137,68 @@ class ChatUserSession:
             generator = ((Payload(ensure_bytes(channel)), index == count) for (index, channel) in
                          enumerate(chat_data.channel_messages.keys(), 1))
             return StreamFromGenerator(lambda: generator)
+
+        @router.fire_and_forget('statistics')
+        async def receive_statistics(payload: Payload):
+            statistics = ClientStatistics(**json.loads(utf8_decode(payload.data)))
+
+            logging.info('Received client statistics. memory usage: %s', statistics.memory_usage)
+
+            self._session.statistics = statistics
+
+        @router.channel('statistics')
+        async def send_statistics() -> Tuple[Optional[Publisher], Optional[Subscriber]]:
+
+            class StatisticsChannel(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
+
+                def __init__(self, session: UserSessionData):
+                    super().__init__()
+                    self._session = session
+                    self._requested_statistics = ServerStatisticsRequest()
+
+                def cancel(self):
+                    self._sender.cancel()
+
+                def subscribe(self, subscriber: Subscriber):
+                    super().subscribe(subscriber)
+                    subscriber.on_subscribe(self)
+                    self._sender = asyncio.create_task(self._statistics_sender())
+
+                async def _statistics_sender(self):
+                    while True:
+                        try:
+                            await asyncio.sleep(self._requested_statistics.period_seconds)
+                            next_message = self.new_statistics_data()
+
+                            self._subscriber.on_next(dataclass_to_payload(next_message))
+                        except Exception:
+                            logging.error('Statistics', exc_info=True)
+
+                def new_statistics_data(self):
+                    statistics_data = {}
+
+                    if 'users' in self._requested_statistics.ids:
+                        statistics_data['user_count'] = len(chat_data.user_session_by_id)
+
+                    if 'channels' in self._requested_statistics.ids:
+                        statistics_data['channel_count'] = len(chat_data.channel_messages)
+
+                    return ServerStatistics(**statistics_data)
+
+                def on_next(self, value: Payload, is_complete=False):
+                    request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
+
+                    logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
+
+                    if request.ids is not None:
+                        self._requested_statistics.ids = request.ids
+
+                    if request.period_seconds is not None:
+                        self._requested_statistics.period_seconds = request.period_seconds
+
+            response = StatisticsChannel(self._session)
+
+            return response, response
 
         @router.response('message')
         async def send_message(payload: Payload) -> Awaitable[Payload]:
@@ -215,10 +255,13 @@ def handler_factory():
 
 
 async def run_server():
-    def session(*connection):
-        RSocketServer(TransportTCP(*connection),
-                      handler_factory=handler_factory,
-                      fragment_size_bytes=1_000_000)
+    async def session(*connection):
+        server = RSocketServer(TransportTCP(*connection),
+                               handler_factory=handler_factory,
+                               fragment_size_bytes=1_000_000)
+
+        response = await server.request_response(Payload(metadata=composite(route('time'))))
+        print(f'Client time: {response.data}')
 
     async with await asyncio.start_server(session, 'localhost', 6565) as server:
         await server.serve_forever()
