@@ -1,14 +1,9 @@
 import asyncio
 import json
 import logging
-import resource
-from asyncio import Event
-from datetime import timedelta
 from typing import List, Optional
 
-from examples.tutorial.step5.models import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
-                                            ServerStatisticsRequest, encode_dataclass, dataclass_to_payload)
-from reactivestreams.publisher import DefaultPublisher
+from examples.tutorial.step5.models import Message, chat_filename_mimetype, encode_dataclass
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
@@ -21,35 +16,10 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.tcp import TransportTCP
 
 
-class StatisticsHandler(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
-
-    def __init__(self):
-        super().__init__()
-        self.done = Event()
-
-    def on_next(self, value: Payload, is_complete=False):
-        statistics = ServerStatistics(**json.loads(utf8_decode(value.data)))
-        print(statistics)
-
-        if is_complete:
-            self.done.set()
-
-    def cancel(self):
-        self.subscription.cancel()
-
-    def set_requested_statistics(self, ids: List[str]):
-        self._subscriber.on_next(dataclass_to_payload(ServerStatisticsRequest(ids=ids)))
-
-    def set_period(self, period: timedelta):
-        self._subscriber.on_next(
-            dataclass_to_payload(ServerStatisticsRequest(period_seconds=int(period.total_seconds()))))
-
-
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
         self._message_subscriber: Optional = None
-        self._statistics_subscriber: Optional[StatisticsHandler] = None
         self._session_id: Optional[str] = None
         self._username: Optional[str] = None
 
@@ -68,6 +38,11 @@ class ChatClient:
         request = Payload(ensure_bytes(channel_name), composite(route('channel.leave')))
         await self._rsocket.request_response(request)
         return self
+
+    async def get_users(self, channel_name: str) -> List[str]:
+        request = Payload(ensure_bytes(channel_name), composite(route('channel.users')))
+        users = await AwaitableRSocket(self._rsocket).request_stream(request)
+        return [utf8_decode(user.data) for user in users]
 
     def listen_for_messages(self):
         def print_message(data: bytes):
@@ -101,23 +76,6 @@ class ChatClient:
 
     def stop_listening_for_messages(self):
         self._message_subscriber.cancel()
-
-    async def send_statistics(self):
-        memory_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        payload = Payload(encode_dataclass(ClientStatistics(memory_usage=memory_usage)),
-                          metadata=composite(route('statistics')))
-        await self._rsocket.fire_and_forget(payload)
-
-    def listen_for_statistics(self) -> StatisticsHandler:
-
-        self._statistics_subscriber = StatisticsHandler()
-        self._rsocket.request_channel(Payload(metadata=composite(
-            route('statistics')
-        )), publisher=self._statistics_subscriber).subscribe(self._statistics_subscriber)
-        return self._statistics_subscriber
-
-    def stop_listening_for_statistics(self):
-        self._statistics_subscriber.cancel()
 
     async def private_message(self, username: str, content: str):
         print(f'Sending {content} to user {username}')
@@ -161,7 +119,6 @@ async def main():
         async with RSocketClient(single_transport_provider(TransportTCP(*connection2)),
                                  metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
                                  fragment_size_bytes=1_000_000) as client2:
-
             user1 = ChatClient(client1)
             user2 = ChatClient(client2)
 
@@ -169,29 +126,34 @@ async def main():
             await user2.login('user2')
 
             await messaging_example(user1, user2)
-            await statistics_example(user1)
             await files_example(user1, user2)
 
 
-async def messaging_example(user1, user2):
+async def messaging_example(user1: ChatClient, user2: ChatClient):
     user1.listen_for_messages()
     user2.listen_for_messages()
 
-    await user1.join('channel1')
-    await user2.join('channel1')
+    channel_name = 'channel1'
+
+    await user1.join(channel_name)
+    await user2.join(channel_name)
 
     print(f'Channels: {await user1.list_channels()}')
+    print(f'Channel {channel_name} users: {await user1.get_users(channel_name)}')
 
     await user1.private_message('user2', 'private message from user1')
-    await user1.channel_message('channel1', 'channel message from user1')
+    await user1.channel_message(channel_name, 'channel message from user1')
 
     await asyncio.sleep(1)
+
+    await user1.leave(channel_name)
+    print(f'Channel {channel_name} users: {await user1.get_users(channel_name)}')
 
     user1.stop_listening_for_messages()
     user2.stop_listening_for_messages()
 
 
-async def files_example(user1, user2):
+async def files_example(user1: ChatClient, user2: ChatClient):
     file_contents = b'abcdefg1234567'
     file_name = 'file_name_1.txt'
 
@@ -205,20 +167,6 @@ async def files_example(user1, user2):
         raise Exception('File download failed')
     else:
         print(f'Downloaded file: {len(download.data)} bytes')
-
-
-async def statistics_example(user1):
-    await user1.send_statistics()
-
-    statistics_control = user1.listen_for_statistics()
-
-    await asyncio.sleep(5)
-
-    statistics_control.set_requested_statistics(['users'])
-
-    await asyncio.sleep(5)
-
-    user1.stop_listening_for_statistics()
 
 
 if __name__ == '__main__':

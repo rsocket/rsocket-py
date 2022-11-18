@@ -1,16 +1,14 @@
 import asyncio
-import json
 import logging
 import uuid
 from asyncio import Queue
-from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set, Awaitable
-from weakref import WeakValueDictionary, WeakSet
+from typing import Dict, Optional, Awaitable
+from weakref import WeakValueDictionary
 
 from more_itertools import first
 
-from examples.tutorial.step3.models import (Message, chat_filename_mimetype, dataclass_to_payload)
+from examples.tutorial.step3.models import Message, dataclass_to_payload, decode_dataclass
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -20,7 +18,6 @@ from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
-from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
 
@@ -37,8 +34,6 @@ class UserSessionData:
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(WeakSet))
-    channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
     user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
@@ -48,31 +43,6 @@ chat_data = ChatData()
 def find_session_by_username(username: str) -> Optional[UserSessionData]:
     return first((session for session in chat_data.user_session_by_id.values() if
                   session.username == username), None)
-
-
-def ensure_channel_exists(channel_name: str):
-    if channel_name not in chat_data.channel_users:
-        chat_data.channel_users[channel_name] = set()
-        chat_data.channel_messages[channel_name] = Queue()
-        asyncio.create_task(channel_message_delivery(channel_name))
-
-
-async def channel_message_delivery(channel_name: str):
-    logging.info('Starting channel delivery %s', channel_name)
-    while True:
-        try:
-            message = await chat_data.channel_messages[channel_name].get()
-            for session_id in chat_data.channel_users[channel_name]:
-                user_specific_message = Message(user=message.user,
-                                                content=message.content,
-                                                channel=channel_name)
-                chat_data.user_session_by_id[session_id].messages.put_nowait(user_specific_message)
-        except Exception as exception:
-            logging.error(str(exception), exc_info=True)
-
-
-def get_file_name(composite_metadata):
-    return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
 
 
 class ChatUserSession:
@@ -86,46 +56,26 @@ class ChatUserSession:
         @router.response('login')
         async def login(payload: Payload) -> Awaitable[Payload]:
             username = utf8_decode(payload.data)
+
             logging.info(f'New user: {username}')
+
             session_id = SessionId(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
 
             return create_response(ensure_bytes(session_id))
 
-        @router.response('channel.join')
-        async def join_channel(payload: Payload) -> Awaitable[Payload]:
-            channel_name = payload.data.decode('utf-8')
-            ensure_channel_exists(channel_name)
-            chat_data.channel_users[channel_name].add(self._session.session_id)
-            return create_response()
-
-        @router.response('channel.leave')
-        async def leave_channel(payload: Payload) -> Awaitable[Payload]:
-            channel_name = payload.data.decode('utf-8')
-            chat_data.channel_users[channel_name].discard(self._session.session_id)
-            return create_response()
-
-        @router.stream('channels')
-        async def get_channels() -> Publisher:
-            count = len(chat_data.channel_messages)
-            generator = ((Payload(ensure_bytes(channel)), index == count) for (index, channel) in
-                         enumerate(chat_data.channel_messages.keys(), 1))
-            return StreamFromGenerator(lambda: generator)
-
         @router.response('message')
         async def send_message(payload: Payload) -> Awaitable[Payload]:
-            message = Message(**json.loads(payload.data))
+            message = decode_dataclass(payload, Message)
 
-            logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
+            logging.info('Received message for user: %s', message.user)
 
-            target_message = Message(self._session.username, message.content, message.channel)
+            target_message = Message(self._session.username, message.content)
 
-            if message.channel is not None:
-                await chat_data.channel_messages[message.channel].put(target_message)
-            elif message.user is not None:
-                session = find_session_by_username(message.user)
-                await session.messages.put(target_message)
+            session = find_session_by_username(message.user)
+
+            await session.messages.put(target_message)
 
             return create_response()
 

@@ -1,16 +1,10 @@
 import asyncio
 import logging
 import uuid
-from asyncio import Queue
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Awaitable
+from weakref import WeakValueDictionary
 
-from more_itertools import first
-
-from examples.tutorial.step2.models import Message, dataclass_to_payload, decode_dataclass
-from reactivestreams.publisher import DefaultPublisher, Publisher
-from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import DefaultSubscription
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
@@ -28,20 +22,14 @@ class SessionId(str):  # allow weak reference
 class UserSessionData:
     username: str
     session_id: str
-    messages: Queue = field(default_factory=Queue)
 
 
 @dataclass(frozen=True)
 class ChatData:
-    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=dict)
+    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
-
-
-def find_session_by_username(username: str) -> Optional[UserSessionData]:
-    return first((session for session in chat_data.user_session_by_id.values() if
-                  session.username == username), None)
 
 
 class ChatUserSession:
@@ -63,41 +51,6 @@ class ChatUserSession:
             chat_data.user_session_by_id[session_id] = self._session
 
             return create_response(ensure_bytes(session_id))
-
-        @router.response('message')
-        async def send_message(payload: Payload) -> Awaitable[Payload]:
-            message = decode_dataclass(payload, Message)
-
-            logging.info('Received message for user: %s', message.user)
-
-            target_message = Message(self._session.username, message.content)
-
-            session = find_session_by_username(message.user)
-
-            await session.messages.put(target_message)
-
-            return create_response()
-
-        @router.stream('messages.incoming')
-        async def messages_incoming() -> Publisher:
-            class MessagePublisher(DefaultPublisher, DefaultSubscription):
-                def __init__(self, session: UserSessionData):
-                    self._session = session
-
-                def cancel(self):
-                    self._sender.cancel()
-
-                def subscribe(self, subscriber: Subscriber):
-                    super(MessagePublisher, self).subscribe(subscriber)
-                    subscriber.on_subscribe(self)
-                    self._sender = asyncio.create_task(self._message_sender())
-
-                async def _message_sender(self):
-                    while True:
-                        next_message = await self._session.messages.get()
-                        self._subscriber.on_next(dataclass_to_payload(next_message))
-
-            return MessagePublisher(self._session)
 
         return router
 
