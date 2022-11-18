@@ -57,6 +57,13 @@ def ensure_channel_exists(channel_name: str):
         asyncio.create_task(channel_message_delivery(channel_name))
 
 
+def find_username_by_session(session_id: SessionId) -> Optional[str]:
+    session = chat_data.user_session_by_id.get(session_id)
+    if session is None:
+        return None
+    return session.username
+
+
 async def channel_message_delivery(channel_name: str):
     logging.info('Starting channel delivery %s', channel_name)
     while True:
