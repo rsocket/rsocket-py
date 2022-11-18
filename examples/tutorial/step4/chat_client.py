@@ -45,24 +45,15 @@ class ChatClient:
             print(f'{self._username}: from {message.user} ({message.channel}): {message.content}')
 
         class MessageListener(DefaultSubscriber, DefaultSubscription):
-            def __init__(self):
-                super().__init__()
-                self.messages_done = asyncio.Event()
 
             def on_next(self, value, is_complete=False):
                 print_message(value.data)
-
-                if is_complete:
-                    self.messages_done.set()
 
             def on_error(self, exception: Exception):
                 print(exception)
 
             def cancel(self):
                 self.subscription.cancel()
-
-            def on_complete(self):
-                self.messages_done.set()
 
         self._message_subscriber = MessageListener()
         self._rsocket.request_stream(
