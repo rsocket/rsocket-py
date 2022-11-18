@@ -450,7 +450,7 @@ class RSocketBase(RSocket, RSocketInternal):
         await self._close_transport()
 
     async def _stop_tasks(self):
-        logger().info('Cleaning up RSocket')  # todo: debug
+        logger().debug('%s: Cleanup', self._log_identifier())
 
         self._is_closing = True
         await cancel_if_task_exists(self._sender_task)

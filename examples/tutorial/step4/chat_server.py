@@ -150,6 +150,20 @@ class ChatUserSession:
 
             return MessagePublisher(self._session)
 
+        @router.stream('channel.users')
+        async def get_channel_users(payload: Payload) -> Publisher:
+            channel_name = utf8_decode(payload.data)
+
+            if channel_name not in chat_data.channel_users:
+                return EmptyStream()
+
+            count = len(chat_data.channel_users[channel_name])
+            generator = ((Payload(ensure_bytes(find_username_by_session(session_id))), index == count) for
+                         (index, session_id) in
+                         enumerate(chat_data.channel_users[channel_name], 1))
+
+            return StreamFromGenerator(lambda: generator)
+
         return router
 
 
