@@ -25,8 +25,10 @@ from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
+
 class SessionId(str):  # allow weak reference
     pass
+
 
 @dataclass()
 class UserSessionData:
@@ -75,6 +77,18 @@ def get_file_name(composite_metadata):
 def find_session_by_username(username: str) -> Optional[UserSessionData]:
     return first((session for session in chat_data.user_session_by_id.values() if
                   session.username == username), None)
+
+
+def new_statistics_data(statistics_request: ServerStatisticsRequest):
+    statistics_data = {}
+
+    if 'users' in statistics_request.ids:
+        statistics_data['user_count'] = len(chat_data.user_session_by_id)
+
+    if 'channels' in statistics_request.ids:
+        statistics_data['channel_count'] = len(chat_data.channel_messages)
+
+    return ServerStatistics(**statistics_data)
 
 
 class ChatUserSession:
@@ -167,22 +181,11 @@ class ChatUserSession:
                     while True:
                         try:
                             await asyncio.sleep(self._requested_statistics.period_seconds)
-                            next_message = self.new_statistics_data()
+                            next_message = new_statistics_data(self._requested_statistics)
 
                             self._subscriber.on_next(dataclass_to_payload(next_message))
                         except Exception:
                             logging.error('Statistics', exc_info=True)
-
-                def new_statistics_data(self):
-                    statistics_data = {}
-
-                    if 'users' in self._requested_statistics.ids:
-                        statistics_data['user_count'] = len(chat_data.user_session_by_id)
-
-                    if 'channels' in self._requested_statistics.ids:
-                        statistics_data['channel_count'] = len(chat_data.channel_messages)
-
-                    return ServerStatistics(**statistics_data)
 
                 def on_next(self, value: Payload, is_complete=False):
                     request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
