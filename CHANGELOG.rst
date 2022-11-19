@@ -8,10 +8,10 @@ v0.4.5
     - **sending_done_event** renamed to **sending_done**
 - Breaking change: ReactiveX clients will remove empty payload from request_response Observable, resulting in an actually empty Observable
 - Bug fix: fixed channel stream being released prematurely when canceled by requester, and responder side still working
+- Bug fix: removed cyclic references in RSocketBase which caused old sessions not to be released
 - CollectorSubscriber : exposed subscription methods directly instead of relying on internal **subscription** variable
 - Reactivex server side request_response allowed to return reactivex.empty(). Library code will replace with empty Payload when needed
 - Added EmptyStream for use in stream and channel responses
-- Removed cyclic references in RSocketBase which caused old sessions not to be released
 - Tutorial code: release logged out users from global chat data (weak references)
 
 v0.4.4
