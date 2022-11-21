@@ -17,7 +17,7 @@ You may also install using some **extras**:
 
 | Extra      | Functionality                       |
 |------------|-------------------------------------|
-| rx (RxPy3) | ReactiveX (v3) integration          |
+| rx         | ReactiveX (v3) integration          |
 | reactivex  | ReactiveX (v4) integration          |
 | aiohttp    | Websocket transport (server/client) |
 | quart      | Websocket transport (server only)   |
