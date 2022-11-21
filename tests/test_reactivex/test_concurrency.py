@@ -36,7 +36,7 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
 
     server.set_handler_using_factory(reactivex_handler_factory(Handler))
 
-    request_1 = asyncio.create_task(measure_time(ReactiveXClient(client).request_stream(Payload(b'1000')).pipe(
+    request_1 = asyncio.create_task(measure_time(ReactiveXClient(client).request_stream(Payload(b'2000')).pipe(
         operators.map(lambda payload: payload.data),
         operators.do_action(on_next=lambda x: print(x)),
         operators.to_list()
@@ -50,4 +50,6 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
 
     results = await asyncio.gather(request_1, request_2)
 
-    print(results) # todo: assert request2 is faster than request 1
+    delta = abs(results[0] - results[1])
+
+    assert delta > 0.8
