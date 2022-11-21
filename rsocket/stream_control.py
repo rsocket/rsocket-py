@@ -3,6 +3,7 @@ from typing import Dict
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketStreamAllocationFailure, RSocketStreamIdInUse
 from rsocket.frame import CONNECTION_STREAM_ID, Frame, ErrorFrame
+from rsocket.logger import logger
 from rsocket.streams.stream_handler import StreamHandler
 
 MAX_STREAM_ID = 0x7FFFFFFF
@@ -33,6 +34,7 @@ class StreamControl:
         self._current_stream_id = (self._current_stream_id + 2) & self._maximum_stream_id
 
     def finish_stream(self, stream_id: int):
+        logger().debug('Finishing stream: %s', stream_id)
         self._streams.pop(stream_id, None)
 
     def register_stream(self, stream_id: int, handler: StreamHandler):
@@ -54,6 +56,7 @@ class StreamControl:
         return False
 
     def stop_all_streams(self, error_code=ErrorCode.CANCELED, data=b''):
+        logger().debug('Stopping all streams')
         for stream_id, stream in list(self._streams.items()):
             frame = ErrorFrame()
             frame.stream_id = stream_id

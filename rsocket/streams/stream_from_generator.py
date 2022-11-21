@@ -4,6 +4,7 @@ from datetime import timedelta
 from typing import AsyncGenerator, Tuple, Optional, Callable, Generator
 
 from reactivestreams.subscriber import Subscriber
+from rsocket.async_helpers import async_range
 from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -71,7 +72,7 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
 
     async def _generate_next_n(self, n: int) -> AsyncGenerator[Tuple[Payload, bool], None]:
         is_complete_sent = False
-        for i in range(n):
+        async for i in async_range(n):
             next_value = next(self._iteration, _finished_iterator)
 
             if next_value is _finished_iterator:

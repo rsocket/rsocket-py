@@ -29,3 +29,12 @@ def test_weak_ref():
     del a
 
     assert len(d) == 0
+
+
+async def test_range():
+    async def loop(ii):
+        for i in range(100):
+            await asyncio.sleep(0)
+            print(ii + str(i))
+
+    await asyncio.gather(loop('a'), loop('b'))
