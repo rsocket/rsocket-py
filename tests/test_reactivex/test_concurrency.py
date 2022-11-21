@@ -48,7 +48,7 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
         operators.to_list()
     )))
 
-    results = await asyncio.gather(request_1, request_2)
+    results = (await request_1, await request_2)
 
     delta = abs(results[0] - results[1])
 
