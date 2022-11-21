@@ -102,15 +102,22 @@ def observable_from_async_generator(iterator, backpressure: Subject) -> Observab
 async def observable_to_async_event_generator(observable: Observable) -> AsyncGenerator[Notification, None]:
     queue = asyncio.Queue()
 
+    completed = object()
+
     def on_next(i):
         queue.put_nowait(i)
 
     observable.pipe(materialize()).subscribe(
-        on_next=on_next
+        on_next=on_next,
+        on_completed=lambda: queue.put_nowait(completed)
     )
 
     while True:
         value = await queue.get()
+
+        if value is completed:
+            return
+
         yield value
         queue.task_done()
 
