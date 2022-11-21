@@ -2,8 +2,8 @@
 
 Python implementation of [RSocket](http://rsocket.io)
 
-| NOTE: The interface is still unstable and may be broken between minor versions<br/>See CHANGELOG for <b>Breaking Changes</b> |
-|------------------------------------------------------------------------------------------------------------------------------|
+| NOTE: The python api is not final and may be broken between minor versions<br/>See CHANGELOG for <b>Breaking Changes</b> |
+|--------------------------------------------------------------------------------------------------------------------------------|
 
 # Installation
 
@@ -13,16 +13,16 @@ The latest version from [pypi](https://pypi.org/project/rsocket/) can be install
 pip install rsocket
 ```
 
-or install any of the extras:
+You may also install using some **extras**:
 
-* rx (RxPy3)
-* reactivex (RxPy4)
-* aiohttp
-* quart
-* quic
-* cli
-
-Example:
+| Extra      | Functionality                       |
+|------------|-------------------------------------|
+| rx (RxPy3) | ReactiveX (v3) integration          |
+| reactivex  | ReactiveX (v4) integration          |
+| aiohttp    | Websocket transport (server/client) |
+| quart      | Websocket transport (server only)   |
+| quic       | QUIC transport                      |
+| cli        | Command line                        |
 
 ```shell
 pip install rsocket[reactivex]
@@ -34,7 +34,7 @@ Alternatively, download the source code, build a package:
 python3 setup.py bdist_wheel
 ```
 
-and use the resulting package from the **./dist** folder, or install locally:
+Use the resulting package from the **./dist** folder, or install locally:
 
 ```shell
 python3 setup.py install
@@ -46,13 +46,14 @@ python3 setup.py install
 
 # Examples
 
-Examples can be found in the /examples folder. It contains various server and client usages. The following is a table
-denoting which <b>client</b> example is constructed to be run against which <b>server</b> example. Some examples
-are in java to show compatibility with a different implementation. To run the java examples first build using <code>mvn package</code>.
+Examples can be found in the **/examples** folder. It contains various server and client usages. The following is a table
+denoting which client example is constructed to be run against which server example. Some examples
+are in java to show compatibility with a different implementation. To run the java examples first build using <code>mvn
+package</code>.
 
-The **examples/test_examples.py**  can be used to execute the relevant example server/client pairs.
+The **examples/test_examples.py** can be used to execute the relevant example server/client pairs.
 
-The client_springboot.py is set up to work against https://github.com/benwilcock/spring-rsocket-demo.
+client_springboot.py is set up to work against the [Spring RSocket demo](https://github.com/benwilcock/spring-rsocket-demo).
 
 | server (python)                    | server (java)           | client (python)                    | client(java)    |
 |------------------------------------|-------------------------|------------------------------------|-----------------|
