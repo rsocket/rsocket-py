@@ -161,6 +161,7 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
             try:
                 data = serialize_with_frame_size_header(frame)
                 await self._websocket.send_bytes(data)
+                await asyncio.sleep(0)
             except WebSocketDisconnect:
                 self._disconnect_event.set()
 
