@@ -9,6 +9,7 @@ v0.4.5
 - Breaking change: ReactiveX clients will remove empty payload from request_response Observable, resulting in an actually empty Observable
 - Bug fix: fixed channel stream being released prematurely when canceled by requester, and responder side still working
 - Bug fix: removed cyclic references in RSocketBase which caused old sessions not to be released
+- Bug fix: fixed ability for rxpy streams and fragmented responses to send payloads concurrently
 - CollectorSubscriber : exposed subscription methods directly instead of relying on internal **subscription** variable
 - Reactivex server side request_response allowed to return reactivex.empty(). Library code will replace with empty Payload when needed
 - Added EmptyStream for use in stream and channel responses

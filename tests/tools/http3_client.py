@@ -6,7 +6,7 @@ from aioquic.asyncio.client import connect
 from aioquic.h3.connection import H3_ALPN, ErrorCode
 
 from rsocket.transports.http3_transport import Http3TransportWebsocket, RSocketHttp3ClientProtocol
-from tests.tools.herlpers import quic_client_configuration
+from tests.tools.helpers import quic_client_configuration
 
 
 @asynccontextmanager

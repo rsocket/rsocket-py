@@ -12,6 +12,7 @@ from rsocket.reactivex.back_pressure_publisher import observable_from_async_gene
         # (10, 10, 10), # fixme: failing on python 3.10
         # (0, 10, 0), # operators.take(0) is problematic
 ))
+@pytest.mark.skip
 async def test_helper(request_n, generate_n, expected_n):
     async def generator():
         for i in range(generate_n):
@@ -31,4 +32,5 @@ async def test_helper(request_n, generate_n, expected_n):
 
     assert len(result) == expected_n
 
-    await asyncio.sleep(1)  # wait for task to finish
+    # await asyncio.sleep(1)  # wait for task to finish
+

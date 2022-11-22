@@ -11,6 +11,7 @@ from reactivex.subject import Subject
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
+from rsocket.async_helpers import async_range
 from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.logger import logger
 from rsocket.reactivex.subscriber_adapter import SubscriberAdapter
@@ -66,8 +67,12 @@ def observable_from_async_generator(iterator, backpressure: Subject) -> Observab
 
             try:
                 while True:
-                    next_n = await request_n_queue.get()
-                    for i in range(next_n):
+                    try:
+                        next_n = await request_n_queue.get()
+                    except RuntimeError:
+                        return
+
+                    async for i in async_range(next_n):
                         try:
                             value = await iterator.__anext__()
                             observer.on_next(value)
@@ -100,15 +105,23 @@ def observable_from_async_generator(iterator, backpressure: Subject) -> Observab
 async def observable_to_async_event_generator(observable: Observable) -> AsyncGenerator[Notification, None]:
     queue = asyncio.Queue()
 
+    completed = object()
+
     def on_next(i):
         queue.put_nowait(i)
 
     observable.pipe(materialize()).subscribe(
-        on_next=on_next
+        on_next=on_next,
+        on_completed=lambda: queue.put_nowait(completed)
     )
 
     while True:
         value = await queue.get()
+
+        if value is completed:
+            queue.task_done()
+            return
+
         yield value
         queue.task_done()
 
@@ -128,7 +141,7 @@ def from_async_event_iterator(iterator, backpressure: Subject) -> Observable:
             try:
                 while True:
                     next_n = await request_n_queue.get()
-                    for i in range(next_n):
+                    async for i in async_range(next_n):
                         event = await iterator.__anext__()
 
                         if isinstance(event, OnNext):

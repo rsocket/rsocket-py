@@ -43,7 +43,7 @@ class CollectorSubscriber(Subscriber, Subscription):
         else:
             if self._received_count == self._limit_rate:
                 self._received_count = 0
-            self.subscription.request(self._limit_rate)
+                self.subscription.request(self._limit_rate)
 
     def on_error(self, exception: Exception):
         self.error = exception
