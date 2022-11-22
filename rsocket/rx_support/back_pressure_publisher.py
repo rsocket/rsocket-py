@@ -116,6 +116,7 @@ async def observable_to_async_event_generator(observable: Observable) -> AsyncGe
         value = await queue.get()
 
         if value is completed:
+            queue.task_done()
             return
 
         yield value
