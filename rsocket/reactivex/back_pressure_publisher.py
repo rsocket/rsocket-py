@@ -67,7 +67,11 @@ def observable_from_async_generator(iterator, backpressure: Subject) -> Observab
 
             try:
                 while True:
-                    next_n = await request_n_queue.get()
+                    try:
+                        next_n = await request_n_queue.get()
+                    except RuntimeError:
+                        return
+
                     async for i in async_range(next_n):
                         try:
                             value = await iterator.__anext__()
@@ -119,7 +123,6 @@ async def observable_to_async_event_generator(observable: Observable) -> AsyncGe
 
         yield value
         queue.task_done()
-
 
 
 def from_async_event_generator(generator: AsyncGenerator[Notification, None], backpressure: Subject) -> Observable:
