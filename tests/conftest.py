@@ -35,7 +35,7 @@ def setup_logging(level=logging.DEBUG, use_file: bool = False):
     logging.basicConfig(level=level, handlers=handlers)
 
 
-setup_logging()
+setup_logging(logging.WARN)
 
 tested_transports = [
     'tcp',
