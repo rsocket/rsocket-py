@@ -404,7 +404,9 @@ class RSocketBase(RSocket, RSocketInternal):
         if isinstance(next_frame_source, FrameFragmentMixin):
             next_fragment = next_frame_source.get_next_fragment(transport.requires_length_header())
 
-            if not next_fragment.flags_follows:
+            if next_fragment.flags_follows:
+                self._send_queue.put_nowait(self._send_queue.get_nowait())  # cycle to next frame source in queue
+            else:
                 next_frame_source.get_next_fragment(
                     transport.requires_length_header())  # workaround to clean-up generator.
                 self._send_queue.get_nowait()

@@ -1,6 +1,5 @@
 import asyncio
-from datetime import datetime
-from typing import Tuple, Optional, Awaitable
+from typing import Tuple, Optional
 
 import reactivex
 from reactivex import operators
@@ -13,6 +12,7 @@ from rsocket.reactivex.reactivex_handler import BaseReactivexHandler
 from rsocket.reactivex.reactivex_handler_adapter import reactivex_handler_factory
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
+from tests.tools.helpers import measure_time
 
 
 class Handler(BaseReactivexHandler):
@@ -22,13 +22,8 @@ class Handler(BaseReactivexHandler):
 
     async def request_stream(self, payload: Payload):
         count = int(utf8_decode(payload.data))
-        return reactivex.from_iterable((Payload(ensure_bytes('Feed Item: {}/{}'.format(index, count))) for index in range(count)))
-
-
-async def measure_time(coroutine: Awaitable) -> float:
-    start = datetime.now()
-    await coroutine
-    return (datetime.now() - start).total_seconds()
+        return reactivex.from_iterable(
+            (Payload(ensure_bytes('Feed Item: {}/{}'.format(index, count))) for index in range(count)))
 
 
 async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
@@ -50,6 +45,6 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
 
     results = (await request_1, await request_2)
 
-    delta = abs(results[0] - results[1])
+    delta = abs(results[0].delta - results[1].delta)
 
     assert delta > 0.8
