@@ -6,7 +6,7 @@ from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import QuicEvent, StreamDataReceived, ConnectionTerminated
 
 from rsocket.exceptions import RSocketTransportError
-from rsocket.frame import Frame
+from rsocket.frame import Frame, serialize_with_frame_size_header
 from rsocket.helpers import wrap_transport_exception, cancel_if_task_exists
 from rsocket.logger import logger
 from rsocket.rsocket_server import RSocketServer
@@ -63,7 +63,7 @@ class RSocketQuicProtocol(QuicConnectionProtocol):
         self._stream_id = self._quic.get_next_available_stream_id()
 
     async def query(self, frame: Frame) -> None:
-        data = frame.serialize()
+        data = serialize_with_frame_size_header(frame)
         self._quic.send_stream_data(self._stream_id, data, end_stream=False)
         self.transmit()
 
@@ -103,7 +103,7 @@ class RSocketQuicTransport(AbstractMessagingTransport):
                     self._incoming_frame_queue.put_nowait(data)
                     return
                 else:
-                    async for frame in self._frame_parser.receive_data(data, 0):
+                    async for frame in self._frame_parser.receive_data(data):
                         self._incoming_frame_queue.put_nowait(frame)
 
         except asyncio.CancelledError:
@@ -116,3 +116,6 @@ class RSocketQuicTransport(AbstractMessagingTransport):
         self._quic_protocol.close()
 
         await self._quic_protocol.wait_closed()
+
+    def requires_length_header(self) -> bool:
+        return True

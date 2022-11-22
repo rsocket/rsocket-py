@@ -17,7 +17,7 @@ from aioquic.quic.events import QuicEvent
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from rsocket.exceptions import RSocketTransportError
-from rsocket.frame import Frame
+from rsocket.frame import Frame, serialize_with_frame_size_header
 from rsocket.helpers import wrap_transport_exception, cancel_if_task_exists
 from rsocket.logger import logger
 from rsocket.transports.abstract_messaging import AbstractMessagingTransport
@@ -159,7 +159,8 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
     async def send_frame(self, frame: Frame):
         with wrap_transport_exception():
             try:
-                await self._websocket.send_bytes(frame.serialize())
+                data = serialize_with_frame_size_header(frame)
+                await self._websocket.send_bytes(data)
             except WebSocketDisconnect:
                 self._disconnect_event.set()
 
@@ -177,7 +178,7 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
                     self._disconnect_event.set()
                     break
 
-                async for frame in self._frame_parser.receive_data(data, 0):
+                async for frame in self._frame_parser.receive_data(data):
                     self._incoming_frame_queue.put_nowait(frame)
 
         except asyncio.CancelledError:
@@ -189,3 +190,6 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
 
     async def wait_for_disconnect(self):
         await self._disconnect_event.wait()
+
+    def requires_length_header(self) -> bool:
+        return True
