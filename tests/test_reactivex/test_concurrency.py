@@ -47,4 +47,4 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
 
     delta = abs(results[0].delta - results[1].delta)
 
-    assert delta > 0.8
+    assert delta > 0.2
