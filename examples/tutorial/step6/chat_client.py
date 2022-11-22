@@ -100,7 +100,6 @@ class ChatClient:
         await self._rsocket.fire_and_forget(payload)
 
     def listen_for_statistics(self) -> StatisticsHandler:
-
         self._statistics_subscriber = StatisticsHandler()
         self._rsocket.request_channel(Payload(metadata=composite(
             route('statistics')
@@ -152,7 +151,6 @@ async def main():
         async with RSocketClient(single_transport_provider(TransportTCP(*connection2)),
                                  metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
                                  fragment_size_bytes=1_000_000) as client2:
-
             user1 = ChatClient(client1)
             user2 = ChatClient(client2)
 

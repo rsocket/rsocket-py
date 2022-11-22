@@ -3,7 +3,6 @@ Low level helpers. Other than Exception classes must not import anything else fr
 to avoid circular dependencies.
 """
 
-
 import struct
 from typing import Union, Tuple, Optional
 

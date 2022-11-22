@@ -381,8 +381,8 @@ class RSocketBase(RSocket, RSocketInternal):
         elif self._stream_control.handle_stream(complete_frame):
             return
         else:
-            logger().debug('%s: Dropping frame from unknown stream %d', self._log_identifier(),
-                           complete_frame.stream_id)
+            logger().warning('%s: Dropping frame from unknown stream %d', self._log_identifier(),
+                             complete_frame.stream_id)
 
     async def _handle_frame_by_type(self, frame: Frame, async_frame_handler_by_type):
         frame_handler = async_frame_handler_by_type.get(type(frame), async_noop)

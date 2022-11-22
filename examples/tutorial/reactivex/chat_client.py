@@ -129,7 +129,7 @@ class ChatClient:
         )
 
         return await ReactiveXClient(self._rsocket).request_response(request).pipe(
-            operators.map(lambda _:_.data),
+            operators.map(lambda _: _.data),
             operators.last()
         )
 

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from weakref import WeakKeyDictionary
+
 import pytest
 
 
@@ -21,6 +22,7 @@ async def test_fail_on_error_log(fail_on_error_log):
 def test_weak_ref():
     class S(str):
         pass
+
     d = WeakKeyDictionary()
     a = S('abc')
     d[a] = 1

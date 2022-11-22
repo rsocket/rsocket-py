@@ -10,10 +10,10 @@ from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription
 from rsocket.helpers import create_future, DefaultPublisherSubscription
 from rsocket.payload import Payload
+from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
-from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.streams.empty_stream import EmptyStream
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 

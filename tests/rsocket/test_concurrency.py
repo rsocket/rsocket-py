@@ -1,6 +1,8 @@
 import asyncio
 from typing import Tuple, Optional
 
+import pytest
+
 from rsocket.async_helpers import async_range
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.frame_helpers import ensure_bytes
@@ -43,16 +45,17 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
 
     assert len(results[0].result) == 2000
     assert len(results[1].result) == 10
-    assert delta > 0.8
+    assert delta > 0.2
 
 
-async def test_concurrent_fragmented_responses(lazy_pipe_tcp):  # check problems with quic and http3 frame boundary
+@pytest.mark.timeout(15)
+async def test_concurrent_fragmented_responses(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
             data = 'a' * 100 * int(utf8_decode(request.data))
             return create_future(Payload(ensure_bytes(data)))
 
-    async with lazy_pipe_tcp(
+    async with lazy_pipe(
             server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 100},
             client_arguments={'fragment_size_bytes': 100}) as (server, client):
         request_1 = asyncio.create_task(measure_time(client.request_response(Payload(b'10000'))))
@@ -66,4 +69,6 @@ async def test_concurrent_fragmented_responses(lazy_pipe_tcp):  # check problems
 
         assert len(results[0].result.data) == 10000 * 100
         assert len(results[1].result.data) == 10 * 100
-        assert delta > 0.8
+        assert delta > 0.2
+
+        await asyncio.sleep(2)

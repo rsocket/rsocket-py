@@ -9,7 +9,7 @@ from reactivestreams.subscriber import Subscriber
 from rsocket.error_codes import ErrorCode
 from rsocket.payload import Payload
 from rsocket.request_handler import RequestHandler
-from rsocket.rx_support.back_pressure_publisher import BackPressurePublisher, observable_to_publisher
+from rsocket.rx_support.back_pressure_publisher import observable_to_publisher
 from rsocket.rx_support.from_rsocket_publisher import RxSubscriberFromObserver
 from rsocket.rx_support.rx_handler import RxHandler
 

@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
 from weakref import WeakValueDictionary, WeakSet
 
-from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload)
 from more_itertools import first
+
+from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription

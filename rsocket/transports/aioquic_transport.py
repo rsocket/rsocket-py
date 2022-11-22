@@ -91,6 +91,7 @@ class RSocketQuicTransport(AbstractMessagingTransport):
 
         with wrap_transport_exception():
             await self._quic_protocol.query(frame)
+            await asyncio.sleep(0)
 
     async def incoming_data_listener(self):
         try:

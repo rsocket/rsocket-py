@@ -10,5 +10,3 @@ async def async_generator_from_queue(queue: Queue, stop_value=None):
         else:
             yield value
             queue.task_done()
-
-

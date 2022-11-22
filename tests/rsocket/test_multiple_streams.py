@@ -61,7 +61,8 @@ async def test_request_channel_and_stream_intertwined(pipe: Tuple[RSocketServer,
         sending_done=sending_done
     ).subscribe(CollectorSubscriber(limit_count=1))
 
-    messages_received_from_server_stream = await AwaitableRSocket(client).request_stream(Payload(b'request text stream'))
+    messages_received_from_server_stream = await AwaitableRSocket(client).request_stream(
+        Payload(b'request text stream'))
 
     await sending_done.wait()
 

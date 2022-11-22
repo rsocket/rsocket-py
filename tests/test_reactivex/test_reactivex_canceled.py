@@ -11,10 +11,10 @@ from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription
 from rsocket.error_codes import ErrorCode
 from rsocket.payload import Payload
+from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
-from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 
 

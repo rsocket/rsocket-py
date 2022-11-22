@@ -6,7 +6,6 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 
 
-
 def generate_certificate(*, alternative_names, common_name, hash_algorithm, key):
     subject = issuer = x509.Name(
         [x509.NameAttribute(x509.NameOID.COMMON_NAME, common_name)]
@@ -47,6 +46,3 @@ def generate_ec_certificate(common_name, alternative_names=None, curve=ec.SECP25
 @pytest.fixture(scope="session")
 def generate_test_certificates():
     return generate_ec_certificate(common_name="localhost")
-
-
-
