@@ -4,17 +4,17 @@ from typing import Tuple, AsyncGenerator, Optional
 import pytest
 import reactivex
 from reactivex import operators, Observer
-from reactivex.scheduler.scheduler import Scheduler
 from reactivex.disposable import Disposable
+from reactivex.scheduler.scheduler import Scheduler
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription
 from rsocket.payload import Payload
+from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
-from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 
 

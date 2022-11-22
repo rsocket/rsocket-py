@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 from reactivex import operators, Subject
 
@@ -33,4 +31,3 @@ async def test_helper(request_n, generate_n, expected_n):
     assert len(result) == expected_n
 
     # await asyncio.sleep(1)  # wait for task to finish
-

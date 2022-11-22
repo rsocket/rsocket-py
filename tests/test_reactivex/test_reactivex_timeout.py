@@ -8,10 +8,10 @@ from reactivex import operators
 from reactivestreams.publisher import Publisher
 from rsocket.helpers import create_future, DefaultPublisherSubscription
 from rsocket.payload import Payload
+from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
-from rsocket.reactivex.reactivex_client import ReactiveXClient
 
 
 async def test_rx_support_request_stream_cancel_on_timeout(pipe: Tuple[RSocketServer, RSocketClient]):

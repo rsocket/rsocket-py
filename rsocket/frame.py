@@ -759,5 +759,6 @@ frame_header_length = {
     RequestChannelFrame: 10,
 }
 
+
 def get_header_length(frame: FragmentableFrame) -> int:
     return frame_header_length[frame.__class__]

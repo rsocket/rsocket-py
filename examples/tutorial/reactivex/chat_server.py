@@ -7,6 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Callable
 from weakref import WeakValueDictionary, WeakSet
+
 import reactivex
 from more_itertools import first
 from reactivex import Observable, operators, Subject, Observer
