@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import json
 import logging
 import resource
 from asyncio import Event
@@ -8,7 +7,8 @@ from datetime import timedelta
 from typing import List, Optional
 
 from examples.tutorial.step6.models import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
-                                            ServerStatisticsRequest, encode_dataclass, dataclass_to_payload)
+                                            ServerStatisticsRequest, encode_dataclass, dataclass_to_payload,
+                                            decode_dataclass)
 from reactivestreams.publisher import DefaultPublisher
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -30,8 +30,8 @@ class StatisticsHandler(DefaultPublisher, DefaultSubscriber, DefaultSubscription
         super().__init__()
         self.done = Event()
 
-    def on_next(self, value: Payload, is_complete=False):
-        statistics = ServerStatistics(**json.loads(utf8_decode(value.data)))
+    def on_next(self, payload: Payload, is_complete=False):
+        statistics = decode_dataclass(payload.data, ServerStatistics)
         print(statistics)
 
         if is_complete:
@@ -74,7 +74,7 @@ class ChatClient:
 
     def listen_for_messages(self):
         def print_message(data: bytes):
-            message = Message(**json.loads(data))
+            message = decode_dataclass(data, Message)
             print(f'{self._username}: from {message.user} ({message.channel}): {message.content}')
 
         class MessageListener(DefaultSubscriber, DefaultSubscription):

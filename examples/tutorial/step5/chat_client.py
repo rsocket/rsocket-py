@@ -1,9 +1,8 @@
 import asyncio
-import json
 import logging
 from typing import List, Optional
 
-from examples.tutorial.step5.models import Message, chat_filename_mimetype, encode_dataclass
+from examples.tutorial.step5.models import Message, chat_filename_mimetype, encode_dataclass, decode_dataclass
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
@@ -46,7 +45,7 @@ class ChatClient:
 
     def listen_for_messages(self):
         def print_message(data: bytes):
-            message = Message(**json.loads(data))
+            message = decode_dataclass(data, Message)
             print(f'{self._username}: from {message.user} ({message.channel}): {message.content}')
 
         class MessageListener(DefaultSubscriber, DefaultSubscription):

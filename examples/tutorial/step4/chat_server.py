@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import uuid
 from asyncio import Queue
@@ -10,7 +9,7 @@ from weakref import WeakValueDictionary, WeakSet
 
 from more_itertools import first
 
-from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload)
+from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload, decode_dataclass)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -103,14 +102,14 @@ class ChatUserSession:
 
         @router.response('channel.join')
         async def join_channel(payload: Payload) -> Awaitable[Payload]:
-            channel_name = payload.data.decode('utf-8')
+            channel_name = utf8_decode(payload.data)
             ensure_channel_exists(channel_name)
             chat_data.channel_users[channel_name].add(self._session.session_id)
             return create_response()
 
         @router.response('channel.leave')
         async def leave_channel(payload: Payload) -> Awaitable[Payload]:
-            channel_name = payload.data.decode('utf-8')
+            channel_name = utf8_decode(payload.data)
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
 
@@ -123,7 +122,7 @@ class ChatUserSession:
 
         @router.response('message')
         async def send_message(payload: Payload) -> Awaitable[Payload]:
-            message = Message(**json.loads(payload.data))
+            message = decode_dataclass(payload.data, Message)
 
             logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
 

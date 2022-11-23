@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import resource
 from asyncio import Task, Queue
@@ -9,7 +8,8 @@ from typing import List, Optional
 from reactivex import operators
 
 from examples.tutorial.reactivex.models import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
-                                                ServerStatisticsRequest, encode_dataclass, dataclass_to_payload)
+                                                ServerStatisticsRequest, encode_dataclass, dataclass_to_payload,
+                                                decode_dataclass)
 from rsocket.extensions.helpers import composite, route, metadata_item
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame_helpers import ensure_bytes
@@ -59,7 +59,7 @@ class ChatClient:
 
     def listen_for_messages(self):
         def print_message(data: bytes):
-            message = Message(**json.loads(data))
+            message = decode_dataclass(data, Message)
             print(f'{self._username}: from {message.user} ({message.channel}): {message.content}')
 
         async def listen_for_messages():
@@ -82,7 +82,7 @@ class ChatClient:
 
     def listen_for_statistics(self) -> StatisticsControl:
         def print_statistics(value: bytes):
-            statistics = ServerStatistics(**json.loads(utf8_decode(value)))
+            statistics = decode_dataclass(value, ServerStatistics)
             print(f'users: {statistics.user_count}, channels: {statistics.channel_count}')
 
         control = StatisticsControl()

@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import uuid
 from asyncio import Queue
@@ -11,7 +10,7 @@ from weakref import WeakValueDictionary, WeakSet
 from more_itertools import first
 
 from examples.tutorial.step6.models import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
-                                            ServerStatistics, dataclass_to_payload)
+                                            ServerStatistics, dataclass_to_payload, decode_dataclass)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -104,14 +103,14 @@ class ChatUserSession:
 
         @router.response('channel.join')
         async def join_channel(payload: Payload) -> Awaitable[Payload]:
-            channel_name = payload.data.decode('utf-8')
+            channel_name = utf8_decode(payload.data)
             ensure_channel_exists(channel_name)
             chat_data.channel_users[channel_name].add(self._session.session_id)
             return create_response()
 
         @router.response('channel.leave')
         async def leave_channel(payload: Payload) -> Awaitable[Payload]:
-            channel_name = payload.data.decode('utf-8')
+            channel_name = utf8_decode(payload.data)
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
 
@@ -142,7 +141,7 @@ class ChatUserSession:
 
         @router.fire_and_forget('statistics')
         async def receive_statistics(payload: Payload):
-            statistics = ClientStatistics(**json.loads(utf8_decode(payload.data)))
+            statistics = decode_dataclass(payload.data, ClientStatistics)
 
             logging.info('Received client statistics. memory usage: %s', statistics.memory_usage)
 
@@ -187,8 +186,8 @@ class ChatUserSession:
 
                     return ServerStatistics(**statistics_data)
 
-                def on_next(self, value: Payload, is_complete=False):
-                    request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
+                def on_next(self, payload: Payload, is_complete=False):
+                    request = decode_dataclass(payload.data, ServerStatisticsRequest)
 
                     logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
 
@@ -204,7 +203,7 @@ class ChatUserSession:
 
         @router.response('message')
         async def send_message(payload: Payload) -> Awaitable[Payload]:
-            message = Message(**json.loads(payload.data))
+            message = decode_dataclass(payload.data, Message)
 
             logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
 

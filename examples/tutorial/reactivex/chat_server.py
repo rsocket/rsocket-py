@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import uuid
 from asyncio import Queue
@@ -13,7 +12,8 @@ from more_itertools import first
 from reactivex import Observable, operators, Subject, Observer
 
 from examples.tutorial.reactivex.models import (Message, chat_filename_mimetype, ClientStatistics,
-                                                ServerStatisticsRequest, ServerStatistics, dataclass_to_payload)
+                                                ServerStatisticsRequest, ServerStatistics, dataclass_to_payload,
+                                                decode_dataclass)
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
 from rsocket.frame_helpers import ensure_bytes
@@ -119,14 +119,14 @@ class ChatUserSession:
 
         @router.response('channel.join')
         async def join_channel(payload: Payload) -> Observable:
-            channel_name = payload.data.decode('utf-8')
+            channel_name = utf8_decode(payload.data)
             ensure_channel_exists(channel_name)
             chat_data.channel_users[channel_name].add(self._session.session_id)
             return reactivex.empty()
 
         @router.response('channel.leave')
         async def leave_channel(payload: Payload) -> Observable:
-            channel_name = payload.data.decode('utf-8')
+            channel_name = utf8_decode(payload.data)
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return reactivex.empty()
 
@@ -159,7 +159,7 @@ class ChatUserSession:
 
         @router.fire_and_forget('statistics')
         async def receive_statistics(payload: Payload):
-            statistics = ClientStatistics(**json.loads(utf8_decode(payload.data)))
+            statistics = decode_dataclass(payload.data, ClientStatistics)
 
             logging.info('Received client statistics. memory usage: %s', statistics.memory_usage)
 
@@ -176,8 +176,8 @@ class ChatUserSession:
                     except Exception:
                         logging.error('Statistics', exc_info=True)
 
-            def on_next(value: Payload):
-                request = ServerStatisticsRequest(**json.loads(utf8_decode(value.data)))
+            def on_next(payload: Payload):
+                request = decode_dataclass(payload.data, ServerStatisticsRequest)
 
                 logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
 
@@ -199,7 +199,7 @@ class ChatUserSession:
 
         @router.response('message')
         async def send_message(payload: Payload) -> Observable:
-            message = Message(**json.loads(payload.data))
+            message = decode_dataclass(payload.data, Message)
 
             logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
 

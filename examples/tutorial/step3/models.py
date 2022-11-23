@@ -24,5 +24,5 @@ def dataclass_to_payload(obj) -> Payload:
 T = TypeVar('T')
 
 
-def decode_dataclass(payload: Payload, cls: Type[T]) -> T:
-    return cls(**json.loads(utf8_decode(payload.data)))
+def decode_dataclass(data: bytes, cls: Type[T]) -> T:
+    return cls(**json.loads(utf8_decode(data)))

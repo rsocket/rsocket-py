@@ -67,7 +67,7 @@ class ChatUserSession:
 
         @router.response('message')
         async def send_message(payload: Payload) -> Awaitable[Payload]:
-            message = decode_dataclass(payload, Message)
+            message = decode_dataclass(payload.data, Message)
 
             logging.info('Received message for user: %s', message.user)
 
