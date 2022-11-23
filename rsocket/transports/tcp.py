@@ -14,6 +14,7 @@ class TransportTCP(Transport):
     async def send_frame(self, frame: Frame):
         with wrap_transport_exception():
             self._writer.write(serialize_with_frame_size_header(frame))
+            await self._writer.drain()
 
     async def on_send_queue_empty(self):
         with wrap_transport_exception():
