@@ -60,9 +60,7 @@ class ReactivexHandler:
 
     # noinspection PyMethodMayBeStatic
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:
-        composite_metadata = CompositeMetadata()
-        composite_metadata.parse(metadata)
-        return composite_metadata
+        return CompositeMetadata().parse(metadata)
 
 
 class BaseReactivexHandler(ReactivexHandler):

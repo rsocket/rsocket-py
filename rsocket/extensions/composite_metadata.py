@@ -48,7 +48,7 @@ class CompositeMetadata:
         self.items.extend(items)
         return self
 
-    def parse(self, metadata: bytes):
+    def parse(self, metadata: bytes) -> 'CompositeMetadata':
         composite_length = len(metadata)
         offset = 0
 
@@ -69,6 +69,8 @@ class CompositeMetadata:
 
             self.append(item)
             offset += metadata_length
+
+        return self
 
     def serialize(self) -> bytes:
         serialized = b''

@@ -14,4 +14,4 @@ async def test_reactivex_handler():
         await handler.request_response(Payload())
 
     with pytest.raises(Exception):
-        await handler.request_channel(Payload())
+        await handler.request_stream(Payload())
