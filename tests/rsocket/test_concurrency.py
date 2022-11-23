@@ -70,3 +70,5 @@ async def test_concurrent_fragmented_responses(lazy_pipe):
         assert len(results[0].result.data) == 10000 * 100
         assert len(results[1].result.data) == 10 * 100
         assert delta > 0.2
+
+        await asyncio.sleep(1)
