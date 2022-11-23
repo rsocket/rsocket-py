@@ -2,12 +2,10 @@ from abc import abstractmethod
 from datetime import timedelta
 from typing import Optional, Union, Callable
 
-import reactivex
 from reactivex import Observable, Subject
 
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.helpers import create_error_future
 from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.reactivex.reactivex_channel import ReactivexChannel
@@ -82,7 +80,7 @@ class BaseReactivexHandler(ReactivexHandler):
         """The requester isn't listening for errors.  Nothing to do."""
 
     async def request_response(self, payload: Payload) -> Observable:
-        return reactivex.from_future(create_error_future(RuntimeError('Not implemented')))
+        raise RuntimeError('Not implemented')
 
     async def request_stream(self, payload: Payload) -> Observable:
         raise RuntimeError('Not implemented')

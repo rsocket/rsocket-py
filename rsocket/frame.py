@@ -726,7 +726,7 @@ def exception_to_error_frame(stream_id: int, exception: Exception) -> ErrorFrame
         frame.data = ensure_bytes(exception.data)
     else:
         frame.error_code = ErrorCode.APPLICATION_ERROR
-        frame.data = str(exception).encode()
+        frame.data = ensure_bytes(str(exception))
 
     return frame
 
