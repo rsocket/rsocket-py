@@ -1,1 +1,1 @@
-Basic server/client setup
+Basic server/client setup, single response endpoint.

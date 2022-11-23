@@ -1,1 +1,1 @@
-Basic server side session for logged in user
+Add server/client reactivex implementation
