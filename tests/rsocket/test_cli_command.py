@@ -3,13 +3,16 @@ import sys
 import tempfile
 
 import pytest
+from decoy import Decoy
 
+from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.cli.command import parse_uri, build_composite_metadata, create_request_payload, get_metadata_value, \
     create_setup_payload, normalize_data, normalize_limit_rate, RequestType, get_request_type, parse_headers, \
-    normalize_metadata_mime_type
+    normalize_metadata_mime_type, execute_request
 from rsocket.extensions.helpers import route, authenticate_simple, authenticate_bearer
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import MAX_REQUEST_N
+from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from tests.rsocket.helpers import create_data
 
@@ -175,3 +178,43 @@ def test_normalize_metadata_mime_type(composite_items, metadata_mime_type, expec
     actual = normalize_metadata_mime_type(composite_items, metadata_mime_type)
 
     assert actual == expected
+
+
+async def test_execute_request_response(decoy: Decoy):
+    client = decoy.mock(cls=AwaitableRSocket)
+
+    decoy.when(await client.request_response(Payload())).then_return(Payload(b'abc'))
+
+    result = await execute_request(client, RequestType.response, 3, Payload())
+
+    assert result.data == b'abc'
+
+
+async def test_execute_request_stream(decoy: Decoy):
+    client = decoy.mock(cls=AwaitableRSocket)
+
+    decoy.when(await client.request_stream(Payload(), limit_rate=3)).then_return([Payload(b'abc')])
+
+    result = await execute_request(client, RequestType.stream, 3, Payload())
+
+    assert result[0].data == b'abc'
+
+
+async def test_execute_request_channel(decoy: Decoy):
+    client = decoy.mock(cls=AwaitableRSocket)
+
+    decoy.when(await client.request_channel(Payload(), limit_rate=3)).then_return([Payload(b'abc')])
+
+    result = await execute_request(client, RequestType.channel, 3, Payload())
+
+    assert result[0].data == b'abc'
+
+
+async def test_execute_request_fnf(decoy: Decoy):
+    client = decoy.mock(cls=AwaitableRSocket)
+
+    decoy.when(client.fire_and_forget(Payload())).then_return(create_future(None))
+
+    result = await execute_request(client, RequestType.fnf, 3, Payload())
+
+    assert result is None
