@@ -40,7 +40,7 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
 
     results = (await request_1, await request_2)
 
-    print(results)
+    print(results[0].delta, results[1].delta)
     delta = abs(results[0].delta - results[1].delta)
 
     assert len(results[0].result) == 2000
@@ -70,5 +70,3 @@ async def test_concurrent_fragmented_responses(lazy_pipe):
         assert len(results[0].result.data) == 10000 * 100
         assert len(results[1].result.data) == 10 * 100
         assert delta > 0.2
-
-        await asyncio.sleep(2)
