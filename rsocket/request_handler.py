@@ -7,7 +7,6 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from rsocket.error_codes import ErrorCode
 from rsocket.extensions.composite_metadata import CompositeMetadata
-from rsocket.helpers import create_error_future
 from rsocket.local_typing import Awaitable
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -90,7 +89,7 @@ class BaseRequestHandler(RequestHandler):
         """Nothing by default"""
 
     async def request_response(self, payload: Payload) -> Awaitable[Payload]:
-        return create_error_future(RuntimeError('Not implemented'))
+        raise RuntimeError('Not implemented')
 
     async def request_stream(self, payload: Payload) -> Publisher:
         raise RuntimeError('Not implemented')
