@@ -50,9 +50,9 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
 
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize('transport_id, expected_delta, expected_runtime', (
-        ('tcp', 0.3, 1),
-        ('aiohttp', 0.6, 5),
-        ('quart', 1, 5),
+        ('tcp', 0.3, 3),
+        ('aiohttp', 0.6, 7),
+        ('quart', 1, 7),
         ('quic', 4, 10),
         ('http3', 5, 20),
 ))
