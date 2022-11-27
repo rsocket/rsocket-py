@@ -48,7 +48,7 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
     assert delta > 0.2
 
 
-@pytest.mark.timeout(15)
+@pytest.mark.timeout(30)
 async def test_concurrent_fragmented_responses(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
