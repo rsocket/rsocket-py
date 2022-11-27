@@ -124,6 +124,14 @@ def get_pipe_factory_by_id(aiohttp_raw_server,
 
 
 @pytest.fixture
+def pipe_factory_by_id(aiohttp_raw_server, unused_tcp_port, generate_test_certificates):
+    def factory(transport_id):
+        return get_pipe_factory_by_id(aiohttp_raw_server, transport_id, generate_test_certificates)
+
+    return factory
+
+
+@pytest.fixture
 async def pipe_tcp_without_auto_connect(unused_tcp_port):
     logging.info('Testing transport tcp (explicitly) on port %s (no-autoconnect)', unused_tcp_port)
 

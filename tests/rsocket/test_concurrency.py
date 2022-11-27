@@ -49,26 +49,41 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
 
 
 @pytest.mark.timeout(30)
-async def test_concurrent_fragmented_responses(lazy_pipe):
+@pytest.mark.parametrize('transport_id, expected_delta, expected_runtime', (
+        ('tcp', 0.3, 1),
+        ('aiohttp', 0.6, 5),
+        ('quart', 1, 5),
+        ('quic', 4, 10),
+        ('http3', 5, 20),
+))
+async def test_concurrent_fragmented_responses(pipe_factory_by_id, unused_tcp_port, transport_id, expected_delta,
+                                               expected_runtime):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
             data = 'a' * 100 * int(utf8_decode(request.data))
             return create_future(Payload(ensure_bytes(data)))
 
-    async with lazy_pipe(
-            server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 100},
-            client_arguments={'fragment_size_bytes': 100}) as (server, client):
-        request_1 = asyncio.create_task(measure_time(client.request_response(Payload(b'10000'))))
+    async with pipe_factory_by_id(transport_id)(unused_tcp_port,
+                                                server_arguments={'handler_factory': Handler,
+                                                                  'fragment_size_bytes': 100},
+                                                client_arguments={'fragment_size_bytes': 100}) as (server, client):
+        async def run():
+            request_1 = asyncio.create_task(measure_time(client.request_response(Payload(b'10000'))))
 
-        request_2 = asyncio.create_task(measure_time(client.request_response(Payload(b'10'))))
+            request_2 = asyncio.create_task(measure_time(client.request_response(Payload(b'10'))))
+            return (await request_1, await request_2)
 
-        results = (await request_1, await request_2)
+        measure_result = await measure_time(run())
+
+        results = measure_result.result
+
+        assert measure_result.delta < expected_runtime
 
         print(results[0].delta, results[1].delta)
         delta = abs(results[0].delta - results[1].delta)
 
         assert len(results[0].result.data) == 10000 * 100
         assert len(results[1].result.data) == 10 * 100
-        assert delta > 0.2
+        assert delta > expected_delta
 
         await asyncio.sleep(1)
