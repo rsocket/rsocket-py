@@ -53,7 +53,7 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
         ('tcp', 0.3, 3),
         ('aiohttp', 0.6, 7),
         ('quart', 1, 7),
-        ('quic', 4, 10),
+        ('quic', 4, 13),
         ('http3', 5, 20),
 ))
 async def test_concurrent_fragmented_responses(pipe_factory_by_id, unused_tcp_port, transport_id, expected_delta,
