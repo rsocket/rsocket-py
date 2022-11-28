@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+v0.4.6
+======
+- fire_and_forget now only removes the stream id when the future is done.
+
 v0.4.5
 ======
 - Breaking change: Normalized the request_channel method argument names across implementations and added where missing (vanilla, reactivex etc.):

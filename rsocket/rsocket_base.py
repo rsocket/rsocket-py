@@ -493,7 +493,7 @@ class RSocketBase(RSocket, RSocketInternal):
         stream_id = self._allocate_stream()
         frame = to_fire_and_forget_frame(stream_id, payload)
         self.send_request(frame)
-        self.finish_stream(stream_id)
+        frame.sent_future.add_done_callback(lambda _: self.finish_stream(stream_id))
         return frame.sent_future
 
     def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:

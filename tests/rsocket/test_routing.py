@@ -153,7 +153,7 @@ async def test_routed_fire_and_forget(lazy_pipe):
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
             server_arguments={'handler_factory': handler_factory}) as (server, client):
-        client.fire_and_forget(Payload(b'request data', composite(route('test.path'))))
+        await client.fire_and_forget(Payload(b'request data', composite(route('test.path'))))
 
         await received.wait()
         assert received_data == b'request data'

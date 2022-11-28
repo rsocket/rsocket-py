@@ -29,9 +29,9 @@ async def test_send_frame_for_non_existing_stream(pipe_tcp, caplog):
 
     bad_client = MisbehavingRSocket(client._transport)
 
-    client.fire_and_forget(Payload())
+    await client.fire_and_forget(Payload())
 
-    await bad_client.send_frame(to_payload_frame(145, Payload()))
+    await bad_client.send_frame(to_payload_frame(stream_id=145, payload=Payload()))
 
     await client.request_response(Payload(b'request'))
 
