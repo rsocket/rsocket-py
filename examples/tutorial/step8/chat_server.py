@@ -257,7 +257,7 @@ def handler_factory():
     return CustomRoutingRequestHandler(ChatUserSession())
 
 
-async def run_server():
+def start_server():
     def websocket_handler_factory(**kwargs):
         async def websocket_handler(request):
             websocket = web.WebSocketResponse()
@@ -275,9 +275,9 @@ async def run_server():
     app.add_routes([web.get('/chat', websocket_handler_factory(handler_factory=handler_factory,
                                                                fragment_size_bytes=1_000_000))])
 
-    await web._run_app(app, port=6565)
+    web.run_app(app, port=6565)
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(run_server())
+    start_server()
