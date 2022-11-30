@@ -3,7 +3,7 @@ Changelog
 
 v0.4.6
 ======
-- fire_and_forget now only removes the stream id when the future is done.
+- fire_and_forget now only removes the stream id when the future denoting the frame was sent, is done
 
 v0.4.5
 ======
