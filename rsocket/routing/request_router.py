@@ -67,18 +67,6 @@ class RequestRouter:
             FrameType.METADATA_PUSH: self._metadata_push,
         }
 
-    def _get_unknown_route(self, frame_type):
-        if frame_type == FrameType.REQUEST_RESPONSE:
-            return self._unknown.response
-        if frame_type == FrameType.REQUEST_STREAM:
-            return self._unknown.stream
-        if frame_type == FrameType.REQUEST_CHANNEL:
-            return self._unknown.channel
-        if frame_type == FrameType.REQUEST_FNF:
-            return self._unknown.fire_and_forget
-        if frame_type == FrameType.METADATA_PUSH:
-            return self._unknown.metadata_push
-
     def response(self, route: str):
         return decorator_factory(self._response_routes, route)
 
@@ -153,15 +141,27 @@ class RequestRouter:
         route_signature = signature(route_processor)
         route_kwargs = {}
 
-        if 'payload' in route_signature.parameters:
-            payload_expected_type = route_signature.parameters['payload']
+        for parameter in route_signature.parameters:
+            parameter_type = route_signature.parameters[parameter]
 
-            if payload_expected_type is not Payload and payload_expected_type is not Parameter:
-                payload = self._payload_mapper(payload_expected_type, payload)
+            if 'composite_metadata' == parameter:
+                route_kwargs['composite_metadata'] = composite_metadata
+            else:
+                if parameter_type.annotation not in (Payload, parameter_type.empty):
+                    payload = self._payload_mapper(parameter_type.annotation, payload)
 
-            route_kwargs['payload'] = payload
-
-        if 'composite_metadata' in route_signature.parameters:
-            route_kwargs['composite_metadata'] = composite_metadata
+                route_kwargs[parameter] = payload
 
         return route_kwargs
+
+    def _get_unknown_route(self, frame_type: FrameType) -> Callable:
+        if frame_type == FrameType.REQUEST_RESPONSE:
+            return self._unknown.response
+        elif frame_type == FrameType.REQUEST_STREAM:
+            return self._unknown.stream
+        elif frame_type == FrameType.REQUEST_CHANNEL:
+            return self._unknown.channel
+        elif frame_type == FrameType.REQUEST_FNF:
+            return self._unknown.fire_and_forget
+        elif frame_type == FrameType.METADATA_PUSH:
+            return self._unknown.metadata_push

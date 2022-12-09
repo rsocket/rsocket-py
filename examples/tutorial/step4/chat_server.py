@@ -9,7 +9,8 @@ from weakref import WeakValueDictionary, WeakSet
 
 from more_itertools import first
 
-from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload, decode_dataclass)
+from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload, decode_dataclass,
+                                            decode_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -88,7 +89,7 @@ class ChatUserSession:
         self._session: Optional[UserSessionData] = None
 
     def router_factory(self):
-        router = RequestRouter()
+        router = RequestRouter(decode_payload)
 
         @router.response('login')
         async def login(payload: Payload) -> Awaitable[Payload]:
@@ -121,9 +122,7 @@ class ChatUserSession:
             return StreamFromGenerator(lambda: generator)
 
         @router.response('message')
-        async def send_message(payload: Payload) -> Awaitable[Payload]:
-            message = decode_dataclass(payload.data, Message)
-
+        async def send_message(message: Message) -> Awaitable[Payload]:
             logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
 
             target_message = Message(self._session.username, message.content, message.channel)
