@@ -32,5 +32,12 @@ def decode_dataclass(data: bytes, cls: Type[T]) -> T:
     return cls(**json.loads(utf8_decode(data)))
 
 
-def decode_payload(cls: Type[T], payload: Payload) -> T:
-    return decode_dataclass(payload.data, cls)
+def decode_payload(cls, payload: Payload):
+    data = payload.data
+
+    if cls is bytes:
+        return data
+    if cls is str:
+        return utf8_decode(data)
+
+    return decode_dataclass(data, cls)

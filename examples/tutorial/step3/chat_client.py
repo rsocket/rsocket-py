@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Optional
 
-from examples.tutorial.step3.models import Message, encode_dataclass, decode_dataclass
+from examples.tutorial.step3.shared import Message, encode_dataclass, decode_dataclass
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.helpers import composite, route

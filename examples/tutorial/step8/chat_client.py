@@ -8,7 +8,7 @@ from typing import List, Optional
 
 import aiohttp
 
-from examples.tutorial.step6.models import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
+from examples.tutorial.step6.shared import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
                                             ServerStatisticsRequest, encode_dataclass, dataclass_to_payload,
                                             decode_dataclass)
 from reactivestreams.publisher import DefaultPublisher

@@ -9,8 +9,7 @@ from weakref import WeakValueDictionary, WeakSet
 
 from more_itertools import first
 
-from examples.tutorial.step4.models import (Message, chat_filename_mimetype, dataclass_to_payload, decode_dataclass,
-                                            decode_payload)
+from examples.tutorial.step4.shared import (Message, chat_filename_mimetype, dataclass_to_payload, decode_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -89,7 +88,7 @@ class ChatUserSession:
         self._session: Optional[UserSessionData] = None
 
     def router_factory(self):
-        router = RequestRouter(decode_payload)
+        router = RequestRouter(payload_mapper=decode_payload)
 
         @router.response('login')
         async def login(payload: Payload) -> Awaitable[Payload]:
@@ -102,15 +101,13 @@ class ChatUserSession:
             return create_response(ensure_bytes(session_id))
 
         @router.response('channel.join')
-        async def join_channel(payload: Payload) -> Awaitable[Payload]:
-            channel_name = utf8_decode(payload.data)
+        async def join_channel(channel_name: str) -> Awaitable[Payload]:
             ensure_channel_exists(channel_name)
             chat_data.channel_users[channel_name].add(self._session.session_id)
             return create_response()
 
         @router.response('channel.leave')
-        async def leave_channel(payload: Payload) -> Awaitable[Payload]:
-            channel_name = utf8_decode(payload.data)
+        async def leave_channel(channel_name: str) -> Awaitable[Payload]:
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
 
@@ -157,9 +154,7 @@ class ChatUserSession:
             return MessagePublisher(self._session)
 
         @router.stream('channel.users')
-        async def get_channel_users(payload: Payload) -> Publisher:
-            channel_name = utf8_decode(payload.data)
-
+        async def get_channel_users(channel_name: str) -> Publisher:
             if channel_name not in chat_data.channel_users:
                 return EmptyStream()
 

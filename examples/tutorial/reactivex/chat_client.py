@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from reactivex import operators
 
-from examples.tutorial.reactivex.models import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
+from examples.tutorial.reactivex.shared import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
                                                 ServerStatisticsRequest, encode_dataclass, dataclass_to_payload,
                                                 decode_dataclass)
 from rsocket.extensions.helpers import composite, route, metadata_item

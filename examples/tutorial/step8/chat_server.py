@@ -10,7 +10,7 @@ from weakref import WeakValueDictionary, WeakSet
 from aiohttp import web
 from more_itertools import first
 
-from examples.tutorial.step6.models import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
+from examples.tutorial.step6.shared import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
                                             ServerStatistics, dataclass_to_payload, decode_dataclass)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber

@@ -5,7 +5,7 @@ from asyncio import Event
 from datetime import timedelta
 from typing import List, Optional
 
-from examples.tutorial.step6.models import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
+from examples.tutorial.step6.shared import (Message, chat_filename_mimetype, ServerStatistics, ClientStatistics,
                                             ServerStatisticsRequest, encode_dataclass, dataclass_to_payload,
                                             decode_dataclass)
 from reactivestreams.publisher import DefaultPublisher

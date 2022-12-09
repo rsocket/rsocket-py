@@ -9,7 +9,7 @@ from weakref import WeakValueDictionary, WeakSet
 
 from more_itertools import first
 
-from examples.tutorial.step5.models import (Message, chat_filename_mimetype, dataclass_to_payload, decode_dataclass)
+from examples.tutorial.step5.shared import (Message, chat_filename_mimetype, dataclass_to_payload, decode_dataclass)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription

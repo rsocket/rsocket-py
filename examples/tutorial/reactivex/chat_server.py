@@ -11,7 +11,7 @@ import reactivex
 from more_itertools import first
 from reactivex import Observable, operators, Subject, Observer
 
-from examples.tutorial.reactivex.models import (Message, chat_filename_mimetype, ClientStatistics,
+from examples.tutorial.reactivex.shared import (Message, chat_filename_mimetype, ClientStatistics,
                                                 ServerStatisticsRequest, ServerStatistics, dataclass_to_payload,
                                                 decode_dataclass)
 from rsocket.extensions.composite_metadata import CompositeMetadata

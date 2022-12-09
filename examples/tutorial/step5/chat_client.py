@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import List, Optional
 
-from examples.tutorial.step5.models import Message, chat_filename_mimetype, encode_dataclass, decode_dataclass
+from examples.tutorial.step5.shared import Message, chat_filename_mimetype, encode_dataclass, decode_dataclass
 from reactivestreams.subscriber import DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
