@@ -84,24 +84,6 @@ async def test_routed_request_response_aliases(lazy_pipe):
         assert result.data == b'result'
 
 
-async def test_routed_request_response_unknown_route(lazy_pipe):
-    router = RequestRouter()
-
-    def handler_factory():
-        return RoutingRequestHandler(router)
-
-    @router.response_unknown()
-    async def response():
-        return create_future(Payload(b'fallback'))
-
-    async with lazy_pipe(
-            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
-            server_arguments={'handler_factory': handler_factory}) as (server, client):
-        result = await client.request_response(Payload(metadata=composite(route('test.path'))))
-
-        assert result.data == b'fallback'
-
-
 async def test_routed_request_response_with_payload_mapper(lazy_pipe):
     router = RequestRouter(lambda cls, _: json.loads(_.data.decode()))
 
