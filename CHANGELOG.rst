@@ -5,15 +5,18 @@ v0.4.6
 ======
 - fire_and_forget now only removes the stream id when the future denoting the frame was sent, is done
 - API documentation auto generated at rsocket.readthedocs.io
-- Raise error on empty or None route specified in request router
-- Added the following methods to RequestRouter to allow specifying handlers of unknown routes:
-    - response_unknown
-    - stream_unknown
-    - channel_unknown
-    - fire_and_forget_unknown
-    - metadata_push_unknown
-- Officially support route aliases by using the decorator multiple times on the same method
-- Fix value mapping in request router. A parameter of any name (not just *payload*) specified on a routed method with a type-hint other than Payload will use the payload_mapper specified in the router instantiation to decode the value.
+- Request router changes:
+    - Raise error on empty or None route specified in request router
+    - Added the following methods to RequestRouter to allow specifying handlers of unknown routes:
+        - response_unknown
+        - stream_unknown
+        - channel_unknown
+        - fire_and_forget_unknown
+        - metadata_push_unknown
+    - Officially support route aliases by using the decorator multiple times on the same method
+    - Fix value mapping in request router:
+        -A parameter of any name (not just *payload*) specified on a routed method with a type-hint other than Payload will use the payload_mapper to decode the value
+        - Any parameter with the type CompositeMetadata will receive the composite metadata
 
 v0.4.5
 ======
