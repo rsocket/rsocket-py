@@ -5,6 +5,13 @@ from rsocket.local_typing import ByteTypes
 
 
 class Payload:
+    """
+    A stream message (upstream or downstream). Contains data and metadata, boty `bytes`.
+
+    :param data: data segment of payload
+    :param metadata: metadata segment of payload
+    """
+
     __slots__ = ('data', 'metadata')
 
     @staticmethod

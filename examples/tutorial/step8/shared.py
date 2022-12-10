@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Optional, List, Type, TypeVar
+from typing import Optional, List, TypeVar, Type
 
 from rsocket.frame_helpers import ensure_bytes
 from rsocket.helpers import utf8_decode
@@ -23,7 +23,7 @@ class ServerStatistics:
 @dataclass()
 class ServerStatisticsRequest:
     ids: Optional[List[str]] = field(default_factory=lambda: ['users', 'channels'])
-    period_seconds: Optional[int] = field(default_factory=lambda: 2)
+    period_seconds: Optional[int] = field(default_factory=lambda: 1)
 
 
 @dataclass(frozen=True)
@@ -47,3 +47,14 @@ T = TypeVar('T')
 
 def decode_dataclass(data: bytes, cls: Type[T]) -> T:
     return cls(**json.loads(utf8_decode(data)))
+
+
+def decode_payload(cls, payload: Payload):
+    data = payload.data
+
+    if cls is bytes:
+        return data
+    if cls is str:
+        return utf8_decode(data)
+
+    return decode_dataclass(data, cls)

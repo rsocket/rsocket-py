@@ -35,6 +35,14 @@ class RSocketApplicationError(RSocketError):
     pass
 
 
+class RSocketEmptyRoute(RSocketApplicationError):
+    def __init__(self, method_name: str):
+        self.method_name = method_name
+
+    def __str__(self) -> str:
+        return f'Empty route set on method {self.method_name}'
+
+
 class RSocketUnknownRoute(RSocketApplicationError):
     def __init__(self, route_id: str):
         self.route_id = route_id

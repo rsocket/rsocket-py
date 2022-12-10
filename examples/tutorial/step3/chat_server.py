@@ -8,7 +8,7 @@ from weakref import WeakValueDictionary
 
 from more_itertools import first
 
-from examples.tutorial.step3.models import Message, dataclass_to_payload, decode_dataclass
+from examples.tutorial.step3.shared import Message, dataclass_to_payload, decode_dataclass
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
