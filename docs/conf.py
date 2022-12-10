@@ -18,12 +18,12 @@
 # -- Project information -----------------------------------------------------
 import os
 
-project = 'rsocket'
-copyright = '2022, gabis@precog.co'
-author = 'gabis@precog.co'
+project = 'RSocket python'
+copyright = '2021, jellofishi@pm.me'
+author = 'jellofishi@pm.me'
 
 # The full version, including alpha/beta/rc tags
-release = '0.3'
+release = '0.4.6'
 
 # -- General configuration ---------------------------------------------------
 
@@ -72,3 +72,4 @@ autodoc_default_flags = ['members']
 autosummary_generate = True
 autodoc_typehints = 'description'
 autodoc_typehints_format = 'short'
+autodoc_member_order = 'bysource'

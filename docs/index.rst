@@ -1,7 +1,4 @@
-.. Dataclasses Serialization documentation master file, created by
-sphinx-quickstart on Fri Apr 22 11:01:09 2022.
-You can adapt this file completely to your liking, but it should at least
-contain the root `toctree` directive.
+.. rsocket documentation master file
 
 RSocket
 =======
@@ -10,14 +7,21 @@ RSocket
    :maxdepth: 1
 
    quickstart
+   guide
    api
+   extensions
    changelog
 
 .. autosummary::
    :toctree: generated
 
 
-RSocket ...
+The python rsocket package implements the 1.0 version of the RSocket protocol (excluding "resume" functionality)
+and is designed for use in python >= 3.8 using asyncio.
+
+.. note::
+   The python package API is not stable. There may be changes until version 1.0.0.
+
 
 Indices and tables
 ==================

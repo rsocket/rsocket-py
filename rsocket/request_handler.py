@@ -1,4 +1,3 @@
-import asyncio
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta
 from typing import Tuple, Optional
@@ -13,6 +12,9 @@ from rsocket.payload import Payload
 
 
 class RequestHandler(metaclass=ABCMeta):
+    """
+    An interface which defines handler for all rsocket interactions, and some other events (e.g. on_setup).
+    """
 
     @abstractmethod
     async def on_setup(self,
@@ -39,12 +41,16 @@ class RequestHandler(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def request_response(self, payload: Payload) -> asyncio.Future:
-        ...
+    async def request_response(self, payload: Payload) -> Awaitable[Payload]:
+        """
+        Handle request-response interaction
+        """
 
     @abstractmethod
     async def request_stream(self, payload: Payload) -> Publisher:
-        ...
+        """
+        Handle request-stream interaction
+        """
 
     @abstractmethod
     async def on_error(self, error_code: ErrorCode, payload: Payload):
@@ -72,6 +78,13 @@ class RequestHandler(metaclass=ABCMeta):
 
 
 class BaseRequestHandler(RequestHandler):
+    """
+    Default implementation of :class:`RequestHandler <rsocket.request_handler.RequestHandler>` to simplify
+    implementing handlers.
+
+    For each request handler, the implementation will raise a RuntimeError. For :meth:`request_fire_and_forget` and
+    :meth:`on_metadata_push` the request will be ignored.
+    """
 
     async def on_setup(self,
                        data_encoding: bytes,
@@ -80,10 +93,13 @@ class BaseRequestHandler(RequestHandler):
         """Nothing to do on setup by default"""
 
     async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
+        """
+        Raise RuntimeError by default if not implemented.
+        """
         raise RuntimeError('Not implemented')
 
     async def request_fire_and_forget(self, payload: Payload):
-        """The requester isn't listening for errors.  Nothing to do."""
+        """Ignored by default"""
 
     async def on_metadata_push(self, payload: Payload):
         """Nothing by default"""
