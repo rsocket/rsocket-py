@@ -74,3 +74,4 @@ autosummary_generate = True
 autodoc_typehints = 'description'
 autodoc_typehints_format = 'short'
 autodoc_member_order = 'bysource'
+master_doc = 'index'
