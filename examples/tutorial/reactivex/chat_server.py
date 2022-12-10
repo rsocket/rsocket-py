@@ -13,7 +13,7 @@ from reactivex import Observable, operators, Subject, Observer
 
 from examples.tutorial.reactivex.shared import (Message, chat_filename_mimetype, ClientStatistics,
                                                 ServerStatisticsRequest, ServerStatistics, dataclass_to_payload,
-                                                decode_dataclass)
+                                                decode_dataclass, decode_payload)
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
 from rsocket.frame_helpers import ensure_bytes
@@ -36,7 +36,7 @@ class SessionId(str):  # allow weak reference
 @dataclass()
 class UserSessionData:
     username: str
-    session_id: str
+    session_id: SessionId
     messages: Queue = field(default_factory=Queue)
     statistics: Optional[ClientStatistics] = None
     requested_statistics: ServerStatisticsRequest = field(default_factory=ServerStatisticsRequest)
@@ -44,7 +44,7 @@ class UserSessionData:
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(WeakSet))
+    channel_users: Dict[str, Set[SessionId]] = field(default_factory=lambda: defaultdict(WeakSet))
     files: Dict[str, bytes] = field(default_factory=dict)
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
     user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
@@ -95,6 +95,13 @@ def new_statistics_data(requested_statistics: ServerStatisticsRequest):
     return ServerStatistics(**statistics_data)
 
 
+def find_username_by_session(session_id: SessionId) -> Optional[str]:
+    session = chat_data.user_session_by_id.get(session_id)
+    if session is None:
+        return None
+    return session.username
+
+
 class ChatUserSession:
 
     def __init__(self):
@@ -105,11 +112,10 @@ class ChatUserSession:
         del chat_data.user_session_by_id[self._session.session_id]
 
     def router_factory(self):
-        router = RequestRouter()
+        router = RequestRouter(payload_mapper=decode_payload)
 
         @router.response('login')
-        async def login(payload: Payload) -> Observable:
-            username = utf8_decode(payload.data)
+        async def login(username: str) -> Observable:
             logging.info(f'New user: {username}')
             session_id = SessionId(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
@@ -118,15 +124,13 @@ class ChatUserSession:
             return reactivex.just(Payload(ensure_bytes(session_id)))
 
         @router.response('channel.join')
-        async def join_channel(payload: Payload) -> Observable:
-            channel_name = utf8_decode(payload.data)
+        async def join_channel(channel_name: str) -> Observable:
             ensure_channel_exists(channel_name)
             chat_data.channel_users[channel_name].add(self._session.session_id)
             return reactivex.empty()
 
         @router.response('channel.leave')
-        async def leave_channel(payload: Payload) -> Observable:
-            channel_name = utf8_decode(payload.data)
+        async def leave_channel(channel_name: str) -> Observable:
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return reactivex.empty()
 
@@ -157,10 +161,17 @@ class ChatUserSession:
             return reactivex.from_iterable(
                 (Payload(ensure_bytes(channel)) for channel in chat_data.channel_messages.keys()))
 
-        @router.fire_and_forget('statistics')
-        async def receive_statistics(payload: Payload):
-            statistics = decode_dataclass(payload.data, ClientStatistics)
+        @router.stream('channel.users')
+        async def get_channel_users(channel_name: str) -> Observable:
+            if channel_name not in chat_data.channel_users:
+                return reactivex.empty()
 
+            return reactivex.from_iterable(Payload(ensure_bytes(find_username_by_session(session_id))) for
+                         session_id in
+                         chat_data.channel_users[channel_name])
+
+        @router.fire_and_forget('statistics')
+        async def receive_statistics(statistics: ClientStatistics):
             logging.info('Received client statistics. memory usage: %s', statistics.memory_usage)
 
             self._session.statistics = statistics
@@ -198,9 +209,7 @@ class ChatUserSession:
                 limit_rate=2)
 
         @router.response('message')
-        async def send_message(payload: Payload) -> Observable:
-            message = decode_dataclass(payload.data, Message)
-
+        async def send_message(message: Message) -> Observable:
             logging.info('Received message for user: %s, channel: %s', message.user, message.channel)
 
             target_message = Message(self._session.username, message.content, message.channel)

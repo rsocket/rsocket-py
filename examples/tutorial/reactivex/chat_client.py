@@ -147,6 +147,12 @@ class ChatClient:
         ).pipe(operators.map(lambda _: utf8_decode(_.data)),
                operators.to_list())
 
+    async def list_channel_users(self, channel_name: str) -> List[str]:
+        request = Payload(ensure_bytes(channel_name), composite(route('channel.users')))
+        return await ReactiveXClient(self._rsocket).request_stream(
+            request
+        ).pipe(operators.map(lambda _: utf8_decode(_.data)),
+               operators.to_list())
 
 async def main():
     connection1 = await asyncio.open_connection('localhost', 6565)
@@ -174,15 +180,20 @@ async def messaging_example(user1, user2):
     user1.listen_for_messages()
     user2.listen_for_messages()
 
-    await user1.join('channel1')
-    await user2.join('channel1')
+    channel_name = 'channel1'
+    await user1.join(channel_name)
+    await user2.join(channel_name)
 
     print(f'Channels: {await user1.list_channels()}')
+    print(f'Channel {channel_name} users: {await user1.list_channel_users(channel_name)}')
 
     await user1.private_message('user2', 'private message from user1')
-    await user1.channel_message('channel1', 'channel message from user1')
+    await user1.channel_message(channel_name, 'channel message from user1')
 
     await asyncio.sleep(1)
+
+    await user1.leave(channel_name)
+    print(f'Channel {channel_name} users: {await user1.list_channel_users(channel_name)}')
 
     user1.stop_listening_for_messages()
     user2.stop_listening_for_messages()
