@@ -20,6 +20,11 @@ from rsocket.streams.null_subscrier import NullSubscriber
 
 
 class RoutingRequestHandler(BaseRequestHandler):
+    """
+    Handler implementation which uses a :class:`RequestRouter <rsocket.routing.request_router.RequestRouter>`
+    to handle requests based on route information provided in the payload metadata.
+    """
+
     __slots__ = (
         'router',
         'data_encoding',

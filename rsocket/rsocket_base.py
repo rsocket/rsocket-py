@@ -481,6 +481,10 @@ class RSocketBase(RSocket, RSocketInternal):
         await self.close()
 
     def request_response(self, payload: Payload) -> Awaitable[Payload]:
+        """
+        Initiate a request-response interaction.
+        """
+
         logger().debug('%s: request-response: %s', self._log_identifier(), payload)
 
         requester = RequestResponseRequester(self, payload)
@@ -488,6 +492,10 @@ class RSocketBase(RSocket, RSocketInternal):
         return requester.run()
 
     def fire_and_forget(self, payload: Payload) -> Awaitable[None]:
+        """
+        Initiate a fire-and-forget interaction.
+        """
+
         logger().debug('%s: fire-and-forget: %s', self._log_identifier(), payload)
 
         stream_id = self._allocate_stream()
@@ -497,6 +505,10 @@ class RSocketBase(RSocket, RSocketInternal):
         return frame.sent_future
 
     def request_stream(self, payload: Payload) -> Union[BackpressureApi, Publisher]:
+        """
+        Initiate a request-stream interaction.
+        """
+
         logger().debug('%s: request-stream: %s', self._log_identifier(), payload)
 
         requester = RequestStreamRequester(self, payload)
@@ -507,12 +519,20 @@ class RSocketBase(RSocket, RSocketInternal):
             payload: Payload,
             publisher: Optional[Publisher] = None,
             sending_done: Optional[asyncio.Event] = None) -> Union[BackpressureApi, Publisher]:
+        """
+        Initiate a request-channel interaction.
+        """
+
         logger().debug('%s: request-channel: %s', self._log_identifier(), payload)
 
         requester = RequestChannelRequester(self, payload, publisher, sending_done)
         return self.register_new_stream(requester)
 
     def metadata_push(self, metadata: bytes) -> Awaitable[None]:
+        """
+        Initiate a metadata-push interaction.
+        """
+
         logger().debug('%s: metadata-push: %s', self._log_identifier(), metadata)
 
         frame = to_metadata_push_frame(metadata)

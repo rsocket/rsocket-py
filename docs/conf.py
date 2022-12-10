@@ -10,20 +10,21 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath('..'))
 
 
 # -- Project information -----------------------------------------------------
 import os
 
-project = 'rsocket'
-copyright = '2022, gabis@precog.co'
-author = 'gabis@precog.co'
+project = 'RSocket python'
+copyright = '2021, jellofishi@pm.me'
+author = 'jellofishi@pm.me'
 
 # The full version, including alpha/beta/rc tags
-release = '0.3'
+release = '0.4.6'
 
 # -- General configuration ---------------------------------------------------
 
@@ -70,5 +71,8 @@ html_static_path = ['_static']
 
 autodoc_default_flags = ['members']
 autosummary_generate = True
+autodoc_inherit_docstrings = False
 autodoc_typehints = 'description'
 autodoc_typehints_format = 'short'
+autodoc_member_order = 'bysource'
+master_doc = 'index'

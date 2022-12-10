@@ -4,6 +4,7 @@ Changelog
 v0.4.6
 ======
 - fire_and_forget now only removes the stream id when the future denoting the frame was sent, is done
+- API documentation auto generated at rsocket.readthedocs.io
 
 v0.4.5
 ======

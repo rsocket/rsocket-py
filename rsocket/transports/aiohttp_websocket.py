@@ -18,6 +18,10 @@ from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 async def websocket_client(url: Optional[str] = None,
                            websocket: Optional[ClientWebSocketResponse] = None,
                            **kwargs) -> RSocketClient:
+    """
+    Helper method to instantiate an RSocket client using a websocket url over aiohttp client.
+    """
+
     async with RSocketClient(single_transport_provider(TransportAioHttpClient(url, websocket)),
                              **kwargs) as client:
         yield client
@@ -40,6 +44,9 @@ def websocket_handler_factory(on_server_create=None, **kwargs):
 
 
 class TransportAioHttpClient(AbstractMessagingTransport):
+    """
+    RSocket transport over client side aiohttp websocket.
+    """
 
     def __init__(self, url: Optional[str] = None, websocket: Optional[ClientWebSocketResponse] = None):
         super().__init__()
