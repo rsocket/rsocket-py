@@ -15,6 +15,7 @@ class RSocketServer(RSocketBase):
     """
     Server side instance of an rsocket connection.
     """
+
     def __init__(self,
                  transport: Transport,
                  handler_factory: Callable[[], RequestHandler] = BaseRequestHandler,

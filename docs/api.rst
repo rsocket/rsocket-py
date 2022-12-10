@@ -20,3 +20,25 @@ Handler
 
 .. automodule:: rsocket.request_handler
     :members:
+
+
+Interfaces
+----------
+
+Publisher
+~~~~~~~~~
+
+.. automodule:: reactivestreams.publisher
+    :members:
+
+Subscriber
+~~~~~~~~~~
+
+.. automodule:: reactivestreams.subscriber
+    :members:
+
+Subscription
+~~~~~~~~~~~~
+
+.. automodule:: reactivestreams.subscription
+    :members:

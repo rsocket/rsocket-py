@@ -5,6 +5,10 @@ from reactivestreams.subscription import Subscription
 
 
 class Subscriber(metaclass=ABCMeta):
+    """
+    Handles stream events.
+    """
+
     @abstractmethod
     def on_subscribe(self, subscription: Subscription):
         ...
