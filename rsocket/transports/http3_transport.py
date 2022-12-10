@@ -43,9 +43,6 @@ class ClientWebSocket:
         return await self.queue.get()
 
     async def close(self, code: int = 1000, reason: str = "") -> None:
-        """
-        Perform the closing handshake.
-        """
         data = self.websocket.send(
             wsproto.events.CloseConnection(code=code, reason=reason)
         )
@@ -80,6 +77,10 @@ class URL:
 
 
 class RSocketHttp3ClientProtocol(QuicConnectionProtocol):
+    """
+    RSocket transport over client side http3 connection.
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pushes: Dict[int, Deque[H3Event]] = {}
@@ -149,6 +150,9 @@ class RSocketHttp3ClientProtocol(QuicConnectionProtocol):
 
 
 class Http3TransportWebsocket(AbstractMessagingTransport):
+    """
+    RSocket transport over server side http3 connection.
+    """
 
     def __init__(self, websocket: Union[WebSocket, ClientWebSocket]):
         super().__init__()

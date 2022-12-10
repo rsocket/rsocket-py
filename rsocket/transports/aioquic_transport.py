@@ -80,6 +80,10 @@ class RSocketQuicProtocol(QuicConnectionProtocol):
 
 
 class RSocketQuicTransport(AbstractMessagingTransport):
+    """
+    RSocket transport over server/client side quic connection.
+    """
+
     def __init__(self, quic_protocol: RSocketQuicProtocol):
         super().__init__()
         self._quic_protocol = quic_protocol

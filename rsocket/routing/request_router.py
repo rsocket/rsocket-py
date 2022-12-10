@@ -38,6 +38,13 @@ class Handlers:
 
 
 class RequestRouter:
+    """
+    Used to define routes for RSocket endpoints.
+
+    Pass this to :class:`RoutingRequestHandler <rsocket.routing.routing_request_handler.RoutingRequestHandler>`
+    to instantiate a handler using these routes.
+    """
+
     __slots__ = (
         '_channel_routes',
         '_stream_routes',

@@ -18,6 +18,9 @@ from rsocket.transports.transport import Transport
 
 
 class RSocketClient(RSocketBase):
+    """
+    Server side instance of an rsocket connection.
+    """
 
     def __init__(self,
                  transport_provider: AsyncGenerator[Transport, Any],

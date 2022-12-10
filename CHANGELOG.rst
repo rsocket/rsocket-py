@@ -4,6 +4,7 @@ Changelog
 v0.4.6
 ======
 - fire_and_forget now only removes the stream id when the future denoting the frame was sent, is done
+- API documentation auto generated at rsocket.readthedocs.io
 - Raise error on empty or None route specified in request router
 - Added the following methods to RequestRouter to allow specifying handlers of unknown routes:
     - response_unknown

@@ -1,30 +1,44 @@
-API Reference
--------------
+Core API Reference
+==================
 
-Core
-----
+Server
+------
 
 .. automodule:: rsocket.rsocket_server
     :members:
+    :inherited-members:
+
+Client
+------
 
 .. automodule:: rsocket.rsocket_client
     :members:
+    :inherited-members:
 
-Helpers
---------
-
-Requester
-~~~~~~~~~
-
-Responder
-~~~~~~~~~
-
-Clients
+Handler
 -------
 
-.. automodule:: rsocket.awaitable.awaitable_rsocket
+.. automodule:: rsocket.request_handler
     :members:
 
-.. automodule:: rsocket.rx_support.rx_rsocket
+
+Interfaces
+----------
+
+Publisher
+~~~~~~~~~
+
+.. automodule:: reactivestreams.publisher
     :members:
 
+Subscriber
+~~~~~~~~~~
+
+.. automodule:: reactivestreams.subscriber
+    :members:
+
+Subscription
+~~~~~~~~~~~~
+
+.. automodule:: reactivestreams.subscription
+    :members:
