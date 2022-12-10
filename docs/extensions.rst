@@ -36,3 +36,18 @@ http3
 
 .. automodule:: rsocket.transports.http3_transport
     :members:
+
+Routing
+-------
+
+RequestRouter
+~~~~~~~~~~~~~
+
+.. automodule:: rsocket.routing.request_router
+    :members:
+
+RoutingRequestHandler
+~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: rsocket.routing.routing_request_handler
+    :members:
