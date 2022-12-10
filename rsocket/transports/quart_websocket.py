@@ -10,6 +10,10 @@ from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 
 
 async def websocket_handler(on_server_create=None, **kwargs):
+    """
+    Helper method to instantiate an RSocket server using a quart websocket connection.
+    """
+
     transport = TransportQuartWebsocket()
     server = RSocketServer(transport, **kwargs)
 
@@ -20,6 +24,9 @@ async def websocket_handler(on_server_create=None, **kwargs):
 
 
 class TransportQuartWebsocket(AbstractMessagingTransport):
+    """
+    RSocket transport over server side quart websocket.
+    """
 
     async def handle_incoming_ws_messages(self):
         try:

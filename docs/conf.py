@@ -71,6 +71,7 @@ html_static_path = ['_static']
 
 autodoc_default_flags = ['members']
 autosummary_generate = True
+autodoc_inherit_docstrings = False
 autodoc_typehints = 'description'
 autodoc_typehints_format = 'short'
 autodoc_member_order = 'bysource'

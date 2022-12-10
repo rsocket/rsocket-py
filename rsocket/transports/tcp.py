@@ -6,6 +6,13 @@ from rsocket.transports.transport import Transport
 
 
 class TransportTCP(Transport):
+    """
+    RSocket transport over asyncio TCP connection.
+
+    :param reader: asyncio connection reader stream
+    :param writer: asyncio connection writer stream
+    """
+
     def __init__(self, reader: StreamReader, writer: StreamWriter):
         super().__init__()
         self._writer = writer
