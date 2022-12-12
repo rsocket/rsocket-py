@@ -7,8 +7,6 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable, Tuple
 from weakref import WeakValueDictionary, WeakSet
 
-from more_itertools import first
-
 from examples.tutorial.step6.shared import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
                                             ServerStatistics, dataclass_to_payload, decode_dataclass, decode_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
@@ -76,8 +74,11 @@ def get_file_name(composite_metadata):
 
 
 def find_session_by_username(username: str) -> Optional[UserSessionData]:
-    return first((session for session in chat_data.user_session_by_id.values() if
-                  session.username == username), None)
+    try:
+        return next(session for session in chat_data.user_session_by_id.values() if
+                    session.username == username)
+    except StopIteration:
+        return None
 
 
 def find_username_by_session(session_id: SessionId) -> Optional[str]:

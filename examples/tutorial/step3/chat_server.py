@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Awaitable
 from weakref import WeakValueDictionary
 
-from more_itertools import first
-
 from examples.tutorial.step3.shared import Message, dataclass_to_payload, decode_dataclass
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
@@ -41,8 +39,11 @@ chat_data = ChatData()
 
 
 def find_session_by_username(username: str) -> Optional[UserSessionData]:
-    return first((session for session in chat_data.user_session_by_id.values() if
-                  session.username == username), None)
+    try:
+        return next(session for session in chat_data.user_session_by_id.values() if
+                    session.username == username)
+    except StopIteration:
+        return None
 
 
 class ChatUserSession:

@@ -8,7 +8,6 @@ from typing import Dict, Optional, Set, Callable
 from weakref import WeakValueDictionary, WeakSet
 
 import reactivex
-from more_itertools import first
 from reactivex import Observable, operators, Subject, Observer
 
 from examples.tutorial.reactivex.shared import (Message, chat_filename_mimetype, ClientStatistics,
@@ -79,8 +78,11 @@ def get_file_name(composite_metadata):
 
 
 def find_session_by_username(username: str) -> Optional[UserSessionData]:
-    return first((session for session in chat_data.user_session_by_id.values() if
-                  session.username == username), None)
+    try:
+        return next(session for session in chat_data.user_session_by_id.values() if
+                    session.username == username)
+    except StopIteration:
+        return None
 
 
 def new_statistics_data(requested_statistics: ServerStatisticsRequest):
