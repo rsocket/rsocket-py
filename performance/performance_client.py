@@ -4,8 +4,6 @@ from asyncio import Event
 from typing import AsyncGenerator, Tuple
 
 from reactivestreams.publisher import Publisher
-from reactivestreams.subscriber import Subscriber
-from reactivestreams.subscription import Subscription
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
@@ -35,58 +33,6 @@ def sample_publisher(wait_for_requester_complete: Event,
             current_response += 1
 
     return StreamFromAsyncGenerator(generator)
-
-
-class ChannelSubscriber(Subscriber):
-
-    def __init__(self, wait_for_responder_complete: Event) -> None:
-        super().__init__()
-        self._wait_for_responder_complete = wait_for_responder_complete
-
-    def on_subscribe(self, subscription: Subscription):
-        self.subscription = subscription
-
-    def on_next(self, value: Payload, is_complete=False):
-        logging.info('From server on channel: ' + value.data.decode('utf-8'))
-        if is_complete:
-            self._wait_for_responder_complete.set()
-
-    def on_error(self, exception: Exception):
-        logging.error('Error from server on channel' + str(exception))
-        self._wait_for_responder_complete.set()
-
-    def on_complete(self):
-        logging.info('Completed from server on channel')
-        self._wait_for_responder_complete.set()
-
-
-class StreamSubscriber(Subscriber):
-
-    def __init__(self,
-                 wait_for_complete: Event,
-                 request_n_size=0):
-        self._request_n_size = request_n_size
-        self._wait_for_complete = wait_for_complete
-
-    def on_next(self, value, is_complete=False):
-        logging.info(f'Performance Client: value_length {len(value.data)}')
-        if is_complete:
-            self._wait_for_complete.set()
-        else:
-            if self._request_n_size > 0:
-                self.subscription.request(self._request_n_size)
-
-    def on_complete(self):
-        logging.info('Performance Client: Complete')
-        self._wait_for_complete.set()
-
-    def on_error(self, exception):
-        logging.error('Performance Client: {}'.format(exception))
-        self._wait_for_complete.set()
-
-    def on_subscribe(self, subscription):
-        # noinspection PyAttributeOutsideInit
-        self.subscription = subscription
 
 
 class PerformanceClient:
