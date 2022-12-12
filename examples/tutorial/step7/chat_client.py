@@ -152,7 +152,7 @@ router = RequestRouter()
 
 
 @router.response('time')
-def get_client_time():
+async def get_client_time():
     return create_response(ensure_bytes(datetime.datetime.now().strftime('%y-%M-%d')))
 
 
