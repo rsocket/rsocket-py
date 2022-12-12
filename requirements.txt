@@ -7,7 +7,7 @@ coverage==6.5.0
 coveralls==3.3.1
 decoy==1.11.1
 flake8==5.0.4
-pytest-asyncio==0.20.2
+pytest-asyncio==0.20.3
 pytest-cov==4.0.0
 pytest-profiling==1.7.0
 pytest-rerunfailures==10.3
