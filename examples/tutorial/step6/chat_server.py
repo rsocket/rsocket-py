@@ -105,11 +105,6 @@ class ChatUserSession:
     def __init__(self):
         self._session: Optional[UserSessionData] = None
 
-    def remove(self):
-        if self._session is not None:
-            print(f'Removing session: {self._session.session_id}')
-            del chat_data.user_session_by_id[self._session.session_id]
-
     def router_factory(self):
         router = RequestRouter(payload_mapper=decode_payload)
 
@@ -261,10 +256,6 @@ class CustomRoutingRequestHandler(RoutingRequestHandler):
     def __init__(self, session: ChatUserSession):
         super().__init__(session.router_factory())
         self._session = session
-
-    async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        self._session.remove()
-        return await super().on_close(rsocket, exception)
 
 
 def handler_factory():
