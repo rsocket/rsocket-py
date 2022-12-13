@@ -24,10 +24,10 @@
     </appender>
 
     <logger name="io.rsocket.examples" level="DEBUG"/>
-    <logger name="io.rsocket.FrameLogger" level="DEBUG"/>
-    <logger name="reactor.netty" level="INFO"/>
+<!--    <logger name="io.rsocket.FrameLogger" level="DEBUG"/>-->
+<!--    <logger name="reactor.netty" level="INFO"/>-->
 
-    <root level="DEBUG">
+    <root level="INFO">
         <appender-ref ref="STDOUT"/>
     </root>
 
