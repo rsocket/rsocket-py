@@ -10,13 +10,17 @@ import io.rsocket.metadata.CompositeMetadataCodec;
 import io.rsocket.metadata.TaggingMetadataCodec;
 import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.util.DefaultPayload;
+import reactor.core.Disposable;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Client {
 
     private final RSocket rSocket;
+
+    public final AtomicReference<Disposable> incomingMessages = new AtomicReference<>();
 
     public Client(RSocket rSocket) {
         this.rSocket = rSocket;
@@ -36,12 +40,16 @@ public class Client {
 
     public void listenForMessages() {
         new Thread(() ->
-                rSocket.requestStream(DefaultPayload.create(getPayload("simple"),
-                                composite(route("messages.incoming"))))
-                        .doOnComplete(() -> System.out.println("Response from server stream completed"))
-                        .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
-                        .collectList()
-                        .block())
+        {
+            Disposable subscribe = rSocket.requestStream(DefaultPayload.create(getPayload("simple"),
+                            composite(route("messages.incoming"))))
+                    .doOnComplete(() -> System.out.println("Response from server stream completed"))
+                    .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
+
+                    .collectList()
+                    .subscribe();
+            incomingMessages.set(subscribe);
+        })
                 .start();
     }
 

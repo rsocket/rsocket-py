@@ -6,7 +6,7 @@ import io.rsocket.transport.netty.client.TcpClientTransport;
 
 public class ClientApplication {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         final var rSocket = RSocketConnector.create()
                 .fragment(64)
                 .dataMimeType(WellKnownMimeType.TEXT_PLAIN.getString())
@@ -24,7 +24,8 @@ public class ClientApplication {
         client.sendMessage("{\"channel\":\"channel1\", \"content\":\"message\"}");
 
         client.leave("channel1");
-
+        Thread.sleep(2000);
+        client.incomingMessages.get().dispose();
     }
 
     private static int getPort(String[] args) {

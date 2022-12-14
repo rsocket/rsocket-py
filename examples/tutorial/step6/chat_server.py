@@ -223,6 +223,8 @@ class ChatUserSession:
                     self._session = session
 
                 def cancel(self):
+                    logging.info(f'{self._session.username} stopped listening for messages')
+
                     self._sender.cancel()
 
                 def subscribe(self, subscriber: Subscriber):
