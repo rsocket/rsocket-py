@@ -16,15 +16,42 @@ import java.util.List;
 
 public class Client {
 
-    private RSocket rSocket;
+    private final RSocket rSocket;
 
     public Client(RSocket rSocket) {
         this.rSocket = rSocket;
     }
 
     public void login(String username) {
+        sendStringToRoute(username, "login");
+    }
+
+    public void join(String channel) {
+        sendStringToRoute(channel, "channel.join");
+    }
+
+    public void leave(String channel) {
+        sendStringToRoute(channel, "channel.leave");
+    }
+
+    public void listenForMessages() {
+        new Thread(() ->
+                rSocket.requestStream(DefaultPayload.create(getPayload("simple"),
+                                composite(route("messages.incoming"))))
+                        .doOnComplete(() -> System.out.println("Response from server stream completed"))
+                        .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
+                        .collectList()
+                        .block())
+                .start();
+    }
+
+    public void sendMessage(String data) {
+        sendStringToRoute(data, "message");
+    }
+
+    private void sendStringToRoute(String username, String route) {
         final Payload payload = DefaultPayload.create(getPayload(username),
-                composite(route("login")
+                composite(route(route)
                 ));
         rSocket.requestResponse(payload)
                 .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
@@ -37,6 +64,7 @@ public class Client {
         return new CompositeItem(routingMetadata, WellKnownMimeType.MESSAGE_RSOCKET_ROUTING);
 
     }
+
     private static CompositeByteBuf composite(Client.CompositeItem... parts) {
         final var metadata = ByteBufAllocator.DEFAULT.compositeBuffer();
         for (Client.CompositeItem part : parts) {
