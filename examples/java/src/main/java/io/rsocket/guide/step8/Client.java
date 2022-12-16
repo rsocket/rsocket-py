@@ -1,4 +1,4 @@
-package io.rsocket.guide;
+package io.rsocket.guide.step8;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -27,7 +27,12 @@ public class Client {
     }
 
     public void login(String username) {
-        sendStringToRoute(username, "login");
+        final Payload payload = DefaultPayload.create(getPayload(username),
+                composite(route("login")
+                ));
+        rSocket.requestResponse(payload)
+                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
+                .block(Duration.ofMinutes(10));
     }
 
     public void join(String channel) {

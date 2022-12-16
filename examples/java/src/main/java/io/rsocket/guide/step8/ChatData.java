@@ -1,4 +1,4 @@
-package io.rsocket.guide;
+package io.rsocket.guide.step8;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -1,8 +1,7 @@
-package io.rsocket.guide;
+package io.rsocket.guide.step8;
 
 import io.rsocket.core.RSocketServer;
 import io.rsocket.frame.decoder.PayloadDecoder;
-import io.rsocket.pythontest.SimpleRSocketAcceptor;
 import io.rsocket.transport.netty.server.TcpServerTransport;
 
 import java.util.Objects;

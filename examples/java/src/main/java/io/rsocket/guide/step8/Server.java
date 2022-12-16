@@ -1,4 +1,4 @@
-package io.rsocket.guide;
+package io.rsocket.guide.step8;
 
 import io.rsocket.ConnectionSetupPayload;
 import io.rsocket.Payload;
