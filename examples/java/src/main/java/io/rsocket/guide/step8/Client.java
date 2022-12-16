@@ -62,7 +62,12 @@ public class Client {
     }
 
     public void sendMessage(String data) {
-        sendStringToRoute(data, "message");
+        final Payload payload = DefaultPayload.create(getPayload(data),
+                composite(route("message")
+                ));
+        rSocket.requestResponse(payload)
+                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
+                .block(Duration.ofMinutes(10));
     }
 
     private void sendStringToRoute(String username, String route) {
