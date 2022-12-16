@@ -1,33 +1,29 @@
 package io.rsocket.guide.step0;
 
+import io.rsocket.Payload;
+import io.rsocket.RSocket;
+import io.rsocket.SocketAcceptor;
 import io.rsocket.core.RSocketServer;
-import io.rsocket.frame.decoder.PayloadDecoder;
 import io.rsocket.transport.netty.server.TcpServerTransport;
-
-import java.util.Objects;
+import io.rsocket.util.DefaultPayload;
+import reactor.core.publisher.Mono;
 
 public class ServerApplication {
 
     public static void main(String[] args) {
-        int port = getPort(args);
-        System.out.println("Port: " + port);
+        final var transport = TcpServerTransport.create(6565);
 
-        RSocketServer rSocketServer = RSocketServer.create()
-                .acceptor(new Server())
-                .payloadDecoder(PayloadDecoder.ZERO_COPY);
+        final SocketAcceptor socketAcceptor = (setup, sendingSocket) -> Mono.just(new RSocket() {
+            public Mono<Payload> requestResponse(Payload payload) {
+                return Mono.just(DefaultPayload.create("Welcome to chat, " + payload.getDataUtf8()));
+            }
+        });
 
-        Objects.requireNonNull(rSocketServer.bind(TcpServerTransport.create(port))
-                        .block())
+        RSocketServer.create()
+                .acceptor(socketAcceptor)
+                .bind(transport)
+                .block()
                 .onClose()
                 .block();
     }
-
-    private static int getPort(String[] args) {
-        if (args.length > 0) {
-            return Integer.parseInt(args[0]);
-        } else {
-            return 6565;
-        }
-    }
-
 }
