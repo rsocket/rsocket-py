@@ -4,23 +4,26 @@ import io.rsocket.ConnectionSetupPayload;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
-import io.rsocket.pythontest.Fixtures;
 import io.rsocket.pythontest.RoutingRSocket;
 import io.rsocket.pythontest.RoutingRSocketAdapter;
 import io.rsocket.util.DefaultPayload;
 import io.rsocket.util.EmptyPayload;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
-import java.nio.channels.SeekableByteChannel;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Server implements SocketAcceptor {
     @Override
     public Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket) {
         final var session = new Session();
+        JSONParser jsonParser = new JSONParser();
         return Mono.just(new RoutingRSocketAdapter(new RoutingRSocket() {
 
 
@@ -47,7 +50,13 @@ public class Server implements SocketAcceptor {
                         case "channel.leave":
                             return Mono.just(EmptyPayload.INSTANCE);
                         case "message":
-                            session.messages.add("a hard coded message");
+                            try {
+                                final var message = (JSONObject) jsonParser.parse(payload.getDataUtf8());
+                                session.messages.add((String) message.get("content"));
+                            } catch (ParseException e) {
+                                throw new RuntimeException(e);
+                            }
+
                             return Mono.just(EmptyPayload.INSTANCE);
                     }
 
@@ -55,22 +64,33 @@ public class Server implements SocketAcceptor {
                 });
             }
 
+            public void messageSupplier(FluxSink<Payload> sink) {
+                while (true) {
+                    try {
+                        final var next = session.messages.poll(20, TimeUnit.DAYS);
+                        if (next != null) {
+                            sink.next(DefaultPayload.create(next));
+                        }
+                    } catch (Exception exception) {
+                        break;
+                    }
+                }
+            }
+
             public Flux<Payload> requestStream(String route, Payload payload) {
                 return Flux.defer(() -> {
                     switch (route) {
                         case "messages.incoming":
-                            return Flux.from(subscriber -> {
-                                while (true) {
-                                    try {
-                                        final var next = session.messages.poll(20, TimeUnit.DAYS);
-                                        if (next != null) {
-                                            subscriber.onNext(DefaultPayload.create(next));
+                            final AtomicReference<Thread> threadContainer = new AtomicReference<>();
+                            return Flux.create(sink -> sink.onRequest(n -> {
+                                        if (threadContainer.get() == null) {
+                                            final var thread = new Thread(() -> messageSupplier(sink));
+                                            thread.start();
+                                            threadContainer.set(thread);
                                         }
-                                    } catch (InterruptedException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                }
-                            });
+                                    })
+                                    .onCancel(() -> threadContainer.get().interrupt())
+                                    .onDispose(() -> threadContainer.get().interrupt()));
                     }
 
                     return RoutingRSocket.super.requestStream(route, payload);

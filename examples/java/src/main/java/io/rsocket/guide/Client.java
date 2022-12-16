@@ -49,8 +49,7 @@ public class Client {
                     .collectList()
                     .subscribe();
             incomingMessages.set(subscribe);
-        })
-                .start();
+        }).start();
     }
 
     public void sendMessage(String data) {
