@@ -60,6 +60,7 @@ public class Server implements SocketAcceptor {
                 return Mono.defer(() -> {
                     switch (route) {
                         case "login":
+                            session.username = payload.getDataUtf8();
                             return Mono.just(DefaultPayload.create(session.sessionId));
                         case "channel.join":
                             final var channelJoin = payload.getDataUtf8();

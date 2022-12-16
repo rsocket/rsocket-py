@@ -20,6 +20,8 @@ public class Client {
 
     private final RSocket rSocket;
 
+    private String username;
+
     public final AtomicReference<Disposable> incomingMessages = new AtomicReference<>();
 
     public Client(RSocket rSocket) {
@@ -27,6 +29,8 @@ public class Client {
     }
 
     public void login(String username) {
+        this.username = username;
+
         final Payload payload = DefaultPayload.create(getPayload(username),
                 composite(route("login")
                 ));
