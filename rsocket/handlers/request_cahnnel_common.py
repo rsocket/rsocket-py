@@ -1,10 +1,11 @@
 import abc
 import asyncio
-from typing import Optional
+from typing import Optional, Union
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription
+from rsocket.disposable import Disposable
 from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
     PayloadFrame, Frame, error_frame_to_exception
 from rsocket.helpers import payload_from_frame
@@ -38,25 +39,25 @@ class StreamSubscriber(DefaultSubscriber):
         self._requester.mark_completed_and_finish(sent=True)
 
 
-class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc.ABCMeta):
+class RequestChannelCommon(StreamHandler, Publisher, Subscription, Disposable, metaclass=abc.ABCMeta):
 
     def __init__(self,
                  socket: RSocket,
-                 remote_publisher: Optional[Publisher] = None,
+                 publisher: Optional[Union[Publisher, Disposable]] = None,
                  sending_done: Optional[asyncio.Event] = None):
         super().__init__(socket)
         self._sending_done = sending_done
         self.remote_subscriber = None
         self._sent_complete = False
         self._received_complete = False
-        self._remote_publisher = remote_publisher
+        self._publisher = publisher
         self.subscriber = None
 
     def setup(self):
         self.subscriber = StreamSubscriber(self.stream_id, self.socket, self)
 
-        if self._remote_publisher is not None:
-            self._remote_publisher.subscribe(self.subscriber)
+        if self._publisher is not None:
+            self._publisher.subscribe(self.subscriber)
 
     def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):
@@ -80,6 +81,10 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, metaclass=abc
         elif isinstance(frame, ErrorFrame):
             self.remote_subscriber.on_error(error_frame_to_exception(frame))
             self.mark_completed_and_finish(received=True)
+
+    def dispose(self):
+        if hasattr(self._publisher, 'dispose'):
+            self._publisher.dispose()
 
     def _complete_remote_subscriber(self):
         if self.remote_subscriber is not None:

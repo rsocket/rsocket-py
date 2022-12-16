@@ -3,6 +3,7 @@ from typing import Dict
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketStreamAllocationFailure, RSocketStreamIdInUse
 from rsocket.frame import CONNECTION_STREAM_ID, Frame, ErrorFrame
+from rsocket.handlers.interfaces import Requester
 from rsocket.logger import logger
 from rsocket.streams.stream_handler import StreamHandler
 
@@ -58,11 +59,14 @@ class StreamControl:
     def stop_all_streams(self, error_code=ErrorCode.CANCELED, data=b''):
         logger().debug('Stopping all streams')
         for stream_id, stream in list(self._streams.items()):
-            frame = ErrorFrame()
-            frame.stream_id = stream_id
-            frame.error_code = error_code
-            frame.data = data
-            stream.frame_received(frame)
+            if isinstance(stream, Requester):
+                frame = ErrorFrame()
+                frame.stream_id = stream_id
+                frame.error_code = error_code
+                frame.data = data
+                stream.frame_received(frame)
+
+            stream.dispose()
             self.finish_stream(stream_id)
 
     def assert_stream_id_available(self, stream_id: int):

@@ -1,10 +1,10 @@
-import abc
 import asyncio
 from datetime import timedelta
 from typing import AsyncGenerator, Tuple, Optional, Callable, Generator
 
 from reactivestreams.subscriber import Subscriber
 from rsocket.async_helpers import async_range
+from rsocket.disposable import Disposable
 from rsocket.helpers import DefaultPublisherSubscription
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -16,14 +16,14 @@ from rsocket.streams.exceptions import FinishedIterator
 _finished_iterator = object()
 
 
-class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
+class StreamFromGenerator(DefaultPublisherSubscription, Disposable):
 
     def __init__(self,
                  generator: Callable[[], Generator[Tuple[Payload, bool], None, None]],
                  delay_between_messages=timedelta(0),
                  on_cancel=None,
                  on_complete=None):
-        self._generator = generator
+        self._generator_factory = generator
         self._queue = asyncio.Queue()
         self._delay_between_messages = delay_between_messages
         self._subscriber: Optional[Subscriber] = None
@@ -35,7 +35,11 @@ class StreamFromGenerator(DefaultPublisherSubscription, metaclass=abc.ABCMeta):
         self._on_cancel = on_cancel
 
     async def _start_generator(self):
-        self._iteration = iter(self._generator())
+        self._generator = self._generator_factory()
+        self._iteration = iter(self._generator)
+
+    def dispose(self):
+        self._generator.close()
 
     def subscribe(self, subscriber: Subscriber):
         super().subscribe(subscriber)

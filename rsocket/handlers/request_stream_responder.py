@@ -1,5 +1,8 @@
+from typing import Union
+
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
+from rsocket.disposable import Disposable
 from rsocket.frame import CancelFrame, RequestNFrame, \
     RequestStreamFrame, Frame
 from rsocket.payload import Payload
@@ -31,9 +34,9 @@ class StreamSubscriber(DefaultSubscriber):
         self.socket.finish_stream(self.stream_id)
 
 
-class RequestStreamResponder(StreamHandler):
+class RequestStreamResponder(StreamHandler, Disposable):
 
-    def __init__(self, socket: RSocket, publisher: Publisher):
+    def __init__(self, socket: RSocket, publisher: Union[Publisher, Disposable]):
         super().__init__(socket)
         self.publisher = publisher
         self.subscriber = None
@@ -51,3 +54,7 @@ class RequestStreamResponder(StreamHandler):
             self._finish_stream()
         elif isinstance(frame, RequestNFrame):
             self.subscriber.subscription.request(frame.request_n)
+
+    def dispose(self):
+        if hasattr(self.publisher, 'dispose'):
+            self.publisher.dispose()
