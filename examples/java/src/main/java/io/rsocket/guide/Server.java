@@ -25,7 +25,11 @@ public class Server implements SocketAcceptor {
     private final ChatData chatData = new ChatData();
 
     public void ensureChannel(String channelName) {
-        chatData.channelByName.putIfAbsent(channelName, new ChatChannel());
+        if (!chatData.channelByName.containsKey(channelName)) {
+            ChatChannel chatChannel = new ChatChannel();
+            chatChannel.name = channelName;
+            chatData.channelByName.put(channelName, chatChannel);
+        }
     }
 
     public void join(String channel, String user) {
