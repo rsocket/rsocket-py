@@ -23,39 +23,23 @@ public class Client {
     }
 
     public Mono<Payload> login(String username) {
-        final Payload payload = DefaultPayload.create(Unpooled.wrappedBuffer(username.getBytes()),
-                composite(route("login")
-                ));
+        final Payload payload = DefaultPayload.create(
+                Unpooled.wrappedBuffer(username.getBytes()),
+                route("login")
+        );
         return rSocket.requestResponse(payload);
     }
 
-    private static CompositeItem route(String route) {
-        final var routes = List.of(route);
-        final var routingMetadata = TaggingMetadataCodec.createTaggingContent(ByteBufAllocator.DEFAULT, routes);
-        return new CompositeItem(routingMetadata, WellKnownMimeType.MESSAGE_RSOCKET_ROUTING);
-
-    }
-
-    private static CompositeByteBuf composite(CompositeItem... parts) {
+    private static CompositeByteBuf route(String route) {
         final var metadata = ByteBufAllocator.DEFAULT.compositeBuffer();
-        for (CompositeItem part : parts) {
-            CompositeMetadataCodec.encodeAndAddMetadata(
-                    metadata,
-                    ByteBufAllocator.DEFAULT,
-                    part.mimeType,
-                    part.data
-            );
-        }
+
+        CompositeMetadataCodec.encodeAndAddMetadata(
+                metadata,
+                ByteBufAllocator.DEFAULT,
+                WellKnownMimeType.MESSAGE_RSOCKET_ROUTING,
+                TaggingMetadataCodec.createTaggingContent(ByteBufAllocator.DEFAULT, List.of(route))
+        );
+
         return metadata;
-    }
-
-    private static class CompositeItem {
-        public ByteBuf data;
-        public WellKnownMimeType mimeType;
-
-        public CompositeItem(ByteBuf data, WellKnownMimeType mimeType) {
-            this.data = data;
-            this.mimeType = mimeType;
-        }
     }
 }

@@ -1,6 +1,7 @@
 package io.rsocket.guide.step1;
 
 import io.rsocket.core.RSocketConnector;
+import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.transport.netty.client.TcpClientTransport;
 
 import java.time.Duration;
@@ -11,6 +12,7 @@ public class ClientApplication {
         final var transport = TcpClientTransport.create("localhost", 6565);
 
         final var rSocket = RSocketConnector.create()
+                .metadataMimeType(WellKnownMimeType.MESSAGE_RSOCKET_COMPOSITE_METADATA.getString())
                 .connect(transport)
                 .block();
 
