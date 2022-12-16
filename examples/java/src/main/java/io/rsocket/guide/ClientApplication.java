@@ -17,8 +17,9 @@ public class ClientApplication {
         final var client = new Client(rSocket);
         client.login("user1");
         client.join("channel1");
-        client.join("channel1");
+//        client.join("channel1");
 
+        System.out.println(client.listUsers("channel1"));
         client.listenForMessages();
         client.sendMessage("{\"user\":\"user1\", \"content\":\"message\"}");
         client.sendMessage("{\"channel\":\"channel1\", \"content\":\"message\"}");

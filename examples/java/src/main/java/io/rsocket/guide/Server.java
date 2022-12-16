@@ -16,16 +16,28 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class Server implements SocketAcceptor {
+
+    private final ChatData chatData = new ChatData();
+
+    public void ensureChannel(String channelName) {
+        chatData.channelByName.putIfAbsent(channelName, new ChatChannel());
+    }
+
+    public void join(String channel, String user) {
+        chatData.channelByName.get(channel).users.add(user);
+    }
+
     @Override
     public Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket) {
         final var session = new Session();
+        session.sessionId = UUID.randomUUID().toString();
         JSONParser jsonParser = new JSONParser();
         return Mono.just(new RoutingRSocketAdapter(new RoutingRSocket() {
-
 
             public Mono<Void> fireAndForget(String route, Payload payload) {
                 return Mono.defer(() -> {
@@ -44,10 +56,14 @@ public class Server implements SocketAcceptor {
                 return Mono.defer(() -> {
                     switch (route) {
                         case "login":
-                            return Mono.just(DefaultPayload.create("single_response"));
+                            return Mono.just(DefaultPayload.create(session.sessionId));
                         case "channel.join":
+                            final var channelJoin = payload.getDataUtf8();
+                            ensureChannel(channelJoin);
+                            join(channelJoin, session.sessionId);
                             return Mono.just(EmptyPayload.INSTANCE);
                         case "channel.leave":
+                            leave(payload.getDataUtf8(), session.sessionId);
                             return Mono.just(EmptyPayload.INSTANCE);
                         case "message":
                             try {
@@ -81,7 +97,7 @@ public class Server implements SocketAcceptor {
                 return Flux.defer(() -> {
                     switch (route) {
                         case "messages.incoming":
-                            final AtomicReference<Thread> threadContainer = new AtomicReference<>();
+                            final var threadContainer = new AtomicReference<Thread>();
                             return Flux.create(sink -> sink.onRequest(n -> {
                                         if (threadContainer.get() == null) {
                                             final var thread = new Thread(() -> messageSupplier(sink));
@@ -91,6 +107,9 @@ public class Server implements SocketAcceptor {
                                     })
                                     .onCancel(() -> threadContainer.get().interrupt())
                                     .onDispose(() -> threadContainer.get().interrupt()));
+                        case "channel.users":
+                            return Flux.fromIterable(chatData.channelByName.getOrDefault(payload.getDataUtf8(), new ChatChannel()).users)
+                                    .map(DefaultPayload::create);
                     }
 
                     return RoutingRSocket.super.requestStream(route, payload);
@@ -113,5 +132,9 @@ public class Server implements SocketAcceptor {
                 });
             }
         }));
+    }
+
+    private void leave(String channel, String sessionId) {
+        chatData.channelByName.get(channel).users.remove(sessionId);
     }
 }

@@ -85,6 +85,12 @@ public class Client {
         return metadata;
     }
 
+    public List<String> listUsers(String channel) {
+        return rSocket.requestStream(DefaultPayload.create(getPayload(channel),
+                composite(route("channel.users"))))
+                .map(Payload::getDataUtf8).collectList().block();
+    }
+
     private static class CompositeItem {
         public ByteBuf data;
         public WellKnownMimeType mimeType;
