@@ -1,11 +1,11 @@
 package io.rsocket.guide.step8;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.rsocket.ConnectionSetupPayload;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
-import io.rsocket.guide.step3.Message;
 import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.metadata.RoutingMetadata;
 import io.rsocket.metadata.WellKnownMimeType;
@@ -16,6 +16,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -128,23 +129,44 @@ public class Server implements SocketAcceptor {
                 });
             }
 
+            public void consumeStatisticSettings(StatisticsSettings settings) {
+                session.statisticsSettings = settings;
+            }
+
             @Override
             public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
                 return Flux.from(payloads).switchOnFirst((firstSignal, others) -> {
                     Payload firstPayload = firstSignal.get();
                     if (firstPayload != null) {
+                        final var settings = parseStatistics(firstPayload);
                         final var route = requireRoute(firstPayload);
                         switch (route) {
                             case "statistics":
-                                return Flux.from(others).count()
-                                        .doOnNext(count -> System.out.println("Received :: " + count))
-                                        .thenMany(Flux.range(0, 3)
-                                                .map(index -> "Item on channel: " + index)
-                                                .map(DefaultPayload::create));
+                                Flux.from(others.map(this::parseStatistics).skip(1).startWith(settings))
+                                        .subscribe(this::consumeStatisticSettings);
+
+                                return Flux.interval(Duration.ofSeconds(1)) // todo: Modifiable delay
+                                        .map(index -> new Statistic(chatData.sessionById.size(), chatData.channelByName.size()))
+                                        .map(statistic -> {
+                                            try {
+                                                return objectMapper.writeValueAsString(statistic);
+                                            } catch (JsonProcessingException exception) {
+                                                return "{}";
+                                            }
+                                        })
+                                        .map(DefaultPayload::create);
                         }
                     }
                     throw new IllegalStateException();
                 });
+            }
+
+            private StatisticsSettings parseStatistics(Payload e) {
+                try {
+                    return objectMapper.readValue(e.getDataUtf8(), StatisticsSettings.class);
+                } catch (JsonProcessingException exception) {
+                    return new StatisticsSettings();
+                }
             }
 
             private String requireRoute(Payload payload) {

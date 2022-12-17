@@ -40,7 +40,7 @@ public class RoutingRSocketAdapter implements RSocket {
             Payload firstPayload = firstSignal.get();
             if (firstPayload != null) {
                 final var route = requireRoute(firstPayload);
-                return routingRSocket.requestChannel(route, others);
+                return routingRSocket.requestChannel(route, others.skip(1).startWith(firstPayload));
             } else {
                 throw new IllegalStateException();
             }

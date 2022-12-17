@@ -9,4 +9,6 @@ public class Session {
     public String username;
 
     public String sessionId;
+
+    public StatisticsSettings statisticsSettings = new StatisticsSettings();
 }

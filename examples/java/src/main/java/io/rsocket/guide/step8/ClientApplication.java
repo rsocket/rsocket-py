@@ -21,12 +21,15 @@ public class ClientApplication {
 
         System.out.println(client.listUsers("channel1"));
         client.listenForMessages();
+        client.statistics(new StatisticsSettings());
+
         client.sendMessage("{\"user\":\"user1\", \"content\":\"message\"}");
         client.sendMessage("{\"channel\":\"channel1\", \"content\":\"message\"}");
 
         client.leave("channel1");
-        Thread.sleep(2000);
+        Thread.sleep(10000);
         client.incomingMessages.get().dispose();
+        client.incomingStatistics.get().dispose();
     }
 
     private static int getPort(String[] args) {
