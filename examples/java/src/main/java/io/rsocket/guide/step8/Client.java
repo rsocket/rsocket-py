@@ -14,9 +14,13 @@ import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.util.DefaultPayload;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class Client {
@@ -25,10 +29,13 @@ public class Client {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    final public BlockingQueue<StatisticsSettings> statisticsSettings = new LinkedBlockingQueue<>();
+
     private String username;
 
     public final AtomicReference<Disposable> incomingMessages = new AtomicReference<>();
     public final AtomicReference<Disposable> incomingStatistics = new AtomicReference<>();
+    private AtomicReference<Thread> threadContainer = new AtomicReference<>();
 
     public Client(RSocket rSocket) {
         this.rSocket = rSocket;
@@ -56,24 +63,35 @@ public class Client {
     public void statistics(StatisticsSettings settings) {
         new Thread(() -> {
             final var payloads = Flux.concat(
-                    Flux.just(new StatisticsSettings()).map(e -> {
+                    Flux.just(settings).map(e -> {
                         try {
                             return DefaultPayload.create(getPayload(objectMapper.writeValueAsString(e)), route("statistics"));
-                        } catch (JsonProcessingException ex) {
-                            throw new RuntimeException(ex);
+                        } catch (JsonProcessingException exception) {
+                            throw new RuntimeException(exception);
                         }
                     }),
-                    Flux.just(new StatisticsSettings()).delaySequence(Duration.ofSeconds(4)).map(e -> {
-                        try {
-                            return DefaultPayload.create(objectMapper.writeValueAsString(e));
-                        } catch (JsonProcessingException ex) {
-                            throw new RuntimeException(ex);
-                        }
-                    }));
+                    Flux.create(sink -> sink
+                            .onRequest(n -> {
+                                if (threadContainer.get() == null) {
+                                    final var thread = new Thread(() -> sendSettings(sink));
+                                    thread.start();
+                                    threadContainer.set(thread);
+                                }
+                            }).onCancel(() -> threadContainer.get().interrupt())
+                            .onDispose(() -> threadContainer.get().interrupt()))
+            );
             incomingStatistics.set(rSocket.requestChannel(payloads)
                     .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
                     .subscribe());
         }).start();
+    }
+
+    private <T> Payload toJson(T e) {
+        try {
+            return DefaultPayload.create(objectMapper.writeValueAsString(e));
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     public void listenForMessages() {
@@ -84,6 +102,19 @@ public class Client {
                         .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
                         .subscribe()))
                 .start();
+    }
+
+    public void sendSettings(FluxSink<Payload> sink) {
+        while (true) {
+            try {
+                final var next = statisticsSettings.poll(20, TimeUnit.DAYS);
+                if (next != null) {
+                    sink.next(DefaultPayload.create(toJson(next)));
+                }
+            } catch (Exception exception) {
+                break;
+            }
+        }
     }
 
     public void sendMessage(String data) {
