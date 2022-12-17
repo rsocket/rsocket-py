@@ -26,6 +26,8 @@ public class Server implements SocketAcceptor {
 
     private final ChatData chatData = new ChatData();
 
+    final ObjectMapper objectMapper = new ObjectMapper();
+
     public void ensureChannel(String channelName) {
         if (!chatData.channelByName.containsKey(channelName)) {
             ChatChannel chatChannel = new ChatChannel();
@@ -42,7 +44,7 @@ public class Server implements SocketAcceptor {
     public Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket) {
         final var session = new Session();
         session.sessionId = UUID.randomUUID().toString();
-        final var objectMapper = new ObjectMapper();
+
         return Mono.just(new RSocket() {
 
             public Mono<Void> fireAndForget(Payload payload) {
@@ -51,8 +53,7 @@ public class Server implements SocketAcceptor {
                 return Mono.defer(() -> {
                     switch (route) {
                         case "statistics":
-                            final var str = payload.getDataUtf8();
-                            System.out.println("Received :: " + str);
+                            session.clientStatistics = fromJson(payload.getDataUtf8(), ClientStatistics.class);
                             return Mono.empty();
                     }
 
@@ -77,19 +78,21 @@ public class Server implements SocketAcceptor {
                             leave(payload.getDataUtf8(), session.sessionId);
                             return Mono.just(EmptyPayload.INSTANCE);
                         case "message":
-                            try {
-                                final var message = objectMapper.readValue(payload.getDataUtf8(), Message.class);
-                                session.messages.add(message.content);
-                            } catch (Exception exception) {
-                                throw new RuntimeException(exception);
-                            }
-
+                            String dataUtf8 = payload.getDataUtf8();
+                            final var message = fromJson(dataUtf8, Message.class);
+                            session.messages.add(message.content);
                             return Mono.just(EmptyPayload.INSTANCE);
+                        case "file.upload":
+                            chatData.filesByName.put(requireFilename(payload), payload.sliceData());
+                            return Mono.just(EmptyPayload.INSTANCE);
+                        case "file.download":
+                            return Mono.just(DefaultPayload.create(chatData.filesByName.get(requireFilename(payload))));
                     }
 
                     throw new IllegalStateException();
                 });
             }
+
 
             public void messageSupplier(FluxSink<Payload> sink) {
                 while (true) {
@@ -123,6 +126,8 @@ public class Server implements SocketAcceptor {
                         case "channel.users":
                             return Flux.fromIterable(chatData.channelByName.getOrDefault(payload.getDataUtf8(), new ChatChannel()).users)
                                     .map(DefaultPayload::create);
+                        case "files":
+                            return Flux.fromIterable(chatData.filesByName.keySet()).map(DefaultPayload::create);
                     }
 
                     throw new IllegalStateException();
@@ -146,14 +151,8 @@ public class Server implements SocketAcceptor {
                                         .subscribe(this::consumeStatisticSettings);
 
                                 return Flux.interval(Duration.ofSeconds(1)) // todo: Modifiable delay
-                                        .map(index -> new Statistic(chatData.sessionById.size(), chatData.channelByName.size()))
-                                        .map(statistic -> {
-                                            try {
-                                                return objectMapper.writeValueAsString(statistic);
-                                            } catch (JsonProcessingException exception) {
-                                                return "{}";
-                                            }
-                                        })
+                                        .map(index -> new ServerStatistic(chatData.sessionById.size(), chatData.channelByName.size()))
+                                        .map(serverStatistic -> toJson(serverStatistic))
                                         .map(DefaultPayload::create);
                         }
                     }
@@ -182,10 +181,40 @@ public class Server implements SocketAcceptor {
 
                 throw new IllegalStateException();
             }
+
+            private String requireFilename(Payload payload) {
+                final var metadata = payload.sliceMetadata();
+                final CompositeMetadata compositeMetadata = new CompositeMetadata(metadata, false);
+
+                for (CompositeMetadata.Entry metadatum : compositeMetadata) {
+                    if (Objects.requireNonNull(metadatum.getMimeType()).equals(MimeTypes.fileMimeType)) {
+                        return metadatum.getContent().toString();
+                    }
+                }
+
+                throw new IllegalStateException();
+            }
         });
+    }
+
+    private String toJson(ServerStatistic serverStatistic) {
+        try {
+            return objectMapper.writeValueAsString(serverStatistic);
+        } catch (JsonProcessingException exception) {
+            return "{}";
+        }
     }
 
     private void leave(String channel, String sessionId) {
         chatData.channelByName.get(channel).users.remove(sessionId);
+    }
+
+    private <T> T fromJson(String dataUtf8, Class<T> cls) {
+        try {
+            return objectMapper.readValue(dataUtf8, cls);
+
+        } catch (Exception exception) {
+            throw new RuntimeException(exception);
+        }
     }
 }

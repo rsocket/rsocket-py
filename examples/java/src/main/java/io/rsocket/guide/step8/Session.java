@@ -11,4 +11,6 @@ public class Session {
     public String sessionId;
 
     public StatisticsSettings statisticsSettings = new StatisticsSettings();
+
+    public ClientStatistics clientStatistics;
 }
