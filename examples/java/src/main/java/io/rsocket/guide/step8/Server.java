@@ -1,16 +1,18 @@
 package io.rsocket.guide.step8;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DatabindException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.rsocket.ConnectionSetupPayload;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
+import io.rsocket.guide.step3.Message;
 import io.rsocket.pythontest.RoutingRSocket;
 import io.rsocket.pythontest.RoutingRSocketAdapter;
 import io.rsocket.util.DefaultPayload;
 import io.rsocket.util.EmptyPayload;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -40,7 +42,7 @@ public class Server implements SocketAcceptor {
     public Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket) {
         final var session = new Session();
         session.sessionId = UUID.randomUUID().toString();
-        JSONParser jsonParser = new JSONParser();
+        final var objectMapper = new ObjectMapper();
         return Mono.just(new RoutingRSocketAdapter(new RoutingRSocket() {
 
             public Mono<Void> fireAndForget(String route, Payload payload) {
@@ -72,10 +74,10 @@ public class Server implements SocketAcceptor {
                             return Mono.just(EmptyPayload.INSTANCE);
                         case "message":
                             try {
-                                final var message = (JSONObject) jsonParser.parse(payload.getDataUtf8());
-                                session.messages.add((String) message.get("content"));
-                            } catch (ParseException e) {
-                                throw new RuntimeException(e);
+                                final var message = objectMapper.readValue(payload.getDataUtf8(), Message.class);
+                                session.messages.add(message.content);
+                            } catch (Exception exception) {
+                                throw new RuntimeException(exception);
                             }
 
                             return Mono.just(EmptyPayload.INSTANCE);

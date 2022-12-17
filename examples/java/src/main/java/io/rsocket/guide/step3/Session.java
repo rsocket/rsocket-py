@@ -4,7 +4,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class Session {
-    final public BlockingQueue<String> messages = new LinkedBlockingQueue<>();
+    final public BlockingQueue<Message> messages = new LinkedBlockingQueue<>();
 
     public String username;
 
