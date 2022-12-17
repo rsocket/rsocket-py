@@ -36,11 +36,15 @@ public class RoutingRSocketAdapter implements RSocket {
 
     @Override
     public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
-        return Flux.from(payloads).collectList()
-                .flatMapMany(items -> {
-                    final var first = items.get(0);
-                    return routingRSocket.requestChannel(requireRoute(first), Flux.fromIterable(items));
-                });
+        return Flux.from(payloads).switchOnFirst((firstSignal, others) -> {
+            Payload firstPayload = firstSignal.get();
+            if (firstPayload != null) {
+                final var route = requireRoute(firstPayload);
+                return routingRSocket.requestChannel(route, others);
+            } else {
+                throw new IllegalStateException();
+            }
+        });
     }
 
     @Override

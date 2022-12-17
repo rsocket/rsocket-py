@@ -1,16 +1,14 @@
 package io.rsocket.guide.step8;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DatabindException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.rsocket.ConnectionSetupPayload;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
 import io.rsocket.guide.step3.Message;
-import io.rsocket.pythontest.RoutingRSocket;
-import io.rsocket.pythontest.RoutingRSocketAdapter;
+import io.rsocket.metadata.CompositeMetadata;
+import io.rsocket.metadata.RoutingMetadata;
+import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.util.DefaultPayload;
 import io.rsocket.util.EmptyPayload;
 import org.reactivestreams.Publisher;
@@ -18,6 +16,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -43,9 +42,11 @@ public class Server implements SocketAcceptor {
         final var session = new Session();
         session.sessionId = UUID.randomUUID().toString();
         final var objectMapper = new ObjectMapper();
-        return Mono.just(new RoutingRSocketAdapter(new RoutingRSocket() {
+        return Mono.just(new RSocket() {
 
-            public Mono<Void> fireAndForget(String route, Payload payload) {
+            public Mono<Void> fireAndForget(Payload payload) {
+                final var route = requireRoute(payload);
+
                 return Mono.defer(() -> {
                     switch (route) {
                         case "statistics":
@@ -54,11 +55,13 @@ public class Server implements SocketAcceptor {
                             return Mono.empty();
                     }
 
-                    return RoutingRSocket.super.fireAndForget(route, payload);
+                    throw new IllegalStateException();
                 });
             }
 
-            public Mono<Payload> requestResponse(String route, Payload payload) {
+            public Mono<Payload> requestResponse(Payload payload) {
+                final var route = requireRoute(payload);
+
                 return Mono.defer(() -> {
                     switch (route) {
                         case "login":
@@ -83,7 +86,7 @@ public class Server implements SocketAcceptor {
                             return Mono.just(EmptyPayload.INSTANCE);
                     }
 
-                    return RoutingRSocket.super.requestResponse(route, payload);
+                    throw new IllegalStateException();
                 });
             }
 
@@ -100,7 +103,9 @@ public class Server implements SocketAcceptor {
                 }
             }
 
-            public Flux<Payload> requestStream(String route, Payload payload) {
+            public Flux<Payload> requestStream(Payload payload) {
+                final var route = requireRoute(payload);
+
                 return Flux.defer(() -> {
                     switch (route) {
                         case "messages.incoming":
@@ -119,26 +124,43 @@ public class Server implements SocketAcceptor {
                                     .map(DefaultPayload::create);
                     }
 
-                    return RoutingRSocket.super.requestStream(route, payload);
+                    throw new IllegalStateException();
                 });
             }
 
             @Override
-            public Flux<Payload> requestChannel(String route, Publisher<Payload> payloads) {
-                return Flux.defer(() -> {
-                    switch (route) {
-                        case "statistics":
-                            return Flux.from(payloads).count()
-                                    .doOnNext(count -> System.out.println("Received :: " + count))
-                                    .thenMany(Flux.range(0, 3)
-                                            .map(index -> "Item on channel: " + index)
-                                            .map(DefaultPayload::create));
+            public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+                return Flux.from(payloads).switchOnFirst((firstSignal, others) -> {
+                    Payload firstPayload = firstSignal.get();
+                    if (firstPayload != null) {
+                        final var route = requireRoute(firstPayload);
+                        switch (route) {
+                            case "statistics":
+                                return Flux.from(others).count()
+                                        .doOnNext(count -> System.out.println("Received :: " + count))
+                                        .thenMany(Flux.range(0, 3)
+                                                .map(index -> "Item on channel: " + index)
+                                                .map(DefaultPayload::create));
+                        }
                     }
-
-                    return RoutingRSocket.super.requestChannel(route, payloads);
+                    throw new IllegalStateException();
                 });
             }
-        }));
+
+            private String requireRoute(Payload payload) {
+                final var metadata = payload.sliceMetadata();
+                final CompositeMetadata compositeMetadata = new CompositeMetadata(metadata, false);
+
+                for (CompositeMetadata.Entry metadatum : compositeMetadata) {
+                    if (Objects.requireNonNull(metadatum.getMimeType())
+                            .equals(WellKnownMimeType.MESSAGE_RSOCKET_ROUTING.getString())) {
+                        return new RoutingMetadata(metadatum.getContent()).iterator().next();
+                    }
+                }
+
+                throw new IllegalStateException();
+            }
+        });
     }
 
     private void leave(String channel, String sessionId) {

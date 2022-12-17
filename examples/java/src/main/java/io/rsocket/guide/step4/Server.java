@@ -1,4 +1,4 @@
-package io.rsocket.guide.step3;
+package io.rsocket.guide.step4;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.rsocket.ConnectionSetupPayload;
@@ -8,7 +8,6 @@ import io.rsocket.SocketAcceptor;
 import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.metadata.RoutingMetadata;
 import io.rsocket.metadata.WellKnownMimeType;
-import io.rsocket.pythontest.RoutingRSocket;
 import io.rsocket.util.DefaultPayload;
 import io.rsocket.util.EmptyPayload;
 import reactor.core.publisher.Flux;
@@ -32,6 +31,47 @@ public class Server implements SocketAcceptor {
                 .single();
     }
 
+    public void ensureChannel(String channelName) {
+        if (!chatData.channelByName.containsKey(channelName)) {
+            ChatChannel chatChannel = new ChatChannel();
+            chatChannel.name = channelName;
+            chatData.channelByName.put(channelName, chatChannel);
+            final var thread = new Thread(() -> channelMessageRouter(channelName));
+            thread.start();
+            chatChannel.messageRouter.set(thread);
+        }
+    }
+
+    public void channelMessageRouter(String channelName) {
+        final var channel = chatData.channelByName.get(channelName);
+        while (true) {
+            try {
+                final var message = channel.messages.poll(20, TimeUnit.DAYS);
+                if (message != null) {
+                    for (String user : channel.users) {
+                        findUserByName(user).doOnNext(session -> {
+                            try {
+                                session.messages.put(message);
+                            } catch (InterruptedException exception) {
+                                throw new RuntimeException(exception);
+                            }
+                        }).block();
+                    }
+                }
+            } catch (Exception exception) {
+                break;
+            }
+        }
+    }
+
+    public void join(String channel, String user) {
+        chatData.channelByName.get(channel).users.add(user);
+    }
+
+    private void leave(String channel, String sessionId) {
+        chatData.channelByName.get(channel).users.remove(sessionId);
+    }
+
     @Override
     public Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket) {
         final var session = new Session();
@@ -46,13 +86,27 @@ public class Server implements SocketAcceptor {
                     case "login":
                         session.username = payload.getDataUtf8();
                         return Mono.just(DefaultPayload.create(session.sessionId));
+                    case "channel.join":
+                        final var channelJoin = payload.getDataUtf8();
+                        ensureChannel(channelJoin);
+                        join(channelJoin, session.sessionId);
+                        return Mono.just(EmptyPayload.INSTANCE);
+                    case "channel.leave":
+                        leave(payload.getDataUtf8(), session.sessionId);
+                        return Mono.just(EmptyPayload.INSTANCE);
                     case "message":
                         try {
                             final var message = objectMapper.readValue(payload.getDataUtf8(), Message.class);
-                            final var targetMessage = new Message(session.username, message.content);
-                            return findUserByName(message.user)
-                                    .doOnNext(targetSession -> targetSession.messages.add(targetMessage))
-                                    .thenReturn(EmptyPayload.INSTANCE);
+                            final var targetMessage = new Message(session.username, message.content, message.channel);
+
+                            if (message.channel != null) {
+                                chatData.channelByName.get(message.channel).messages.add(targetMessage);
+                            } else {
+
+                                return findUserByName(message.user)
+                                        .doOnNext(targetSession -> targetSession.messages.add(targetMessage))
+                                        .thenReturn(EmptyPayload.INSTANCE);
+                            }
                         } catch (Exception exception) {
                             throw new RuntimeException(exception);
                         }
@@ -88,7 +142,9 @@ public class Server implements SocketAcceptor {
                 }
             }
 
-            public Flux<Payload> requestStream(String route, Payload payload) {
+            public Flux<Payload> requestStream(Payload payload) {
+                final var route = requireRoute(payload);
+
                 return Flux.defer(() -> {
                     switch (route) {
                         case "messages.incoming":
@@ -102,6 +158,9 @@ public class Server implements SocketAcceptor {
                                     })
                                     .onCancel(() -> threadContainer.get().interrupt())
                                     .onDispose(() -> threadContainer.get().interrupt()));
+                        case "channel.users":
+                            return Flux.fromIterable(chatData.channelByName.getOrDefault(payload.getDataUtf8(), new ChatChannel()).users)
+                                    .map(DefaultPayload::create);
                     }
 
                     throw new IllegalStateException();
