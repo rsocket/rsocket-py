@@ -35,7 +35,7 @@ public class Client {
 
     public final AtomicReference<Disposable> incomingMessages = new AtomicReference<>();
     public final AtomicReference<Disposable> incomingStatistics = new AtomicReference<>();
-    private AtomicReference<Thread> threadContainer = new AtomicReference<>();
+    private final AtomicReference<Thread> threadContainer = new AtomicReference<>();
 
     public Client(RSocket rSocket) {
         this.rSocket = rSocket;
