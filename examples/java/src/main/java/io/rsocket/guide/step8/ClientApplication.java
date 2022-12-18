@@ -1,5 +1,6 @@
 package io.rsocket.guide.step8;
 
+import io.netty.buffer.Unpooled;
 import io.rsocket.core.RSocketConnector;
 import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.transport.netty.client.TcpClientTransport;
@@ -15,21 +16,44 @@ public class ClientApplication {
                 .block();
 
         final var client = new Client(rSocket);
+        messagingTest(client);
+//        statisticsTest(client);
+//        filesTest(client);
+    }
+
+    private static void filesTest(Client client) {
+        byte[] fileContent = "Content".getBytes();
+
+        client.upload("test-file1.txt", Unpooled.wrappedBuffer(fileContent))
+                .then(client.fileList().doOnNext(System.out::println).collectList())
+                .then(client.download("test-file1.txt").doOnNext(download -> {
+                    if (!download.equals(fileContent)) {
+                        throw new RuntimeException("Mismatch file content");
+                    }
+                }))
+                .block();
+    }
+
+    private static void statisticsTest(Client client) throws InterruptedException {
+        client.statistics(new StatisticsSettings());
+        Thread.sleep(10000);
+        client.incomingStatistics.get().dispose();
+    }
+
+    private static void messagingTest(Client client) throws InterruptedException {
         client.login("user1");
         client.join("channel1");
 //        client.join("channel1");
 
-        System.out.println(client.listUsers("channel1"));
+        System.out.println(client.listUsers("channel1").block());
         client.listenForMessages();
-        client.statistics(new StatisticsSettings());
 
         client.sendMessage("{\"user\":\"user1\", \"content\":\"message\"}");
         client.sendMessage("{\"channel\":\"channel1\", \"content\":\"message\"}");
 
         client.leave("channel1");
-        Thread.sleep(10000);
+        Thread.sleep(1000);
         client.incomingMessages.get().dispose();
-        client.incomingStatistics.get().dispose();
     }
 
     private static int getPort(String[] args) {

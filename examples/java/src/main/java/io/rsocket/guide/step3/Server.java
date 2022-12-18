@@ -8,7 +8,6 @@ import io.rsocket.SocketAcceptor;
 import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.metadata.RoutingMetadata;
 import io.rsocket.metadata.WellKnownMimeType;
-import io.rsocket.pythontest.RoutingRSocket;
 import io.rsocket.util.DefaultPayload;
 import io.rsocket.util.EmptyPayload;
 import reactor.core.publisher.Flux;
@@ -25,6 +24,8 @@ public class Server implements SocketAcceptor {
 
     private final ChatData chatData = new ChatData();
 
+    final ObjectMapper objectMapper = new ObjectMapper();
+
     public Mono<Session> findUserByName(final String username) {
         return Flux.fromIterable(chatData.sessionById.entrySet())
                 .filter(e -> e.getValue().username.equals(username))
@@ -36,7 +37,7 @@ public class Server implements SocketAcceptor {
     public Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket) {
         final var session = new Session();
         session.sessionId = UUID.randomUUID().toString();
-        final var objectMapper = new ObjectMapper();
+        chatData.sessionById.put(session.sessionId, session);
 
         return Mono.just(new RSocket() {
             public Mono<Payload> requestResponse(Payload payload) {

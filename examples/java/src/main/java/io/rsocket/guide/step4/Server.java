@@ -79,6 +79,7 @@ public class Server implements SocketAcceptor {
     public Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket) {
         final var session = new Session();
         session.sessionId = UUID.randomUUID().toString();
+        chatData.sessionById.put(session.sessionId, session);
 
         return Mono.just(new RSocket() {
             public Mono<Payload> requestResponse(Payload payload) {

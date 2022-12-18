@@ -55,11 +55,19 @@ public class Client {
     }
 
     public void join(String channel) {
-        sendStringToRoute(channel, "channel.join");
+        final Payload payload = DefaultPayload.create(toByteBuffer(channel),
+                composite("channel.join")
+        );
+        rSocket.requestResponse(payload)
+                .block(Duration.ofMinutes(10));
     }
 
     public void leave(String channel) {
-        sendStringToRoute(channel, "channel.leave");
+        final Payload payload = DefaultPayload.create(toByteBuffer(channel),
+                composite("channel.leave")
+        );
+        rSocket.requestResponse(payload)
+                .block(Duration.ofMinutes(10));
     }
 
     public void statistics(StatisticsSettings settings) {
@@ -124,16 +132,7 @@ public class Client {
                 composite("message")
         );
         rSocket.requestResponse(payload)
-                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
-                .block(Duration.ofMinutes(10));
-    }
-
-    private void sendStringToRoute(String username, String route) {
-        final Payload payload = DefaultPayload.create(toByteBuffer(username),
-                composite(route)
-        );
-        rSocket.requestResponse(payload)
-                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
+                .doOnError(e -> System.out.println(e.getMessage()))
                 .block(Duration.ofMinutes(10));
     }
 
@@ -170,10 +169,10 @@ public class Client {
         return metadata;
     }
 
-    public List<String> listUsers(String channel) {
+    public Mono<List<String>> listUsers(String channel) {
         return rSocket.requestStream(DefaultPayload.create(toByteBuffer(channel),
                         composite("channel.users")))
-                .map(Payload::getDataUtf8).collectList().block();
+                .map(Payload::getDataUtf8).collectList();
     }
 
     private static ByteBuf toByteBuffer(String message) {
