@@ -189,19 +189,20 @@ public class Server implements SocketAcceptor {
                 throw new IllegalStateException();
             }
 
-            private String requireFilename(Payload payload) {
-                final var metadata = payload.sliceMetadata();
-                final CompositeMetadata compositeMetadata = new CompositeMetadata(metadata, false);
-
-                for (CompositeMetadata.Entry metadatum : compositeMetadata) {
-                    if (Objects.requireNonNull(metadatum.getMimeType()).equals(MimeTypes.fileMimeType)) {
-                        return metadatum.getContent().toString();
-                    }
-                }
-
-                throw new IllegalStateException();
-            }
         });
+    }
+
+    private String requireFilename(Payload payload) {
+        final var metadata = payload.sliceMetadata();
+        final CompositeMetadata compositeMetadata = new CompositeMetadata(metadata, false);
+
+        for (CompositeMetadata.Entry metadatum : compositeMetadata) {
+            if (Objects.requireNonNull(metadatum.getMimeType()).equals(MimeTypes.fileMimeType)) {
+                return metadatum.getContent().toString();
+            }
+        }
+
+        throw new IllegalStateException();
     }
 
     private void leave(String channel, String sessionId) {
