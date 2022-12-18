@@ -1,5 +1,6 @@
 package io.rsocket.guide.step4;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.rsocket.ConnectionSetupPayload;
 import io.rsocket.Payload;
@@ -23,6 +24,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class Server implements SocketAcceptor {
 
     private final ChatData chatData = new ChatData();
+
+    final ObjectMapper objectMapper = new ObjectMapper();
 
     public Mono<Session> findUserByName(final String username) {
         return Flux.fromIterable(chatData.sessionById.entrySet())
@@ -76,7 +79,6 @@ public class Server implements SocketAcceptor {
     public Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket) {
         final var session = new Session();
         session.sessionId = UUID.randomUUID().toString();
-        final var objectMapper = new ObjectMapper();
 
         return Mono.just(new RSocket() {
             public Mono<Payload> requestResponse(Payload payload) {
@@ -95,20 +97,16 @@ public class Server implements SocketAcceptor {
                         leave(payload.getDataUtf8(), session.sessionId);
                         return Mono.just(EmptyPayload.INSTANCE);
                     case "message":
-                        try {
-                            final var message = objectMapper.readValue(payload.getDataUtf8(), Message.class);
-                            final var targetMessage = new Message(session.username, message.content, message.channel);
+                        final var message = fromJson(payload.getDataUtf8(), Message.class);
+                        final var targetMessage = new Message(session.username, message.content, message.channel);
 
-                            if (message.channel != null) {
-                                chatData.channelByName.get(message.channel).messages.add(targetMessage);
-                            } else {
+                        if (message.channel != null) {
+                            chatData.channelByName.get(message.channel).messages.add(targetMessage);
+                        } else {
 
-                                return findUserByName(message.user)
-                                        .doOnNext(targetSession -> targetSession.messages.add(targetMessage))
-                                        .thenReturn(EmptyPayload.INSTANCE);
-                            }
-                        } catch (Exception exception) {
-                            throw new RuntimeException(exception);
+                            return findUserByName(message.user)
+                                    .doOnNext(targetSession -> targetSession.messages.add(targetMessage))
+                                    .thenReturn(EmptyPayload.INSTANCE);
                         }
                 }
 
@@ -134,9 +132,9 @@ public class Server implements SocketAcceptor {
                     try {
                         final var message = session.messages.poll(20, TimeUnit.DAYS);
                         if (message != null) {
-                            sink.next(DefaultPayload.create(objectMapper.writeValueAsString(message)));
+                            sink.next(DefaultPayload.create(toJson(message)));
                         }
-                    } catch (Exception exception) {
+                    } catch (InterruptedException exception) {
                         break;
                     }
                 }
@@ -167,5 +165,22 @@ public class Server implements SocketAcceptor {
                 });
             }
         });
+    }
+
+    private <T> String toJson(T serverStatistic) {
+        try {
+            return objectMapper.writeValueAsString(serverStatistic);
+        } catch (JsonProcessingException exception) {
+            return "{}";
+        }
+    }
+
+    private <T> T fromJson(String dataUtf8, Class<T> cls) {
+        try {
+            return objectMapper.readValue(dataUtf8, cls);
+
+        } catch (Exception exception) {
+            throw new RuntimeException(exception);
+        }
     }
 }

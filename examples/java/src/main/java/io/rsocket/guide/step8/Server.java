@@ -17,6 +17,7 @@ import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +28,13 @@ public class Server implements SocketAcceptor {
     private final ChatData chatData = new ChatData();
 
     final ObjectMapper objectMapper = new ObjectMapper();
+
+    public Mono<Session> findUserByName(final String username) {
+        return Flux.fromIterable(chatData.sessionById.entrySet())
+                .filter(e -> e.getValue().username.equals(username))
+                .map(Map.Entry::getValue)
+                .single();
+    }
 
     public void ensureChannel(String channelName) {
         if (!chatData.channelByName.containsKey(channelName)) {
@@ -78,10 +86,17 @@ public class Server implements SocketAcceptor {
                             leave(payload.getDataUtf8(), session.sessionId);
                             return Mono.just(EmptyPayload.INSTANCE);
                         case "message":
-                            String dataUtf8 = payload.getDataUtf8();
-                            final var message = fromJson(dataUtf8, Message.class);
-                            session.messages.add(message.content);
-                            return Mono.just(EmptyPayload.INSTANCE);
+                            final var message = fromJson(payload.getDataUtf8(), Message.class);
+                            final var targetMessage = new Message(session.username, message.content, message.channel);
+
+                            if (message.channel != null) {
+                                chatData.channelByName.get(message.channel).messages.add(targetMessage);
+                            } else {
+
+                                return findUserByName(message.user)
+                                        .doOnNext(targetSession -> targetSession.messages.add(targetMessage))
+                                        .thenReturn(EmptyPayload.INSTANCE);
+                            }
                         case "file.upload":
                             chatData.filesByName.put(requireFilename(payload), payload.sliceData());
                             return Mono.just(EmptyPayload.INSTANCE);
@@ -89,19 +104,18 @@ public class Server implements SocketAcceptor {
                             return Mono.just(DefaultPayload.create(chatData.filesByName.get(requireFilename(payload))));
                     }
 
-                    throw new IllegalStateException();
+                    throw new RuntimeException("Unknown requestResponse route " + route);
                 });
             }
-
 
             public void messageSupplier(FluxSink<Payload> sink) {
                 while (true) {
                     try {
                         final var next = session.messages.poll(20, TimeUnit.DAYS);
                         if (next != null) {
-                            sink.next(DefaultPayload.create(next));
+                            sink.next(DefaultPayload.create(toJson(next)));
                         }
-                    } catch (Exception exception) {
+                    } catch (InterruptedException exception) {
                         break;
                     }
                 }
@@ -143,11 +157,12 @@ public class Server implements SocketAcceptor {
                 return Flux.from(payloads).switchOnFirst((firstSignal, others) -> {
                     Payload firstPayload = firstSignal.get();
                     if (firstPayload != null) {
-                        final var settings = parseStatistics(firstPayload);
+                        final var settings = fromJson(firstPayload.getDataUtf8(), StatisticsSettings.class);
                         final var route = requireRoute(firstPayload);
                         switch (route) {
                             case "statistics":
-                                Flux.from(others.map(this::parseStatistics).skip(1).startWith(settings))
+                                Flux.from(others.map(item -> fromJson(item.getDataUtf8(), StatisticsSettings.class))
+                                                .skip(1).startWith(settings))
                                         .subscribe(this::consumeStatisticSettings);
 
                                 return Flux.interval(Duration.ofSeconds(1)) // todo: Modifiable delay
@@ -158,14 +173,6 @@ public class Server implements SocketAcceptor {
                     }
                     throw new IllegalStateException();
                 });
-            }
-
-            private StatisticsSettings parseStatistics(Payload e) {
-                try {
-                    return objectMapper.readValue(e.getDataUtf8(), StatisticsSettings.class);
-                } catch (JsonProcessingException exception) {
-                    return new StatisticsSettings();
-                }
             }
 
             private String requireRoute(Payload payload) {
@@ -197,16 +204,16 @@ public class Server implements SocketAcceptor {
         });
     }
 
-    private String toJson(ServerStatistic serverStatistic) {
+    private void leave(String channel, String sessionId) {
+        chatData.channelByName.get(channel).users.remove(sessionId);
+    }
+
+    private <T> String toJson(T item) {
         try {
-            return objectMapper.writeValueAsString(serverStatistic);
+            return objectMapper.writeValueAsString(item);
         } catch (JsonProcessingException exception) {
             return "{}";
         }
-    }
-
-    private void leave(String channel, String sessionId) {
-        chatData.channelByName.get(channel).users.remove(sessionId);
     }
 
     private <T> T fromJson(String dataUtf8, Class<T> cls) {
