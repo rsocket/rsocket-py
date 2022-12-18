@@ -12,7 +12,6 @@ import io.rsocket.metadata.CompositeMetadataCodec;
 import io.rsocket.metadata.TaggingMetadataCodec;
 import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.util.DefaultPayload;
-import io.rsocket.util.EmptyPayload;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -43,31 +42,27 @@ public class Client {
         this.rSocket = rSocket;
     }
 
-    public void login(String username) {
+    public Mono<Payload> login(String username) {
         this.username = username;
 
         final Payload payload = DefaultPayload.create(toByteBuffer(username),
                 composite("login")
         );
-        rSocket.requestResponse(payload)
-                .doOnNext(response -> System.out.println("Response from server :: " + response.getDataUtf8()))
-                .block(Duration.ofMinutes(10));
+        return rSocket.requestResponse(payload);
     }
 
-    public void join(String channel) {
+    public Mono<Payload> join(String channel) {
         final Payload payload = DefaultPayload.create(toByteBuffer(channel),
                 composite("channel.join")
         );
-        rSocket.requestResponse(payload)
-                .block(Duration.ofMinutes(10));
+        return rSocket.requestResponse(payload);
     }
 
-    public void leave(String channel) {
+    public Mono<Payload> leave(String channel) {
         final Payload payload = DefaultPayload.create(toByteBuffer(channel),
                 composite("channel.leave")
         );
-        rSocket.requestResponse(payload)
-                .block(Duration.ofMinutes(10));
+        return rSocket.requestResponse(payload);
     }
 
     public void statistics(StatisticsSettings settings) {

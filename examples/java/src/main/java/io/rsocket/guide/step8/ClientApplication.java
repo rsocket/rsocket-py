@@ -4,8 +4,13 @@ import io.netty.buffer.Unpooled;
 import io.rsocket.core.RSocketConnector;
 import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.transport.netty.client.TcpClientTransport;
+import reactor.core.publisher.Mono;
 
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 public class ClientApplication {
 
@@ -51,21 +56,28 @@ public class ClientApplication {
     }
 
     private static void messagingTest(Client client1, Client client2) throws InterruptedException {
-        client1.login("user1");
-        client1.join("channel1");
+        client1.login("user1")
+                .then(Mono.defer(() -> client1.join("channel1")))
+                .then(Mono.defer(() -> client2.login("user2")))
+                .then(Mono.defer(() -> client2.join("channel1")))
+                .then(Mono.defer(() -> client1.listUsers("channel1")
+                        .map(users -> printList(users))))
+                .block();
 
-        client2.login("user2");
-        client2.join("channel1");
-
-        System.out.println(client1.listUsers("channel1").block());
         client1.listenForMessages();
+        client2.listenForMessages();
 
         client1.sendMessage(new Message("user1", "message"));
         client1.sendMessage(new Message(null, "message", "channel1"));
 
-        client1.leave("channel1");
+        client1.leave("channel1").block();
         Thread.sleep(1000);
         client1.incomingMessages.get().dispose();
+        client2.incomingMessages.get().dispose();
+    }
+
+    private static PrintStream printList(List<String> strings) {
+        return System.out.printf(strings.stream().collect(Collectors.joining(",")));
     }
 
     private static int getPort(String[] args) {

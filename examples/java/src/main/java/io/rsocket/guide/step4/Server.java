@@ -156,6 +156,8 @@ public class Server implements SocketAcceptor {
                                     })
                                     .onCancel(() -> threadContainer.get().interrupt())
                                     .onDispose(() -> threadContainer.get().interrupt()));
+                        case "channels":
+                            return Flux.fromIterable(chatData.channelByName.keySet()).map(DefaultPayload::create);
                         case "channel.users":
                             return Flux.fromIterable(chatData.channelByName.getOrDefault(payload.getDataUtf8(), new ChatChannel()).users)
                                     .map(DefaultPayload::create);
