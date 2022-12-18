@@ -51,14 +51,13 @@ public class Server implements SocketAcceptor {
             try {
                 final var message = channel.messages.poll(20, TimeUnit.DAYS);
                 if (message != null) {
-                    for (String user : channel.users) {
-                        findUserByName(user).doOnNext(session -> {
-                            try {
-                                session.messages.put(message);
-                            } catch (InterruptedException exception) {
-                                throw new RuntimeException(exception);
-                            }
-                        }).block();
+                    for (String userSessionId : channel.users) {
+                        final var session = chatData.sessionById.get(userSessionId);
+                        try {
+                            session.messages.put(message);
+                        } catch (InterruptedException exception) {
+                            throw new RuntimeException(exception);
+                        }
                     }
                 }
             } catch (Exception exception) {

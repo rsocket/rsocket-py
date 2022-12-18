@@ -42,6 +42,29 @@ public class Server implements SocketAcceptor {
             ChatChannel chatChannel = new ChatChannel();
             chatChannel.name = channelName;
             chatData.channelByName.put(channelName, chatChannel);
+            final var thread = new Thread(() -> channelMessageRouter(channelName));
+            thread.start();
+            chatChannel.messageRouter.set(thread);
+        }
+    }
+    public void channelMessageRouter(String channelName) {
+        final var channel = chatData.channelByName.get(channelName);
+        while (true) {
+            try {
+                final var message = channel.messages.poll(20, TimeUnit.DAYS);
+                if (message != null) {
+                    for (String userSessionId : channel.users) {
+                        final var session = chatData.sessionById.get(userSessionId);
+                        try {
+                            session.messages.put(message);
+                        } catch (InterruptedException exception) {
+                            throw new RuntimeException(exception);
+                        }
+                    }
+                }
+            } catch (Exception exception) {
+                break;
+            }
         }
     }
 
