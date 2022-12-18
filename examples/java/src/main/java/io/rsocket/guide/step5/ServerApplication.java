@@ -1,7 +1,6 @@
 package io.rsocket.guide.step5;
 
 import io.rsocket.core.RSocketServer;
-import io.rsocket.guide.step8.Server;
 import io.rsocket.transport.netty.server.TcpServerTransport;
 
 public class ServerApplication {

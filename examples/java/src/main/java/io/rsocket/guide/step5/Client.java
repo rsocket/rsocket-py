@@ -6,7 +6,6 @@ import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
-import io.rsocket.guide.step8.MimeTypes;
 import io.rsocket.metadata.CompositeMetadataCodec;
 import io.rsocket.metadata.TaggingMetadataCodec;
 import io.rsocket.metadata.WellKnownMimeType;
