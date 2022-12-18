@@ -23,14 +23,11 @@ public class Client {
     }
 
     public Mono<Payload> login(String username) {
-        final Payload payload = DefaultPayload.create(
-                Unpooled.wrappedBuffer(username.getBytes()),
-                route("login")
-        );
+        final Payload payload = DefaultPayload.create(toByteBuffer(username), composite("login"));
         return rSocket.requestResponse(payload);
     }
 
-    private static CompositeByteBuf route(String route) {
+    private static CompositeByteBuf composite(String route) {
         final var metadata = ByteBufAllocator.DEFAULT.compositeBuffer();
 
         CompositeMetadataCodec.encodeAndAddMetadata(
@@ -41,5 +38,9 @@ public class Client {
         );
 
         return metadata;
+    }
+
+    private static ByteBuf toByteBuffer(String message) {
+        return Unpooled.wrappedBuffer(message.getBytes());
     }
 }

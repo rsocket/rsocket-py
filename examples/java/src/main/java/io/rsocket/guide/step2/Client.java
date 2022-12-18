@@ -1,5 +1,6 @@
 package io.rsocket.guide.step2;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
@@ -27,13 +28,13 @@ public class Client {
         this.username = username;
 
         final Payload payload = DefaultPayload.create(
-                Unpooled.wrappedBuffer(username.getBytes()),
-                route("login")
+                toByteBuffer(username),
+                composite("login")
         );
         return rSocket.requestResponse(payload);
     }
 
-    private static CompositeByteBuf route(String route) {
+    private static CompositeByteBuf composite(String route) {
         final var metadata = ByteBufAllocator.DEFAULT.compositeBuffer();
 
         CompositeMetadataCodec.encodeAndAddMetadata(
@@ -44,5 +45,9 @@ public class Client {
         );
 
         return metadata;
+    }
+
+    private static ByteBuf toByteBuffer(String message) {
+        return Unpooled.wrappedBuffer(message.getBytes());
     }
 }

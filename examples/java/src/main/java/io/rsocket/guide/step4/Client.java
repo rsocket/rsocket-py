@@ -1,5 +1,6 @@
 package io.rsocket.guide.step4;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
@@ -31,15 +32,15 @@ public class Client {
         this.username = username;
 
         final Payload payload = DefaultPayload.create(
-                Unpooled.wrappedBuffer(username.getBytes()),
-                route("login")
+                toByteBuffer(username),
+                composite("login")
         );
         return rSocket.requestResponse(payload);
     }
 
     public Mono<Payload> sendMessage(String data) {
-        final Payload payload = DefaultPayload.create(Unpooled.wrappedBuffer(data.getBytes()),
-                route("message")
+        final Payload payload = DefaultPayload.create(toByteBuffer(data),
+                composite("message")
         );
         return rSocket.requestResponse(payload);
     }
@@ -47,7 +48,7 @@ public class Client {
     public void listenForMessages() {
         new Thread(() ->
         {
-            Disposable subscribe = rSocket.requestStream(DefaultPayload.create(null, route("messages.incoming")))
+            Disposable subscribe = rSocket.requestStream(DefaultPayload.create(Unpooled.EMPTY_BUFFER, composite("messages.incoming")))
                     .doOnComplete(() -> System.out.println("Response from server stream completed"))
                     .doOnNext(response -> System.out.println("Response from server stream :: " + response.getDataUtf8()))
 
@@ -61,7 +62,7 @@ public class Client {
         incomingMessages.get().dispose();
     }
 
-    private static CompositeByteBuf route(String route) {
+    private static CompositeByteBuf composite(String route) {
         final var metadata = ByteBufAllocator.DEFAULT.compositeBuffer();
 
         CompositeMetadataCodec.encodeAndAddMetadata(
@@ -72,5 +73,9 @@ public class Client {
         );
 
         return metadata;
+    }
+
+    private static ByteBuf toByteBuffer(String message) {
+        return Unpooled.wrappedBuffer(message.getBytes());
     }
 }
