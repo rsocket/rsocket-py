@@ -96,9 +96,9 @@ public class Client {
         }).start();
     }
 
-    private <T> Payload toJson(T e) {
+    private <T> String toJson(T e) {
         try {
-            return DefaultPayload.create(objectMapper.writeValueAsString(e));
+            return objectMapper.writeValueAsString(e);
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }
@@ -127,8 +127,8 @@ public class Client {
         }
     }
 
-    public void sendMessage(String data) {
-        final Payload payload = DefaultPayload.create(toByteBuffer(data),
+    public void sendMessage(Message message) {
+        final Payload payload = DefaultPayload.create(toByteBuffer(toJson(message)),
                 composite("message")
         );
         rSocket.requestResponse(payload)
