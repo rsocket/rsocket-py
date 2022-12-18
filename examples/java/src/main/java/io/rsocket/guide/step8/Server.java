@@ -16,6 +16,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
@@ -200,7 +201,7 @@ public class Server implements SocketAcceptor {
 
         for (CompositeMetadata.Entry metadatum : compositeMetadata) {
             if (Objects.requireNonNull(metadatum.getMimeType()).equals(MimeTypes.fileMimeType)) {
-                return metadatum.getContent().toString();
+                return metadatum.getContent().toString(StandardCharsets.UTF_8);
             }
         }
 

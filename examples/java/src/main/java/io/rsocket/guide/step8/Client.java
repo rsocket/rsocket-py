@@ -180,15 +180,16 @@ public class Client {
     }
 
     public Mono<Void> upload(String filename, ByteBuf data) {
-        return rSocket.requestResponse(DefaultPayload.create(data, composite("file.upload", filename))).then();
+        return Mono.defer(() -> rSocket.requestResponse(DefaultPayload.create(data, composite("file.upload", filename)))).then();
     }
 
     public Mono<ByteBuf> download(String filename) {
-        return rSocket.requestResponse(DefaultPayload.create(Unpooled.EMPTY_BUFFER, composite("file.download", filename)))
+        return Mono.defer(() -> rSocket.requestResponse(DefaultPayload.create(Unpooled.EMPTY_BUFFER, composite("file.download", filename))))
                 .map(Payload::sliceData);
     }
 
     public Flux<String> fileList() {
-        return rSocket.requestStream(EmptyPayload.INSTANCE).map(Payload::getDataUtf8);
+        return Flux.defer(() ->
+                rSocket.requestStream(DefaultPayload.create(Unpooled.EMPTY_BUFFER, composite("files")))).map(Payload::getDataUtf8);
     }
 }
