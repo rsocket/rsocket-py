@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from asyncio import Queue
+from asyncio import Queue, Task
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable, Tuple
@@ -168,9 +168,13 @@ class ChatUserSession:
                     super().__init__()
                     self._session = session
                     self._requested_statistics = ServerStatisticsRequest()
+                    self._sender: Optional[Task] = None
 
                 def cancel(self):
-                    self._sender.cancel()
+                    if self._sender is not None:
+                        logging.info('Canceling statistics sender task')
+                        self._sender.cancel()
+                        self._sender = None
 
                 def subscribe(self, subscriber: Subscriber):
                     super().subscribe(subscriber)

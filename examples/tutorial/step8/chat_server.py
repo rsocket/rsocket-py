@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from asyncio import Queue
+from asyncio import Queue, Task
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable, Tuple
@@ -94,6 +94,7 @@ def new_statistics_data(statistics_request: ServerStatisticsRequest):
 
     return ServerStatistics(**statistics_data)
 
+
 def find_username_by_session(session_id: SessionId) -> Optional[str]:
     session = chat_data.user_session_by_id.get(session_id)
     if session is None:
@@ -169,9 +170,13 @@ class ChatUserSession:
                     super().__init__()
                     self._session = session
                     self._requested_statistics = ServerStatisticsRequest()
+                    self._sender: Optional[Task] = None
 
                 def cancel(self):
-                    self._sender.cancel()
+                    if self._sender is not None:
+                        logging.info('Canceling statistics sender task')
+                        self._sender.cancel()
+                        self._sender = None
 
                 def subscribe(self, subscriber: Subscriber):
                     super().subscribe(subscriber)
@@ -224,7 +229,10 @@ class ChatUserSession:
                     self._session = session
 
                 def cancel(self):
-                    self._sender.cancel()
+                    if self._sender is not None:
+                        logging.info('Canceling message sender task')
+                        self._sender.cancel()
+                        self._sender = None
 
                 def subscribe(self, subscriber: Subscriber):
                     super(MessagePublisher, self).subscribe(subscriber)
