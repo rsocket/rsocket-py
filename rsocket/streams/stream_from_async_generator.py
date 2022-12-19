@@ -1,5 +1,6 @@
 import asyncio
-from typing import AsyncGenerator, Tuple
+from datetime import timedelta
+from typing import AsyncGenerator, Tuple, Callable
 
 from rsocket.async_helpers import async_range
 from rsocket.payload import Payload
@@ -8,6 +9,14 @@ from rsocket.streams.stream_from_generator import StreamFromGenerator
 
 
 class StreamFromAsyncGenerator(StreamFromGenerator):
+
+    def __init__(self,
+                 generator: Callable[[], AsyncGenerator[Tuple[Payload, bool], None]],
+                 delay_between_messages=timedelta(0),
+                 on_cancel=None,
+                 on_complete=None):
+        super().__init__(generator, delay_between_messages, on_cancel, on_complete)
+
     async def _start_generator(self):
         self._generator: AsyncGenerator = self._generator_factory()
         self._iteration = self._generator.__aiter__()
@@ -26,4 +35,3 @@ class StreamFromAsyncGenerator(StreamFromGenerator):
 
     def _cancel_generator(self):
         asyncio.create_task(self._generator.aclose())
-

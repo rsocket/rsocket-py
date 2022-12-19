@@ -21,6 +21,7 @@ from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.empty_stream import EmptyStream
+from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
@@ -162,34 +163,19 @@ class ChatUserSession:
         @router.channel('statistics')
         async def send_statistics() -> Tuple[Optional[Publisher], Optional[Subscriber]]:
 
-            class StatisticsChannel(DefaultPublisher, DefaultSubscriber, DefaultSubscription):
+            requested_statistics = ServerStatisticsRequest()
 
-                def __init__(self, session: UserSessionData):
-                    super().__init__()
-                    self._session = session
-                    self._requested_statistics = ServerStatisticsRequest()
-                    self._sender: Optional[Task] = None
+            async def statistics_generator():
+                while True:
+                    try:
+                        await asyncio.sleep(requested_statistics.period_seconds)
+                        next_message = new_statistics_data(requested_statistics)
 
-                def cancel(self):
-                    if self._sender is not None:
-                        logging.info('Canceling statistics sender task')
-                        self._sender.cancel()
-                        self._sender = None
+                        yield dataclass_to_payload(next_message), False
+                    except Exception:
+                        logging.error('Statistics', exc_info=True)
 
-                def subscribe(self, subscriber: Subscriber):
-                    super().subscribe(subscriber)
-                    subscriber.on_subscribe(self)
-                    self._sender = asyncio.create_task(self._statistics_sender())
-
-                async def _statistics_sender(self):
-                    while True:
-                        try:
-                            await asyncio.sleep(self._requested_statistics.period_seconds)
-                            next_message = new_statistics_data(self._requested_statistics)
-
-                            self._subscriber.on_next(dataclass_to_payload(next_message))
-                        except Exception:
-                            logging.error('Statistics', exc_info=True)
+            class StatisticsSubscriber(DefaultSubscriber):
 
                 def on_next(self, payload: Payload, is_complete=False):
                     request = decode_dataclass(payload.data, ServerStatisticsRequest)
@@ -197,14 +183,14 @@ class ChatUserSession:
                     logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
 
                     if request.ids is not None:
-                        self._requested_statistics.ids = request.ids
+                        requested_statistics.ids = request.ids
 
                     if request.period_seconds is not None:
-                        self._requested_statistics.period_seconds = request.period_seconds
+                        requested_statistics.period_seconds = request.period_seconds
 
-            response = StatisticsChannel(self._session)
+            subscriber = StatisticsSubscriber()
 
-            return response, response
+            return StreamFromAsyncGenerator(statistics_generator), subscriber
 
         @router.response('message')
         async def send_message(message: Message) -> Awaitable[Payload]:
