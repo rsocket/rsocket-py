@@ -1,11 +1,12 @@
 from asyncio import Future
 
+from rsocket.disposable import Disposable
 from rsocket.frame import CancelFrame, Frame
 from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
 
 
-class RequestResponseResponder(StreamHandler):
+class RequestResponseResponder(StreamHandler, Disposable):
     def __init__(self, socket: RSocket, future: Future):
         super().__init__(socket)
         self.future = future
@@ -23,6 +24,9 @@ class RequestResponseResponder(StreamHandler):
             self.socket.send_error(self.stream_id, future.exception())
 
         self._finish_stream()
+
+    def dispose(self):
+        self.future.cancel()
 
     def frame_received(self, frame: Frame):
         if isinstance(frame, CancelFrame):

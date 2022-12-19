@@ -31,7 +31,8 @@ async def test_rx_support_request_stream_cancel_on_timeout(pipe: Tuple[RSocketSe
                 cancel_done.set()
 
         def cancel(self):
-            self._task.cancel()
+            if self._task is not None:
+                self._task.cancel()
 
         def request(self, n: int):
             self._task = asyncio.create_task(self.delayed_stream())

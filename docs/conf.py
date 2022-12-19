@@ -20,11 +20,11 @@ sys.path.insert(0, os.path.abspath('..'))
 import os
 
 project = 'RSocket python'
-copyright = '2021, jellofishi@pm.me'
+copyright = '2022, jellofishi@pm.me'
 author = 'jellofishi@pm.me'
 
 # The full version, including alpha/beta/rc tags
-release = '0.4.6'
+release = '0.4.7'
 
 # -- General configuration ---------------------------------------------------
 

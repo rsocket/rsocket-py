@@ -6,6 +6,7 @@ import pytest
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber, Subscriber
+from rsocket.async_helpers import async_range
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.awaitable.collector_subscriber import CollectorSubscriber
 from rsocket.exceptions import RSocketValueError
@@ -136,6 +137,45 @@ async def test_request_stream_and_cancel_after_first_message(pipe: Tuple[RSocket
     await stream_canceled.wait()
 
     assert len(stream_subscriber.received_messages) == 1
+    assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
+
+
+async def test_request_stream_and_disconnect_client_after_first_message(pipe: Tuple[RSocketServer, RSocketClient]):
+    server, client = get_components(pipe)
+    sent_message = 0
+
+    async def feed():
+        nonlocal sent_message
+        async for x in async_range(5):
+            sent_message += 1
+            yield Payload('Feed Item: {}'.format(x).encode('utf-8')), x == 4
+            await asyncio.sleep(1)
+
+    class Handler(BaseRequestHandler):
+
+        async def request_stream(self, payload: Payload) -> Publisher:
+            return StreamFromAsyncGenerator(feed)
+
+    class StreamSubscriber(DefaultSubscriber):
+        def __init__(self):
+            super().__init__()
+            self.received_messages: List[Payload] = []
+
+        def on_next(self, value, is_complete=False):
+            self.received_messages.append(value)
+            logging.info(value)
+
+    server.set_handler_using_factory(Handler)
+
+    stream_subscriber = StreamSubscriber()
+
+    client.request_stream(Payload()).subscribe(stream_subscriber)
+
+    await asyncio.sleep(2)
+    await client.close()
+    await asyncio.sleep(1)
+    assert len(stream_subscriber.received_messages) < 5
+    assert 0 < sent_message < 5
     assert stream_subscriber.received_messages[0].data == b'Feed Item: 0'
 
 
