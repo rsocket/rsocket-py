@@ -105,6 +105,7 @@ class ChatUserSession:
 
     def __init__(self):
         self._session: Optional[UserSessionData] = None
+        self._requested_statistics = ServerStatisticsRequest()
 
     def router_factory(self):
         router = RequestRouter(payload_mapper=decode_payload)
@@ -163,34 +164,28 @@ class ChatUserSession:
         @router.channel('statistics')
         async def send_statistics() -> Tuple[Optional[Publisher], Optional[Subscriber]]:
 
-            requested_statistics = ServerStatisticsRequest()
-
             async def statistics_generator():
                 while True:
                     try:
-                        await asyncio.sleep(requested_statistics.period_seconds)
-                        next_message = new_statistics_data(requested_statistics)
+                        await asyncio.sleep(self._requested_statistics.period_seconds)
+                        next_message = new_statistics_data(self._requested_statistics)
 
                         yield dataclass_to_payload(next_message), False
                     except Exception:
                         logging.error('Statistics', exc_info=True)
 
-            class StatisticsSubscriber(DefaultSubscriber):
+            def on_next(payload: Payload, is_complete=False):
+                request = decode_dataclass(payload.data, ServerStatisticsRequest)
 
-                def on_next(self, payload: Payload, is_complete=False):
-                    request = decode_dataclass(payload.data, ServerStatisticsRequest)
+                logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
 
-                    logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
+                if request.ids is not None:
+                    self._requested_statistics.ids = request.ids
 
-                    if request.ids is not None:
-                        requested_statistics.ids = request.ids
+                if request.period_seconds is not None:
+                    self._requested_statistics.period_seconds = request.period_seconds
 
-                    if request.period_seconds is not None:
-                        requested_statistics.period_seconds = request.period_seconds
-
-            subscriber = StatisticsSubscriber()
-
-            return StreamFromAsyncGenerator(statistics_generator), subscriber
+            return StreamFromAsyncGenerator(statistics_generator), DefaultSubscriber(on_next=on_next)
 
         @router.response('message')
         async def send_message(message: Message) -> Awaitable[Payload]:

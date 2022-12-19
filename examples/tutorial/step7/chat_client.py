@@ -37,6 +37,9 @@ class StatisticsHandler(DefaultPublisher, DefaultSubscriber, DefaultSubscription
         if is_complete:
             self.done.set()
 
+    def on_error(self, exception: Exception):
+        raise exception
+
     def cancel(self):
         self.subscription.cancel()
 
