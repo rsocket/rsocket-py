@@ -1,6 +1,6 @@
 import abc
 import asyncio
-from typing import Optional, Union
+from typing import Optional
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
@@ -43,7 +43,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, Disposable, m
 
     def __init__(self,
                  socket: RSocket,
-                 publisher: Optional[Union[Publisher, Disposable]] = None,
+                 publisher: Optional[Publisher] = None,
                  sending_done: Optional[asyncio.Event] = None):
         super().__init__(socket)
         self._sending_done = sending_done
@@ -83,8 +83,8 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, Disposable, m
             self.mark_completed_and_finish(received=True)
 
     def dispose(self):
-        if hasattr(self._publisher, 'dispose'):
-            self._publisher.dispose()
+        if self.subscriber is not None and self.subscriber.subscription is not None:
+            self.subscriber.subscription.cancel()
 
     def _complete_remote_subscriber(self):
         if self.remote_subscriber is not None:

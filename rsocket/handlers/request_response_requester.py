@@ -1,6 +1,5 @@
 import asyncio
 
-from rsocket.disposable import Disposable
 from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception
 from rsocket.frame_builders import to_request_response_frame
 from rsocket.handlers.interfaces import Requester
@@ -11,7 +10,7 @@ from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
 
 
-class RequestResponseRequester(StreamHandler, Disposable, Requester):
+class RequestResponseRequester(StreamHandler, Requester):
     def __init__(self, socket: RSocket, payload: Payload):
         super().__init__(socket)
         self._payload = payload
@@ -34,9 +33,6 @@ class RequestResponseRequester(StreamHandler, Disposable, Requester):
         elif isinstance(frame, ErrorFrame):
             self._future.set_exception(error_frame_to_exception(frame))
             self._finish_stream()
-
-    def dispose(self):
-        pass
 
     def _on_future_complete(self, future: asyncio.Future):
         if future.cancelled():

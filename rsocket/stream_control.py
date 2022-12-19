@@ -1,5 +1,6 @@
 from typing import Dict
 
+from rsocket.disposable import Disposable
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketStreamAllocationFailure, RSocketStreamIdInUse
 from rsocket.frame import CONNECTION_STREAM_ID, Frame, ErrorFrame
@@ -66,7 +67,9 @@ class StreamControl:
                 frame.data = data
                 stream.frame_received(frame)
 
-            stream.dispose()
+            if isinstance(stream, Disposable):
+                stream.dispose()
+
             self.finish_stream(stream_id)
 
     def assert_stream_id_available(self, stream_id: int):

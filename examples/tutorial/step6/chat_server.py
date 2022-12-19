@@ -12,7 +12,6 @@ from examples.tutorial.step6.shared import (Message, chat_filename_mimetype, Cli
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import DefaultSubscription
-from rsocket.disposable import Disposable
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
 from rsocket.frame_helpers import ensure_bytes
@@ -219,22 +218,19 @@ class ChatUserSession:
 
         @router.stream('messages.incoming')
         async def messages_incoming() -> Publisher:
-            class MessagePublisher(DefaultPublisher, DefaultSubscription, Disposable):
+            class MessagePublisher(DefaultPublisher, DefaultSubscription):
                 def __init__(self, session: UserSessionData):
                     self._session = session
 
                 def cancel(self):
-                    self._sender.cancel()
+                    if self._sender is not None:
+                        logging.info('Canceling message sender task')
+                        self._sender.cancel()
 
                 def subscribe(self, subscriber: Subscriber):
                     super(MessagePublisher, self).subscribe(subscriber)
                     subscriber.on_subscribe(self)
                     self._sender = asyncio.create_task(self._message_sender())
-
-                def dispose(self):
-                    if self._sender is not None:
-                        logging.info('Canceling message sender task')
-                        self._sender.cancel()
 
                 async def _message_sender(self):
                     while True:

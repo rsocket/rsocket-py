@@ -1,5 +1,4 @@
 from reactivestreams.subscriber import Subscriber
-from rsocket.disposable import Disposable
 from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception
 from rsocket.frame_builders import to_request_stream_frame
 from rsocket.handlers.interfaces import Requester
@@ -9,7 +8,7 @@ from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
 
 
-class RequestStreamRequester(StreamHandler, DefaultPublisherSubscription, Disposable, Requester):
+class RequestStreamRequester(StreamHandler, DefaultPublisherSubscription, Requester):
     def __init__(self, socket: RSocket, payload: Payload):
         super().__init__(socket)
         self.payload = payload
@@ -41,9 +40,6 @@ class RequestStreamRequester(StreamHandler, DefaultPublisherSubscription, Dispos
         elif isinstance(frame, ErrorFrame):
             self._subscriber.on_error(error_frame_to_exception(frame))
             self._finish_stream()
-
-    def dispose(self):
-        pass
 
     def _send_stream_request(self, payload: Payload):
         self.socket.send_request(to_request_stream_frame(

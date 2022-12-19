@@ -56,5 +56,5 @@ class RequestStreamResponder(StreamHandler, Disposable):
             self.subscriber.subscription.request(frame.request_n)
 
     def dispose(self):
-        if hasattr(self.publisher, 'dispose'):
-            self.publisher.dispose()
+        if self.subscriber is not None and self.subscriber.subscription is not None:
+            self.subscriber.subscription.cancel()

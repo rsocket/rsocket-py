@@ -90,6 +90,9 @@ class StreamFromGenerator(DefaultPublisherSubscription, Disposable):
     def cancel(self):
         self._cancel_feeders()
 
+        if self._generator is not None:
+            self._cancel_generator()
+
         if self._on_cancel is not None:
             self._on_cancel()
 
@@ -133,3 +136,6 @@ class StreamFromGenerator(DefaultPublisherSubscription, Disposable):
             self._subscriber.on_complete()
         else:
             self._subscriber.on_next(payload, is_complete)
+
+    def _cancel_generator(self):
+        self._generator.close()

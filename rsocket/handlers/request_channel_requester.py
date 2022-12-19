@@ -1,9 +1,8 @@
 import asyncio
-from typing import Optional, Union
+from typing import Optional
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
-from rsocket.disposable import Disposable
 from rsocket.frame_builders import to_request_channel_frame
 from rsocket.handlers.interfaces import Requester
 from rsocket.handlers.request_cahnnel_common import RequestChannelCommon
@@ -16,7 +15,7 @@ class RequestChannelRequester(RequestChannelCommon, Requester):
     def __init__(self,
                  socket: RSocket,
                  payload: Payload,
-                 publisher: Optional[Union[Publisher, Disposable]] = None,
+                 publisher: Optional[Publisher] = None,
                  sending_done: Optional[asyncio.Event] = None):
         super().__init__(socket, publisher, sending_done)
         self._payload = payload
