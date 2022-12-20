@@ -4,10 +4,10 @@ from typing import Tuple
 
 import pytest
 import reactivex
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from reactivex import operators, Observable
 from reactivex.operators._tofuture import to_future_
 from reactivex.scheduler import ThreadPoolScheduler
+from reactivex.scheduler.eventloop import AsyncIOScheduler
 
 from rsocket.exceptions import RSocketProtocolError
 from rsocket.frame_helpers import ensure_bytes
@@ -45,7 +45,7 @@ async def test_serve_reactivex_stream_disconnected(pipe: Tuple[RSocketServer, RS
 
     async def request():
         await ReactiveXClient(client).request_stream(Payload(b'request text'),
-                                               request_limit=2).pipe(
+                                                     request_limit=2).pipe(
             operators.map(lambda payload: payload.data),
             operators.to_list(),
             to_future_(scheduler=AsyncIOScheduler(loop=asyncio.get_event_loop()))
@@ -61,4 +61,3 @@ async def test_serve_reactivex_stream_disconnected(pipe: Tuple[RSocketServer, RS
 
     with pytest.raises(RSocketProtocolError):
         await task
-
