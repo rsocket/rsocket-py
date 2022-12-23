@@ -1,16 +1,18 @@
 import asyncio
 import logging
+import os.path
 import uuid
-from asyncio import Queue
+from asyncio import Queue, Task
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, Optional, Set, Awaitable, Tuple
 from weakref import WeakValueDictionary, WeakSet
 
-from examples.tutorial.step6.shared import (Message, chat_filename_mimetype, ClientStatistics, ServerStatisticsRequest,
-                                            ServerStatistics, dataclass_to_payload, decode_dataclass, decode_payload)
+from examples.tutorial.step5_1.shared import (Message, chat_filename_mimetype, dataclass_to_payload, decode_payload,
+                                              FileSender, FileReceiver)
 from reactivestreams.publisher import DefaultPublisher, Publisher
-from reactivestreams.subscriber import Subscriber, DefaultSubscriber
+from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, metadata_item
@@ -21,7 +23,6 @@ from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.empty_stream import EmptyStream
-from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
 from rsocket.transports.tcp import TransportTCP
 
@@ -33,23 +34,22 @@ class SessionId(str):  # allow weak reference
 @dataclass()
 class UserSessionData:
     username: str
-    session_id: str
+    session_id: SessionId
     messages: Queue = field(default_factory=Queue)
-    statistics: Optional[ClientStatistics] = None
 
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(WeakSet))
+    channel_users: Dict[str, Set[SessionId]] = field(default_factory=lambda: defaultdict(WeakSet))
     files: Dict[str, bytes] = field(default_factory=dict)
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
+    user_session_by_id: Dict[SessionId, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
 
 
-def ensure_channel_exists(channel_name):
+def ensure_channel_exists(channel_name: str):
     if channel_name not in chat_data.channel_users:
         chat_data.channel_users[channel_name] = WeakSet()
         chat_data.channel_messages[channel_name] = Queue()
@@ -89,23 +89,11 @@ def find_username_by_session(session_id: SessionId) -> Optional[str]:
     return session.username
 
 
-def new_statistics_data(statistics_request: ServerStatisticsRequest):
-    statistics_data = {}
-
-    if 'users' in statistics_request.ids:
-        statistics_data['user_count'] = len(chat_data.user_session_by_id)
-
-    if 'channels' in statistics_request.ids:
-        statistics_data['channel_count'] = len(chat_data.channel_messages)
-
-    return ServerStatistics(**statistics_data)
-
-
 class ChatUserSession:
 
-    def __init__(self):
+    def __init__(self, file_storage_path: Path):
         self._session: Optional[UserSessionData] = None
-        self._requested_statistics = ServerStatisticsRequest()
+        self._file_storage_path = file_storage_path
 
     def router_factory(self):
         router = RequestRouter(payload_mapper=decode_payload)
@@ -130,16 +118,25 @@ class ChatUserSession:
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
 
-        @router.response('file.upload')
-        async def upload_file(payload: Payload, composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
-            chat_data.files[get_file_name(composite_metadata)] = payload.data
-            return create_response()
+        @router.stream('channel.users')
+        async def get_channel_users(channel_name: str) -> Publisher:
+            if channel_name not in chat_data.channel_users:
+                return EmptyStream()
 
-        @router.response('file.download')
-        async def download_file(composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
-            file_name = get_file_name(composite_metadata)
-            return create_response(chat_data.files[file_name],
-                                   composite(metadata_item(ensure_bytes(file_name), chat_filename_mimetype)))
+            count = len(chat_data.channel_users[channel_name])
+            generator = ((Payload(ensure_bytes(find_username_by_session(session_id))), index == count) for
+                         (index, session_id) in
+                         enumerate(chat_data.channel_users[channel_name], 1))
+
+            return StreamFromGenerator(lambda: generator)
+
+        @router.channel('file.upload')
+        async def file_upload() -> Tuple[Optional[Publisher], Optional[Subscriber]]:
+            return None, FileReceiver()
+
+        @router.stream('file.download')
+        async def file_download(composite_metadata: CompositeMetadata) -> Publisher:
+            return FileSender(get_file_name(composite_metadata))
 
         @router.stream('files')
         async def get_file_names() -> Publisher:
@@ -154,38 +151,6 @@ class ChatUserSession:
             generator = ((Payload(ensure_bytes(channel)), index == count) for (index, channel) in
                          enumerate(chat_data.channel_messages.keys(), 1))
             return StreamFromGenerator(lambda: generator)
-
-        @router.fire_and_forget('statistics')
-        async def receive_statistics(statistics: ClientStatistics):
-            logging.info('Received client statistics. memory usage: %s', statistics.memory_usage)
-
-            self._session.statistics = statistics
-
-        @router.channel('statistics')
-        async def send_statistics() -> Tuple[Optional[Publisher], Optional[Subscriber]]:
-
-            async def statistics_generator():
-                while True:
-                    try:
-                        await asyncio.sleep(self._requested_statistics.period_seconds)
-                        next_message = new_statistics_data(self._requested_statistics)
-
-                        yield dataclass_to_payload(next_message), False
-                    except Exception:
-                        logging.error('Statistics', exc_info=True)
-
-            def on_next(payload: Payload, is_complete=False):
-                request = decode_dataclass(payload.data, ServerStatisticsRequest)
-
-                logging.info(f'Received statistics request {request.ids}, {request.period_seconds}')
-
-                if request.ids is not None:
-                    self._requested_statistics.ids = request.ids
-
-                if request.period_seconds is not None:
-                    self._requested_statistics.period_seconds = request.period_seconds
-
-            return StreamFromAsyncGenerator(statistics_generator), DefaultSubscriber(on_next=on_next)
 
         @router.response('message')
         async def send_message(message: Message) -> Awaitable[Payload]:
@@ -206,11 +171,13 @@ class ChatUserSession:
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
                 def __init__(self, session: UserSessionData):
                     self._session = session
+                    self._sender: Optional[Task] = None
 
                 def cancel(self):
                     if self._sender is not None:
                         logging.info('Canceling message sender task')
                         self._sender.cancel()
+                        self._sender = None
 
                 def subscribe(self, subscriber: Subscriber):
                     super(MessagePublisher, self).subscribe(subscriber)
@@ -224,18 +191,6 @@ class ChatUserSession:
 
             return MessagePublisher(self._session)
 
-        @router.stream('channel.users')
-        async def get_channel_users(channel_name: str) -> Publisher:
-            if channel_name not in chat_data.channel_users:
-                return EmptyStream()
-
-            count = len(chat_data.channel_users[channel_name])
-            generator = ((Payload(ensure_bytes(find_username_by_session(session_id))), index == count) for
-                         (index, session_id) in
-                         enumerate(chat_data.channel_users[channel_name], 1))
-
-            return StreamFromGenerator(lambda: generator)
-
         return router
 
 
@@ -246,7 +201,9 @@ class CustomRoutingRequestHandler(RoutingRequestHandler):
 
 
 def handler_factory():
-    return CustomRoutingRequestHandler(ChatUserSession())
+    file_storage_path = Path(os.path.curdir) / 'files'
+    file_storage_path.mkdir(parents=True, exist_ok=True)
+    return CustomRoutingRequestHandler(ChatUserSession(file_storage_path))
 
 
 async def run_server():
