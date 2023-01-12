@@ -20,7 +20,7 @@ def handler_factory():
 
         logging.info(f'New user: {username}')
 
-        return create_response(ensure_bytes(f'Hello {username}'))
+        return create_response(ensure_bytes(f'Welcome to chat, {username}'))
 
     return RoutingRequestHandler(router)
 

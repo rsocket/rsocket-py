@@ -111,7 +111,7 @@ class ChatUserSession:
 
     def remove(self):
         if self._session is not None:
-            print(f'Removing session: {self._session.session_id}')
+            logging.info(f'Removing session: {self._session.session_id}')
             del chat_data.user_session_by_id[self._session.session_id]
 
     def router_factory(self):

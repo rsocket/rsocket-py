@@ -17,7 +17,7 @@ class Message:
 chat_filename_mimetype = b'chat/file-name'
 
 
-def encode_dataclass(obj):
+def encode_dataclass(obj) -> bytes:
     return ensure_bytes(json.dumps(obj.__dict__))
 
 
