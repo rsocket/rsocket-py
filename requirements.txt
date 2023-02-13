@@ -16,4 +16,4 @@ pytest-xdist==3.2.0
 pytest==7.2.1
 quart==0.18.3
 reactivex==4.0.4
-starlette==0.23.1
+starlette==0.24.0
