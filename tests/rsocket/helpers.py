@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from dataclasses import dataclass
 from datetime import timedelta
 from math import ceil
@@ -102,3 +103,7 @@ def to_json_bytes(item: Any) -> bytes:
 
 def create_data(base: bytes, multiplier: int, limit: float = None):
     return b''.join([ensure_bytes(str(i)) + base for i in range(multiplier)])[0:limit]
+
+
+def create_large_random_data(size: int):
+    return bytearray(os.urandom(size))

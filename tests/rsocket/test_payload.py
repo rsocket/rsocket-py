@@ -30,3 +30,10 @@ def test_payload_support_bytearray():
 
     assert payload.data == b'\x01\x05\x0a'
     assert payload.metadata == b'\x04\x06\x07'
+
+
+def test_payload_cannot_accept_strings():
+    with pytest.raises(AssertionError) as exc_info:
+        Payload('data')
+
+    assert isinstance(exc_info.value, AssertionError)
