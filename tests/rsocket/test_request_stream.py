@@ -18,7 +18,8 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.streams.stream_from_generator import StreamFromGenerator
-from tests.rsocket.helpers import get_components
+from tests.rsocket.helpers import get_components, create_large_random_data
+from tests.tools.helpers import measure_time
 
 
 @pytest.mark.parametrize('complete_inline', (
@@ -27,6 +28,7 @@ from tests.rsocket.helpers import get_components
 ))
 async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSocketClient], complete_inline):
     server, client = get_components(pipe)
+    response_count = 3
 
     class Handler(BaseRequestHandler):
 
@@ -34,21 +36,57 @@ async def test_request_stream_properly_finished(pipe: Tuple[RSocketServer, RSock
             return StreamFromAsyncGenerator(self.feed)
 
         async def feed(self):
-            for x in range(3):
+            for x in range(response_count):
                 value = Payload('Feed Item: {}'.format(x).encode('utf-8'))
-                yield value, complete_inline and x == 2
+                yield value, complete_inline and x == response_count - 1
 
             if not complete_inline:
                 yield None, True
 
     server.set_handler_using_factory(Handler)
 
-    result = await AwaitableRSocket(client).request_stream(Payload())
+    measured_result = await measure_time(AwaitableRSocket(client).request_stream(Payload()))
 
-    assert len(result) == 3
+    logging.info(measured_result.delta / (response_count if complete_inline else response_count + 1))
+
+    result = measured_result.result
+    assert len(result) == response_count
     assert result[0].data == b'Feed Item: 0'
     assert result[1].data == b'Feed Item: 1'
     assert result[2].data == b'Feed Item: 2'
+
+
+@pytest.mark.parametrize('complete_inline', (
+        True,
+        False,
+))
+async def test_request_stream_properly_finished_performance(pipe_tcp: Tuple[RSocketServer, RSocketClient],
+                                                            complete_inline):
+    server, client = get_components(pipe_tcp)
+    response_count = 300
+    sample_data = create_large_random_data(1920 * 1080 * 3)
+
+    class Handler(BaseRequestHandler):
+
+        async def request_stream(self, payload: Payload) -> Publisher:
+            return StreamFromAsyncGenerator(self.feed)
+
+        async def feed(self):
+            for x in range(response_count):
+                value = Payload(sample_data)
+                yield value, complete_inline and x == response_count - 1
+
+            if not complete_inline:
+                yield None, True
+
+    server.set_handler_using_factory(Handler)
+
+    measured_result = await measure_time(AwaitableRSocket(client).request_stream(Payload()))
+
+    logging.info(measured_result.delta / 2 / (response_count if complete_inline else response_count + 1))
+
+    result = measured_result.result
+    assert len(result) == response_count
 
 
 @pytest.mark.parametrize('initial_request_n', (

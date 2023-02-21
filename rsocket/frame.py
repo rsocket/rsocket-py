@@ -57,11 +57,20 @@ HEADER_LENGTH = 6  # A full header is 4 (stream) + 2 (type, flags) bytes.
 class Header:
     __slots__ = (
         'length',
+        'prefix_length',
         'frame_type',
         'stream_id',
         'flags_ignore',
-        'flags_metadata'
+        '_flags_metadata'
     )
+
+    @property
+    def flags_metadata(self):
+        return self._flags_metadata
+
+    @flags_metadata.setter
+    def flags_metadata(self, value):
+        self._flags_metadata = value
 
 
 def is_blank(value: Optional[bytes]) -> bool:
@@ -98,6 +107,7 @@ class Frame(Header, metaclass=ABCMeta):
 
     def __init__(self, frame_type: FrameType):
         self.length = 0
+        self.prefix_length = 0
         self.frame_type = frame_type
         self.stream_id = CONNECTION_STREAM_ID
         self.metadata = b''
@@ -112,6 +122,14 @@ class Frame(Header, metaclass=ABCMeta):
         self.fragment_size_bytes: Optional[int] = None
         self.fragment_generator = None
         self.sent_future: Optional[Future] = None
+
+    @property
+    def flags_metadata(self):
+        return self.metadata or self._flags_metadata
+
+    @flags_metadata.setter
+    def flags_metadata(self, value):
+        self._flags_metadata = value
 
     def parse_metadata(self, buffer: bytes, offset: int) -> int:
         if not self.flags_metadata:
@@ -136,18 +154,18 @@ class Frame(Header, metaclass=ABCMeta):
     def parse(self, buffer: bytes, offset: int):
         ...
 
-    def serialize(self, middle=b'', flags: int = 0) -> bytes:
+    def serialize_frame_prefix(self, middle=b'', flags: int = 0) -> bytes:
         flags &= ~(_FLAG_IGNORE_BIT | _FLAG_METADATA_BIT)
         if self.flags_ignore:
             flags |= _FLAG_IGNORE_BIT
         if self.metadata:
-            self.flags_metadata = True
             flags |= _FLAG_METADATA_BIT
 
-        self.length = self._compute_frame_length(middle)
+        self.length = self.compute_frame_length(middle)
+        self.prefix_length = self._compute_frame_prefix_length(middle)
 
         offset = 0
-        buffer = bytearray(self.length)
+        buffer = bytearray(self.prefix_length)
 
         struct.pack_into('>I', buffer, offset, self.stream_id)
         offset += 4
@@ -160,11 +178,23 @@ class Frame(Header, metaclass=ABCMeta):
         buffer[offset:offset + len(middle)] = middle[:]
         offset += len(middle)
 
+        if self.metadata:
+            if not self.metadata_only:
+                buffer[offset:offset + 3] = pack_24bit(len(self.metadata))
+                offset += 3
+
+        return buffer
+
+    def serialize(self, middle=b'', flags: int = 0) -> bytes:
+        prefix_buffer = self.serialize_frame_prefix(middle, flags)
+
+        offset = 0
+        buffer = bytearray(len(prefix_buffer) + self._compute_data_metadata_length())
+        buffer[:len(prefix_buffer)] = prefix_buffer
+        offset += len(prefix_buffer)
+
         if self.flags_metadata and self.metadata:
             length = len(self.metadata)
-            if not self.metadata_only:
-                buffer[offset:offset + 3] = pack_24bit(length)
-                offset += 3
             buffer[offset:offset + length] = self.metadata[:]
             offset += length
 
@@ -174,17 +204,34 @@ class Frame(Header, metaclass=ABCMeta):
 
         return bytes(buffer)
 
-    def _compute_frame_length(self, middle: bytes) -> int:
+    def write_data_metadata(self, writer_method):
+        if self.metadata:
+            writer_method(self.metadata)
+
+        if not self.metadata_only and self.data:
+            writer_method(self.data)
+
+    def compute_frame_length(self, middle: bytes = b'') -> int:
+        return self._compute_frame_prefix_length(middle) + self._compute_data_metadata_length()
+
+    def _compute_data_metadata_length(self):
+        length = 0
+
+        if self.flags_metadata and self.metadata:
+            length += len(self.metadata)
+
+        if not self.metadata_only and self.data:
+            length += len(self.data)
+
+        return length
+
+    def _compute_frame_prefix_length(self, middle: bytes = b'') -> int:
         header_length = HEADER_LENGTH
         length = header_length + len(middle)
 
         if self.flags_metadata and self.metadata:
-            length += len(self.metadata)
             if not self.metadata_only:
                 length += 3
-
-        if not self.metadata_only and self.data:
-            length += len(self.data)
 
         return length
 
@@ -262,23 +309,29 @@ class SetupFrame(Frame):
         offset += self.parse_metadata(buffer, offset)
         offset += self.parse_data(buffer, offset)
 
-    def serialize(self, middle=b'', flags=0) -> bytes:
+    def serialize_frame_prefix(self, middle=b'', flags=0) -> bytes:
         flags &= ~(_FLAG_LEASE_BIT | _FLAG_RESUME_BIT)
+
         if self.flags_lease:
             flags |= _FLAG_LEASE_BIT
+
         if self.flags_resume:
             flags |= _FLAG_RESUME_BIT
+
         middle = struct.pack(
             '>HHII', self.major_version, self.minor_version,
             self.keep_alive_milliseconds, self.max_lifetime_milliseconds)
+
         if self.flags_resume:
             middle += struct.pack('>H', self.token_length)
             # assert len(self.resume_identification_token) == self.token_length
             # assert isinstance(self.resume_identification_token, bytes)
             middle += self.resume_identification_token
+
         middle += pack_string(self.metadata_encoding)
         middle += pack_string(self.data_encoding)
-        return Frame.serialize(self, middle, flags)
+
+        return super().serialize_frame_prefix(middle, flags)
 
 
 class InvalidFrame:
@@ -299,9 +352,9 @@ class ErrorFrame(Frame):
         offset += 4
         offset += self.parse_data(buffer, offset)
 
-    def serialize(self, middle=b'', flags=0) -> bytes:
+    def serialize_frame_prefix(self, middle=b'', flags=0) -> bytes:
         middle = struct.pack('>I', self.error_code)
-        return Frame.serialize(self, middle, flags)
+        return super().serialize_frame_prefix(middle, flags)
 
 
 class LeaseFrame(Frame):
@@ -324,11 +377,11 @@ class LeaseFrame(Frame):
         self.number_of_requests = number_of_requests & MASK_31_BITS
         offset += self.parse_metadata(buffer, offset + 8)
 
-    def serialize(self, middle=b'', flags=0):
+    def serialize_frame_prefix(self, middle=b'', flags=0):
         middle = struct.pack('>II',
                              self.time_to_live & MASK_31_BITS,
                              self.number_of_requests & MASK_31_BITS)
-        return Frame.serialize(self, middle, flags)
+        return super().serialize_frame_prefix(middle, flags)
 
 
 class KeepAliveFrame(Frame):
@@ -350,12 +403,12 @@ class KeepAliveFrame(Frame):
         offset += 8
         offset += self.parse_data(buffer, offset)
 
-    def serialize(self, middle=b'', flags: int = 0) -> bytes:
+    def serialize_frame_prefix(self, middle=b'', flags: int = 0) -> bytes:
         flags &= ~_FLAG_RESPOND_BIT
         if self.flags_respond:
             flags |= _FLAG_RESPOND_BIT
         middle += pack_position(self.last_received_position)
-        return Frame.serialize(self, middle, flags)
+        return super().serialize_frame_prefix(middle, flags)
 
 
 class RequestFrame(Frame):
@@ -372,13 +425,13 @@ class RequestFrame(Frame):
         self.flags_follows = is_flag_set(flags, _FLAG_FOLLOWS_BIT)
         return HEADER_LENGTH, flags
 
-    def serialize(self, middle=b'', flags: int = 0) -> bytes:
+    def serialize_frame_prefix(self, middle=b'', flags: int = 0) -> bytes:
         flags &= ~_FLAG_FOLLOWS_BIT
 
         if self.flags_follows:
             flags |= _FLAG_FOLLOWS_BIT
 
-        return Frame.serialize(self, middle, flags)
+        return super().serialize_frame_prefix(middle, flags)
 
     def _parse_payload(self, buffer: bytes, offset: int):
         offset += self.parse_metadata(buffer, offset)
@@ -423,9 +476,9 @@ class RequestStreamFrame(RequestFrame, FrameFragmentMixin):
         offset += 4
         self._parse_payload(buffer, offset)
 
-    def serialize(self, middle=b'', flags=0):
+    def serialize_frame_prefix(self, middle=b'', flags=0):
         middle = struct.pack('>I', self.initial_request_n)
-        return RequestFrame.serialize(self, middle)
+        return super().serialize_frame_prefix(middle)
 
 
 class RequestChannelFrame(RequestFrame, FrameFragmentMixin):
@@ -450,14 +503,15 @@ class RequestChannelFrame(RequestFrame, FrameFragmentMixin):
         offset += 4
         self._parse_payload(buffer, offset)
 
-    def serialize(self, middle=b'', flags=0):
+    def serialize_frame_prefix(self, middle=b'', flags=0):
         middle = struct.pack('>I', self.initial_request_n)
 
         flags &= ~_FLAG_COMPLETE_BIT
+
         if self.flags_complete:
             flags |= _FLAG_COMPLETE_BIT
 
-        return RequestFrame.serialize(self, middle, flags)
+        return super().serialize_frame_prefix(middle, flags)
 
 
 class RequestNFrame(RequestFrame):
@@ -472,9 +526,9 @@ class RequestNFrame(RequestFrame):
         offset += HEADER_LENGTH
         self.request_n = unpack_32bit(buffer, offset)
 
-    def serialize(self, middle=b'', flags=0):
+    def serialize_frame_prefix(self, middle=b'', flags=0):
         middle = struct.pack('>I', self.request_n)
-        return Frame.serialize(self, middle, flags)
+        return super().serialize_frame_prefix(middle, flags)
 
 
 class CancelFrame(Frame):
@@ -508,7 +562,7 @@ class PayloadFrame(Frame, FrameFragmentMixin):
         offset += self.parse_metadata(buffer, offset)
         offset += self.parse_data(buffer, offset)
 
-    def serialize(self, middle=b'', flags=0):
+    def serialize_frame_prefix(self, middle=b'', flags=0):
         flags &= ~(_FLAG_FOLLOWS_BIT | _FLAG_COMPLETE_BIT |
                    _FLAG_NEXT_BIT)
 
@@ -524,7 +578,7 @@ class PayloadFrame(Frame, FrameFragmentMixin):
         if self.flags_next:
             flags |= _FLAG_NEXT_BIT
 
-        return Frame.serialize(self, flags=flags)
+        return super().serialize_frame_prefix(flags=flags)
 
 
 class MetadataPushFrame(Frame):
@@ -577,7 +631,7 @@ class ResumeFrame(Frame):
         offset += 8
         self.first_client_position = unpack_position(buffer[offset:])
 
-    def serialize(self, middle=b'', flags=0) -> bytes:
+    def serialize_frame_prefix(self, middle=b'', flags=0) -> bytes:
         flags &= ~(_FLAG_LEASE_BIT | _FLAG_RESUME_BIT)
 
         middle = struct.pack('>HH', self.major_version, self.minor_version)
@@ -589,7 +643,7 @@ class ResumeFrame(Frame):
         middle += pack_position(self.last_server_position)
         middle += pack_position(self.first_client_position)
 
-        return Frame.serialize(self, middle)
+        return super().serialize_frame_prefix(middle)
 
 
 class ResumeOKFrame(Frame):
@@ -606,9 +660,9 @@ class ResumeOKFrame(Frame):
         offset += HEADER_LENGTH
         self.last_received_client_position = unpack_position(buffer[offset:offset + 8])
 
-    def serialize(self, middle=b'', flags: int = 0) -> bytes:
+    def serialize_frame_prefix(self, middle=b'', flags: int = 0) -> bytes:
         serialized = pack_position(self.last_received_client_position)
-        return super().serialize(serialized)
+        return super().serialize_frame_prefix(serialized)
 
 
 class ExtendedFrame(Frame, metaclass=abc.ABCMeta):
@@ -681,10 +735,10 @@ def is_fragmentable_frame(frame: Frame) -> bool:
 
 
 FragmentableFrame = Union[PayloadFrame,
-                          RequestResponseFrame,
-                          RequestChannelFrame,
-                          RequestStreamFrame,
-                          RequestFireAndForgetFrame]
+RequestResponseFrame,
+RequestChannelFrame,
+RequestStreamFrame,
+RequestFireAndForgetFrame]
 
 
 def new_frame_fragment(base_frame: FragmentableFrame, fragment: Fragment) -> Frame:
@@ -742,6 +796,13 @@ def serialize_with_frame_size_header(frame: Frame) -> bytes:
     serialized_frame = frame.serialize()
     header = struct.pack('>I', len(serialized_frame))[1:]
     full_frame = header + serialized_frame
+    return full_frame
+
+
+def serialize_prefix_with_frame_size_header(frame: Frame) -> bytes:
+    serialized_frame_prefix = frame.serialize_frame_prefix()
+    header = struct.pack('>I', frame.length)[1:]
+    full_frame = header + serialized_frame_prefix
     return full_frame
 
 

@@ -14,10 +14,12 @@ from tests.rsocket.helpers import assert_no_open_streams
 @asynccontextmanager
 async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_arguments=None, auto_connect_client=True):
     wait_for_server = Event()
+    read_buffer_size = 2000 * 1080 * 3
 
     def session(*connection):
         nonlocal server
-        server = RSocketServer(TransportTCP(*connection), **(server_arguments or {}))
+
+        server = RSocketServer(TransportTCP(*connection, read_buffer_size=read_buffer_size), **(server_arguments or {}))
         wait_for_server.set()
 
     async def start():
@@ -30,7 +32,8 @@ async def pipe_factory_tcp(unused_tcp_port, client_arguments=None, server_argume
 
         # client_arguments.update(test_overrides)
 
-        client = RSocketClient(single_transport_provider(TransportTCP(*connection)), **(client_arguments or {}))
+        client = RSocketClient(single_transport_provider(TransportTCP(*connection, read_buffer_size=read_buffer_size)),
+                               **(client_arguments or {}))
 
         if auto_connect_client:
             await client.connect()
