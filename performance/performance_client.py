@@ -13,24 +13,27 @@ from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.transports.tcp import TransportTCP
-from tests.rsocket.helpers import to_json_bytes
+from tests.rsocket.helpers import to_json_bytes, create_large_random_data
+
+
+data_size = 1920 # * 1080 * 3
+large_data = create_large_random_data(data_size)
 
 
 def sample_publisher(wait_for_requester_complete: Event,
-                     response_count: int = 3) -> Publisher:
+                     response_count: int = 3,
+                     data_generator=lambda index: ('Item to server from client on channel: %s' % index).encode('utf-8')
+                     ) -> Publisher:
     async def generator() -> AsyncGenerator[Tuple[Fragment, bool], None]:
-        current_response = 0
         for i in range(response_count):
-            is_complete = (current_response + 1) == response_count
+            is_complete = (i + 1) == response_count
 
-            message = 'Item to server from client on channel: %s' % current_response
-            yield Fragment(message.encode('utf-8')), is_complete
+            message = data_generator(i)
+            yield Payload(message), is_complete
 
             if is_complete:
                 wait_for_requester_complete.set()
                 break
-
-            current_response += 1
 
     return StreamFromAsyncGenerator(generator)
 
@@ -47,13 +50,20 @@ class PerformanceClient:
 
         return await self._client.request_response(payload)
 
+    async def large_request(self):
+        payload = Payload(large_data, composite(
+            route('large'),
+            authenticate_simple('user', '12345')
+        ))
+
+        return await self._client.request_response(payload)
+
     async def request_channel(self):
-        requester_completion_event = Event()
         payload = Payload(b'The quick brown fox', composite(
             route('channel'),
             authenticate_simple('user', '12345')
         ))
-        publisher = sample_publisher(requester_completion_event)
+        publisher = sample_publisher(Event())
 
         return await self._client.request_channel(payload, publisher, limit_rate=5)
 
@@ -97,7 +107,7 @@ class PerformanceClient:
         connection = await asyncio.open_connection('localhost', self._server_port)
 
         self._client = AwaitableRSocket(RSocketClient(
-            single_transport_provider(TransportTCP(*connection)),
+            single_transport_provider(TransportTCP(*connection, read_buffer_size=data_size + 3000)),
             metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA)
         )
 

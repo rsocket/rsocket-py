@@ -15,6 +15,10 @@ from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
 from performance.sample_responses import response_stream_2, response_stream_1, LoggingSubscriber
+from tests.rsocket.helpers import create_large_random_data
+
+data_size = 1920 # * 1080 * 3
+large_data = create_large_random_data(data_size)
 
 router = RequestRouter()
 
@@ -32,6 +36,12 @@ storage = Storage()
 async def single_request_response(payload, composite_metadata):
     logging.info('Got single request')
     return create_future(Payload(b'single_response'))
+
+
+@router.response('large')
+async def single_request_response(payload, composite_metadata):
+    logging.info('Got single request')
+    return create_future(Payload(large_data))
 
 
 @router.response('last_fnf')
@@ -102,9 +112,9 @@ def handler_factory():
 
 def client_handler_factory(on_ready=None):
     def handle_client(reader, writer):
-        RSocketServer(TransportTCP(reader, writer),
+        RSocketServer(TransportTCP(reader, writer, read_buffer_size=data_size + 3000),
                       handler_factory=handler_factory,
-                      fragment_size_bytes=64_000,
+                      # fragment_size_bytes=64_000,
                       on_ready=on_ready
                       )
 
