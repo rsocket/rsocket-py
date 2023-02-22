@@ -9,6 +9,7 @@ from rsocket.extensions.helpers import composite, data_mime_type, data_mime_type
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
 from rsocket.extensions.stream_data_mimetype import StreamDataMimetypes, StreamDataMimetype
+from rsocket.logger import measure_runtime
 
 
 def test_tag_composite_metadata_too_long():
@@ -76,3 +77,26 @@ def test_composite_metadata_find_by_mimetype():
 
     authentication_items = composite_metadata.find_by_mimetype(WellKnownMimeTypes.MESSAGE_RSOCKET_AUTHENTICATION)
     assert authentication_items[0].authentication.password == b'1234'
+
+
+def test_composite_metadata_parse_performance():
+    data = composite(
+        data_mime_types(
+            WellKnownMimeTypes.APPLICATION_JSON,
+            WellKnownMimeTypes.TEXT_XML
+        ),
+        route('login'),
+        authenticate_simple('abcd', '1234'),
+        metadata_item(b'some_data_1', WellKnownMimeTypes.TEXT_PLAIN),
+        metadata_item(b'some_data_2', WellKnownMimeTypes.TEXT_PLAIN),
+        metadata_item(b'{"key":1}', WellKnownMimeTypes.APPLICATION_JSON),
+    )
+
+    composite_metadata = CompositeMetadata()
+
+    with measure_runtime() as result:
+        for i in range(100):
+            composite_metadata.items = []
+            composite_metadata.parse(data)
+
+    print(result.time.total_seconds() / 100 * 1000)

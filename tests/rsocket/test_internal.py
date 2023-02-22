@@ -1,8 +1,11 @@
 import asyncio
 import logging
+from collections import namedtuple
 from weakref import WeakKeyDictionary
 
 import pytest
+
+from rsocket.logger import measure_runtime
 
 
 async def test_reader(event_loop: asyncio.AbstractEventLoop):
@@ -40,3 +43,43 @@ async def test_range():
             print(ii + str(i))
 
     await asyncio.gather(loop('a'), loop('b'))
+
+
+def test_instantiate_named_tuple():
+    routing = namedtuple('routing', ['tags', 'content'])
+    count = 100000
+    with measure_runtime() as result:
+        for i in range(count):
+            r = routing(b'abc', b'abcdefg')
+
+    print(result.time.total_seconds() / count * 1000)
+
+
+def test_instantiate_slotted_class():
+    class routing:
+        __slots__ = ['tags', 'content']
+
+        def __init__(self, tags, content):
+            self.tags = tags
+            self.content = content
+
+    count = 100000
+    with measure_runtime() as result:
+        for i in range(count):
+            r = routing(b'abc', b'abcdefg')
+
+    print(result.time.total_seconds() / count * 1000)
+
+def test_instantiate_class():
+    class routing:
+
+        def __init__(self, tags, content):
+            self.tags = tags
+            self.content = content
+
+    count = 100000
+    with measure_runtime() as result:
+        for i in range(count):
+            r = routing(b'abc', b'abcdefg')
+
+    print(result.time.total_seconds() / count * 1000)

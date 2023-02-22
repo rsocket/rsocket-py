@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from inspect import signature, Parameter
-from typing import Callable, Any
+from inspect import signature
+from typing import Callable, Any, Dict
 
 from rsocket.exceptions import RSocketUnknownRoute, RSocketEmptyRoute
 from rsocket.extensions.composite_metadata import CompositeMetadata
@@ -14,6 +14,12 @@ __all__ = ['RequestRouter']
 decorated_method = Callable[[RSocket, Payload, CompositeMetadata], Any]
 
 
+class RouteInfo:
+    def __init__(self, method):
+        self.method: Callable = method
+        self.signature = signature(method)
+
+
 def decorator_factory(container: dict, route: str):
     def decorator(function: decorated_method):
         if safe_len(route) == 0:
@@ -22,7 +28,7 @@ def decorator_factory(container: dict, route: str):
         if route in container:
             raise KeyError('Duplicate route "%s" already registered', route)
 
-        container[route] = function
+        container[route] = RouteInfo(function)
         return function
 
     return decorator
@@ -58,15 +64,15 @@ class RequestRouter:
 
     def __init__(self, payload_mapper=lambda cls, _: _):
         self._payload_mapper = payload_mapper
-        self._channel_routes = {}
-        self._stream_routes = {}
-        self._response_routes = {}
-        self._fnf_routes = {}
-        self._metadata_push = {}
+        self._channel_routes: Dict[str, RouteInfo] = {}
+        self._stream_routes: Dict[str, RouteInfo] = {}
+        self._response_routes: Dict[str, RouteInfo] = {}
+        self._fnf_routes: Dict[str, RouteInfo] = {}
+        self._metadata_push: Dict[str, RouteInfo] = {}
 
         self._unknown = Handlers()
 
-        self._route_map_by_frame_type = {
+        self._route_map_by_frame_type: Dict[int, Dict[str, RouteInfo]] = {
             FrameType.REQUEST_CHANNEL: self._channel_routes,
             FrameType.REQUEST_FNF: self._fnf_routes,
             FrameType.REQUEST_STREAM: self._stream_routes,
@@ -79,7 +85,7 @@ class RequestRouter:
 
     def response_unknown(self):
         def wrapper(function):
-            self._unknown.response = function
+            self._unknown.response = RouteInfo(function)
             return function
 
         return wrapper
@@ -89,7 +95,7 @@ class RequestRouter:
 
     def stream_unknown(self):
         def wrapper(function):
-            self._unknown.stream = function
+            self._unknown.stream = RouteInfo(function)
             return function
 
         return wrapper
@@ -99,7 +105,7 @@ class RequestRouter:
 
     def channel_unknown(self):
         def wrapper(function):
-            self._unknown.channel = function
+            self._unknown.channel = RouteInfo(function)
             return function
 
         return wrapper
@@ -109,7 +115,7 @@ class RequestRouter:
 
     def fire_and_forget_unknown(self):
         def wrapper(function):
-            self._unknown.fire_and_forget = function
+            self._unknown.fire_and_forget = RouteInfo(function)
             return function
 
         return wrapper
@@ -119,7 +125,7 @@ class RequestRouter:
 
     def metadata_push_unknown(self):
         def wrapper(function):
-            self._unknown.metadata_push = function
+            self._unknown.metadata_push = RouteInfo(function)
             return function
 
         return wrapper
@@ -131,21 +137,24 @@ class RequestRouter:
                     composite_metadata: CompositeMetadata):
 
         if route in self._route_map_by_frame_type[frame_type]:
-            route_processor = self._route_map_by_frame_type[frame_type][route]
+            route_info = self._route_map_by_frame_type[frame_type][route]
         else:
-            route_processor = self._get_unknown_route(frame_type)
+            route_info = self._get_unknown_route(frame_type)
 
-        if route_processor is None:
+        if route_info is None:
             raise RSocketUnknownRoute(route)
 
-        route_kwargs = self._collect_route_arguments(route_processor,
+        route_kwargs = self._collect_route_arguments(route_info,
                                                      payload,
                                                      composite_metadata)
 
-        return await route_processor(**route_kwargs)
+        return await route_info.method(**route_kwargs)
 
-    def _collect_route_arguments(self, route_processor, payload, composite_metadata):
-        route_signature = signature(route_processor)
+    def _collect_route_arguments(self,
+                                 route_info: RouteInfo,
+                                 payload: Payload,
+                                 composite_metadata: CompositeMetadata):
+        route_signature = route_info.signature
         route_kwargs = {}
 
         for parameter in route_signature.parameters:

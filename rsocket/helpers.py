@@ -53,8 +53,16 @@ def map_types_by_name(types):
     return {value.value.name: value.value for value in types}
 
 
+def map_type_ids_by_name(types):
+    return {value.value.name: value.value.id for value in types}
+
+
 def map_types_by_id(types):
     return {value.value.id: value.value for value in types}
+
+
+def map_type_names_by_id(types):
+    return {value.value.id: value.value.name for value in types}
 
 
 @contextmanager
@@ -85,21 +93,21 @@ def serialize_well_known_encoding(
     if isinstance(encoding, (bytes, bytearray, str)):
         known_type = encoding_parser(encoding)
     else:
-        known_type = encoding
+        known_type = encoding.id
 
     if known_type is None:
         serialized = serialize_128max_value(encoding)
     else:
-        serialized = ((1 << 7) | known_type.id & 0b1111111).to_bytes(1, 'big')
+        serialized = ((1 << 7) | known_type & 0b1111111).to_bytes(1, 'big')
 
     return serialized
 
 
-def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[WellKnownType], V]) -> Tuple[bytes, int]:
+def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[int], V]) -> Tuple[bytes, int]:
     is_known_mime_id, mime_length_or_type = parse_type(buffer)
 
     if is_known_mime_id:
-        metadata_encoding = encoding_name_provider(mime_length_or_type).name
+        metadata_encoding = encoding_name_provider(mime_length_or_type)
         offset = 1
     else:
         real_mime_type_length = mime_length_or_type + 1  # mime length cannot be 0

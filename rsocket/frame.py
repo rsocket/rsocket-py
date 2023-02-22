@@ -335,7 +335,7 @@ class SetupFrame(Frame):
 
 
 class InvalidFrame:
-    pass
+    frame_type = None
 
 
 class ErrorFrame(Frame):
