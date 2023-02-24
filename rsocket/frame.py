@@ -3,13 +3,13 @@ import struct
 from abc import ABCMeta
 from asyncio import Future
 from enum import IntEnum, unique
-from typing import Tuple, Optional, Union
+from typing import Optional, Union, Callable
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
 from rsocket.fragment import Fragment
 from rsocket.frame_fragmenter import data_to_fragments_if_required
-from rsocket.frame_helpers import is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
+from rsocket.frame_helpers import unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
     ensure_bytes, pack_string, unpack_string
 from rsocket.logger import logger
 
@@ -20,13 +20,13 @@ MASK_31_BITS = 0x7FFFFFFF
 CONNECTION_STREAM_ID = 0
 MAX_REQUEST_N = 0x7FFFFFFF
 
-_FLAG_METADATA_BIT = 0x100
 _FLAG_IGNORE_BIT = 0x200
-_FLAG_COMPLETE_BIT = 0x40
+_FLAG_METADATA_BIT = 0x100
 _FLAG_FOLLOWS_BIT = 0x80
-_FLAG_LEASE_BIT = 0x40
 _FLAG_RESUME_BIT = 0x80
 _FLAG_RESPOND_BIT = 0x80
+_FLAG_LEASE_BIT = 0x40
+_FLAG_COMPLETE_BIT = 0x40
 _FLAG_NEXT_BIT = 0x20
 
 MINIMUM_FRAGMENT_SIZE_BYTES = 64
@@ -77,20 +77,70 @@ def is_blank(value: Optional[bytes]) -> bool:
     return value is None or len(value) == 0
 
 
-def parse_header(frame: Header, buffer: bytes, offset: int) -> int:
-    frame.length = len(buffer)
-    frame.stream_id, frame.frame_type, flags = struct.unpack_from('>IBB', buffer, offset)
-    flags |= (frame.frame_type & 3) << 8
-    frame_type_id = frame.frame_type >> 2
+class Flags:
+    __slots__ = [
+        'flags_ignore',
+        'flags_metadata',
+        'flags_follows_resume_respond',
+        'flags_complete_lease',
+        'flags_next',
+    ]
 
-    try:
-        frame.frame_type = FrameType(frame_type_id)
-    except ValueError as exception:
-        raise RSocketUnknownFrameType(frame_type_id) from exception
 
-    frame.flags_ignore = is_flag_set(flags, _FLAG_IGNORE_BIT)
-    frame.flags_metadata = is_flag_set(flags, _FLAG_METADATA_BIT)
-    return flags
+class ParseHelper:
+    parse_header: Callable = None
+
+
+try:
+    import cbitstruct
+
+
+    def parse_header_cbitstruct(frame: Header, buffer: bytes, offset: int) -> Flags:
+        frame.length = len(buffer)
+        flags = Flags()
+        (_, frame.stream_id, frame_type_id,
+         frame.flags_ignore,
+         frame.flags_metadata,
+         flags.flags_follows_resume_respond,
+         flags.flags_complete_lease,
+         flags.flags_next) = cbitstruct.unpack_from('u1u31u6b1b1b1b1b1', buffer, offset)
+
+        try:
+            frame.frame_type = FrameType(frame_type_id)
+        except ValueError as exception:
+            raise RSocketUnknownFrameType(frame_type_id) from exception
+
+        return flags
+
+
+    parse_header = parse_header_cbitstruct
+except ImportError:
+    from rsocket.frame_helpers import is_flag_set
+
+    def parse_header_native(frame: Header, buffer: bytes, offset: int) -> Flags:
+        frame.length = len(buffer)
+        frame.stream_id, frame.frame_type, flag_bits = struct.unpack_from('>IBB', buffer, offset)
+        flag_bits |= (frame.frame_type & 3) << 8
+        frame_type_id = frame.frame_type >> 2
+
+        flags = Flags()
+        try:
+            frame.frame_type = FrameType(frame_type_id)
+        except ValueError as exception:
+            raise RSocketUnknownFrameType(frame_type_id) from exception
+
+        frame.flags_ignore = is_flag_set(flag_bits, _FLAG_IGNORE_BIT)
+        frame.flags_metadata = is_flag_set(flag_bits, _FLAG_METADATA_BIT)
+        flags.flags_follows_resume_respond = is_flag_set(flag_bits, _FLAG_FOLLOWS_BIT)
+        flags.flags_complete_lease = is_flag_set(flag_bits, _FLAG_COMPLETE_BIT)
+        flags.flags_next = is_flag_set(flag_bits, _FLAG_NEXT_BIT)
+
+        return flags
+
+
+    parse_header = parse_header_native
+
+ParseHelper.parse_header = parse_header
 
 
 class Frame(Header, metaclass=ABCMeta):
@@ -283,10 +333,10 @@ class SetupFrame(Frame):
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer: bytes, offset: int):
-        flags = parse_header(self, buffer, offset)
+        flags = ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.flags_lease = is_flag_set(flags, _FLAG_LEASE_BIT)
-        self.flags_resume = is_flag_set(flags, _FLAG_RESUME_BIT)
+        self.flags_lease = flags.flags_complete_lease
+        self.flags_resume = flags.flags_follows_resume_respond
 
         (self.major_version, self.minor_version,
          self.keep_alive_milliseconds, self.max_lifetime_milliseconds) = (
@@ -346,7 +396,7 @@ class ErrorFrame(Frame):
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer: bytes, offset: int):
-        parse_header(self, buffer, offset)
+        ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
         self.error_code = ErrorCode(unpack_32bit(buffer, offset))
         offset += 4
@@ -370,7 +420,7 @@ class LeaseFrame(Frame):
         self.number_of_requests = None
 
     def parse(self, buffer: bytes, offset: int):
-        parse_header(self, buffer, offset)
+        ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
         time_to_live, number_of_requests = struct.unpack_from('>II', buffer, offset)
         self.time_to_live = time_to_live & MASK_31_BITS
@@ -396,9 +446,9 @@ class KeepAliveFrame(Frame):
         self.last_received_position = 0
 
     def parse(self, buffer: bytes, offset: int):
-        flags = parse_header(self, buffer, offset)
+        flags = ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.flags_respond = is_flag_set(flags, _FLAG_RESPOND_BIT)
+        self.flags_respond = flags.flags_follows_resume_respond
         self.last_received_position = unpack_position(buffer[offset:offset + 8])
         offset += 8
         offset += self.parse_data(buffer, offset)
@@ -420,10 +470,10 @@ class RequestFrame(Frame):
         super().__init__(frame_type)
         self.flags_follows = False
 
-    def parse(self, buffer, offset: int) -> Tuple[int, int]:
-        flags = parse_header(self, buffer, offset)
-        self.flags_follows = is_flag_set(flags, _FLAG_FOLLOWS_BIT)
-        return HEADER_LENGTH, flags
+    def parse(self, buffer, offset: int):
+        flags = ParseHelper.parse_header(self, buffer, offset)
+        self.flags_follows = flags.flags_follows_resume_respond
+        return flags
 
     def serialize_frame_prefix(self, middle=b'', flags: int = 0) -> bytes:
         flags &= ~_FLAG_FOLLOWS_BIT
@@ -445,8 +495,8 @@ class RequestResponseFrame(RequestFrame, FrameFragmentMixin):
         super().__init__(FrameType.REQUEST_RESPONSE)
 
     def parse(self, buffer, offset):
-        header = RequestFrame.parse(self, buffer, offset)
-        offset += header[0]
+        RequestFrame.parse(self, buffer, offset)
+        offset += HEADER_LENGTH
         self._parse_payload(buffer, offset)
 
 
@@ -457,8 +507,8 @@ class RequestFireAndForgetFrame(RequestFrame, FrameFragmentMixin):
         super().__init__(FrameType.REQUEST_FNF)
 
     def parse(self, buffer, offset):
-        header = RequestFrame.parse(self, buffer, offset)
-        offset += header[0]
+        RequestFrame.parse(self, buffer, offset)
+        offset += HEADER_LENGTH
         self._parse_payload(buffer, offset)
 
 
@@ -470,8 +520,8 @@ class RequestStreamFrame(RequestFrame, FrameFragmentMixin):
         self.initial_request_n = 0
 
     def parse(self, buffer, offset):
-        header = RequestFrame.parse(self, buffer, offset)
-        offset += header[0]
+        RequestFrame.parse(self, buffer, offset)
+        offset += HEADER_LENGTH
         self.initial_request_n = unpack_32bit(buffer, offset)
         offset += 4
         self._parse_payload(buffer, offset)
@@ -494,11 +544,10 @@ class RequestChannelFrame(RequestFrame, FrameFragmentMixin):
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
-        header = RequestFrame.parse(self, buffer, offset)
-        offset += header[0]
-        flags = header[1]
-        self.flags_complete = is_flag_set(flags, _FLAG_COMPLETE_BIT)
-        self.flags_follows = is_flag_set(flags, _FLAG_FOLLOWS_BIT)
+        flags = RequestFrame.parse(self, buffer, offset)
+        offset += HEADER_LENGTH
+        self.flags_complete = flags.flags_complete_lease
+        self.flags_follows = flags.flags_follows_resume_respond
         self.initial_request_n = unpack_32bit(buffer, offset)
         offset += 4
         self._parse_payload(buffer, offset)
@@ -522,7 +571,7 @@ class RequestNFrame(RequestFrame):
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer, offset):
-        parse_header(self, buffer, offset)
+        ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
         self.request_n = unpack_32bit(buffer, offset)
 
@@ -537,7 +586,7 @@ class CancelFrame(Frame):
         super().__init__(FrameType.CANCEL)
 
     def parse(self, buffer, offset):
-        parse_header(self, buffer, offset)
+        ParseHelper.parse_header(self, buffer, offset)
 
 
 class PayloadFrame(Frame, FrameFragmentMixin):
@@ -554,11 +603,11 @@ class PayloadFrame(Frame, FrameFragmentMixin):
         self.flags_next = False
 
     def parse(self, buffer, offset):
-        flags = parse_header(self, buffer, offset)
+        flags = ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
-        self.flags_follows = is_flag_set(flags, _FLAG_FOLLOWS_BIT)
-        self.flags_complete = is_flag_set(flags, _FLAG_COMPLETE_BIT)
-        self.flags_next = is_flag_set(flags, _FLAG_NEXT_BIT)
+        self.flags_follows = flags.flags_follows_resume_respond
+        self.flags_complete = flags.flags_complete_lease
+        self.flags_next = flags.flags_next
         offset += self.parse_metadata(buffer, offset)
         offset += self.parse_data(buffer, offset)
 
@@ -591,7 +640,7 @@ class MetadataPushFrame(Frame):
         self.flags_metadata = True
 
     def parse(self, buffer, offset):
-        parse_header(self, buffer, offset)
+        ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
         offset += self.parse_metadata(buffer, offset)
 
@@ -613,7 +662,7 @@ class ResumeFrame(Frame):
 
     # noinspection PyAttributeOutsideInit
     def parse(self, buffer: bytes, offset: int):
-        parse_header(self, buffer, offset)
+        ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
 
         (self.major_version, self.minor_version) = (
@@ -656,7 +705,7 @@ class ResumeOKFrame(Frame):
         self.last_received_client_position = 0
 
     def parse(self, buffer: bytes, offset: int):
-        parse_header(self, buffer, offset)
+        ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
         self.last_received_client_position = unpack_position(buffer[offset:offset + 8])
 
@@ -701,7 +750,7 @@ def parse_or_ignore(buffer: bytes) -> Optional[Frame]:
         raise ParseError('Frame too short: {} bytes'.format(len(buffer)))
 
     header = Header()
-    parse_header(header, buffer, 0)
+    ParseHelper.parse_header(header, buffer, 0)
 
     frame = _frame_class_by_id[header.frame_type]()
 

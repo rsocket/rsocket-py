@@ -5,7 +5,7 @@ with open('README.md') as fd:
 
 setup(
     name='rsocket',
-    version='0.4.8',
+    version='0.4.9',
     description='Python RSocket library',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -22,7 +22,8 @@ setup(
         'aiohttp': {'aiohttp >= 3.0.0'},
         'quart': {'quart >= 0.15.0'},
         'quic': {'aioquic >= 0.9.0'},
-        'cli': {'asyncclick >= 8.0.0'}
+        'cli': {'asyncclick >= 8.0.0'},
+        'optimized': {'cbitstruct >= 1.0.9'}
     },
     project_urls={
         'Documentation': 'https://rsocket.io/guides/rsocket-py',
