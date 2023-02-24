@@ -50,6 +50,13 @@ class FrameType(IntEnum):
     RESUME_OK = 14
     EXT = 0xFFFF
 
+    @staticmethod
+    def from_id(frame_type_id):
+        try:
+            return FrameType(frame_type_id)
+        except ValueError as exception:
+            raise RSocketUnknownFrameType(frame_type_id) from exception
+
 
 HEADER_LENGTH = 6  # A full header is 4 (stream) + 2 (type, flags) bytes.
 
@@ -105,10 +112,7 @@ try:
          flags.flags_complete_lease,
          flags.flags_next) = cbitstruct.unpack_from('u1u31u6b1b1b1b1b1', buffer, offset)
 
-        try:
-            frame.frame_type = FrameType(frame_type_id)
-        except ValueError as exception:
-            raise RSocketUnknownFrameType(frame_type_id) from exception
+        frame.frame_type = FrameType.from_id(frame_type_id)
 
         return flags
 
@@ -124,10 +128,7 @@ except ImportError:
         frame_type_id = frame.frame_type >> 2
 
         flags = Flags()
-        try:
-            frame.frame_type = FrameType(frame_type_id)
-        except ValueError as exception:
-            raise RSocketUnknownFrameType(frame_type_id) from exception
+        frame.frame_type = FrameType.from_id(frame_type_id)
 
         frame.flags_ignore = is_flag_set(flag_bits, _FLAG_IGNORE_BIT)
         frame.flags_metadata = is_flag_set(flag_bits, _FLAG_METADATA_BIT)
@@ -665,17 +666,15 @@ class ResumeFrame(Frame):
         ParseHelper.parse_header(self, buffer, offset)
         offset += HEADER_LENGTH
 
-        (self.major_version, self.minor_version) = (
+        self.major_version, self.minor_version = (
             struct.unpack_from('>HH', buffer, offset))
 
         offset += 4
 
         self.token_length = struct.unpack_from('>H', buffer, offset)[0]
         offset += 2
-        self.resume_identification_token = (
-            buffer[offset:offset + self.token_length])
+        self.resume_identification_token = buffer[offset:offset + self.token_length]
         offset += self.token_length
-
         self.last_server_position = unpack_position(buffer[offset:offset + 8])
         offset += 8
         self.first_client_position = unpack_position(buffer[offset:])
