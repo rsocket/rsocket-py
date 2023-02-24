@@ -79,8 +79,17 @@ def safe_len(value) -> int:
     return len(value)
 
 
-def parse_type(buffer: bytes) -> Tuple[int, int]:
-    data_byte = struct.unpack('>B', buffer[:1])[0]
-    is_known_type = data_byte >> 7 == 1
-    length_or_type = data_byte & 0b1111111
-    return is_known_type, length_or_type
+try:
+    import cbitstruct
+
+
+    def parse_type(buffer: bytes) -> Tuple[int, int]:
+        is_known_type, length_or_type = cbitstruct.unpack('u1u7', buffer[:1])
+        return is_known_type, length_or_type
+
+except ImportError:
+    def parse_type(buffer: bytes) -> Tuple[int, int]:
+        data_byte = struct.unpack('>B', buffer[:1])[0]
+        is_known_type = data_byte >> 7 == 1
+        length_or_type = data_byte & 0b1111111
+        return is_known_type, length_or_type
