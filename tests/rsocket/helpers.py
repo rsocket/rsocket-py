@@ -1,8 +1,9 @@
 import asyncio
 import json
 import os
+from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import timedelta, datetime
 from math import ceil
 from typing import Tuple, Any
 from typing import Type, Callable
@@ -107,3 +108,24 @@ def create_data(base: bytes, multiplier: int, limit: float = None):
 
 def create_large_random_data(size: int):
     return bytearray(os.urandom(size))
+
+
+def benchmark_method(method: Callable, iterations: int) -> float:
+    with measure_runtime() as result:
+        for i in range(iterations):
+            method()
+
+    return result.time.total_seconds() * 1000 / iterations
+
+
+@dataclass
+class Result:
+    time: timedelta = None
+
+
+@contextmanager
+def measure_runtime():
+    result = Result()
+    start = datetime.now()
+    yield result
+    result.time = datetime.now() - start

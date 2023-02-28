@@ -9,7 +9,7 @@ from rsocket.extensions.helpers import composite, data_mime_type, data_mime_type
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.extensions.routing import RoutingMetadata
 from rsocket.extensions.stream_data_mimetype import StreamDataMimetypes, StreamDataMimetype
-from rsocket.logger import measure_runtime
+from tests.rsocket.helpers import measure_runtime
 
 
 def test_tag_composite_metadata_too_long():

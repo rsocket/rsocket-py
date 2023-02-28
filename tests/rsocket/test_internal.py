@@ -5,7 +5,7 @@ from weakref import WeakKeyDictionary
 
 import pytest
 
-from rsocket.logger import measure_runtime
+from tests.rsocket.helpers import measure_runtime
 
 
 async def test_reader(event_loop: asyncio.AbstractEventLoop):
@@ -69,6 +69,7 @@ def test_instantiate_slotted_class():
             r = routing(b'abc', b'abcdefg')
 
     print(result.time.total_seconds() / count * 1000)
+
 
 def test_instantiate_class():
     class routing:
