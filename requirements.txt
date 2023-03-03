@@ -17,3 +17,4 @@ pytest==7.2.1
 quart==0.18.3
 reactivex==4.0.4
 starlette==0.25.0
+cbitstruct==1.0.9

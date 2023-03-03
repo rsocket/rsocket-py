@@ -4,7 +4,7 @@ from typing import Optional, Union
 from rsocket.exceptions import RSocketUnknownMimetype
 from rsocket.extensions.mimetype import WellKnownMimeType
 from rsocket.frame_helpers import ensure_bytes
-from rsocket.helpers import map_types_by_id, map_types_by_name
+from rsocket.helpers import map_type_names_by_id, map_type_ids_by_name
 
 
 @unique
@@ -80,8 +80,8 @@ class WellKnownMimeTypes(Enum):
         return mimetype_by_name.get(metadata_name)
 
 
-mimetype_by_id = map_types_by_id(WellKnownMimeTypes)
-mimetype_by_name = map_types_by_name(WellKnownMimeTypes)
+mimetype_by_id = map_type_names_by_id(WellKnownMimeTypes)
+mimetype_by_name = map_type_ids_by_name(WellKnownMimeTypes)
 
 
 def ensure_encoding_name(encoding: Union[WellKnownMimeTypes, str, bytes]) -> bytes:

@@ -15,9 +15,7 @@ class AuthenticationContent(CompositeMetadataItem):
         self.authentication = authentication
 
     def serialize(self) -> bytes:
-        serialized = b''
-
-        serialized += serialize_well_known_encoding(self.authentication.type, WellKnownAuthenticationTypes.get_by_name)
+        serialized = serialize_well_known_encoding(self.authentication.type, WellKnownAuthenticationTypes.get_by_name)
 
         serialized += self.authentication.serialize()
 
@@ -29,10 +27,11 @@ class AuthenticationContent(CompositeMetadataItem):
         self.authentication.parse(buffer[offset:])
 
 
-def authentication_item_factory(metadata_encoding: bytes) -> Type[Authentication]:
-    metadata_item_factory_by_type = {
-        WellKnownAuthenticationTypes.SIMPLE.value.name: AuthenticationSimple,
-        WellKnownAuthenticationTypes.BEARER.value.name: AuthenticationBearer,
-    }
+metadata_item_factory_by_type = {
+    WellKnownAuthenticationTypes.SIMPLE.value.name: AuthenticationSimple,
+    WellKnownAuthenticationTypes.BEARER.value.name: AuthenticationBearer,
+}
 
+
+def authentication_item_factory(metadata_encoding: bytes) -> Type[Authentication]:
     return metadata_item_factory_by_type[metadata_encoding]

@@ -14,14 +14,7 @@ class Payload:
 
     __slots__ = ('data', 'metadata')
 
-    @staticmethod
-    def _check(obj):
-        assert obj is None or isinstance(obj, (bytes, bytearray))
-
     def __init__(self, data: Optional[ByteTypes] = None, metadata: Optional[ByteTypes] = None):
-        self._check(data)
-        self._check(metadata)
-
         self.data = data
         self.metadata = metadata
 

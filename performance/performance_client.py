@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from asyncio import Event
 from typing import AsyncGenerator, Tuple
 
@@ -14,7 +15,7 @@ from rsocket.rsocket_client import RSocketClient
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.transports.tcp import TransportTCP
 from tests.rsocket.helpers import to_json_bytes, create_large_random_data
-
+from tests.tools.helpers import measure_time
 
 data_size = 1920 # * 1080 * 3
 large_data = create_large_random_data(data_size)
@@ -104,7 +105,7 @@ class PerformanceClient:
     async def __aenter__(self):
         logging.info('Connecting to server at localhost:%s', self._server_port)
 
-        connection = await asyncio.open_connection('localhost', self._server_port)
+        connection = await asyncio.open_connection('localhost', self._server_port, limit=data_size + 3000)
 
         self._client = AwaitableRSocket(RSocketClient(
             single_transport_provider(TransportTCP(*connection, read_buffer_size=data_size + 3000)),
@@ -116,3 +117,16 @@ class PerformanceClient:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self._client.__aexit__(exc_type, exc_val, exc_tb)
+
+
+async def run_client():
+    async with PerformanceClient(6565) as client:
+        for i in range(10000):
+            result = await measure_time(client.large_request())
+            # print(result.delta)
+
+
+if __name__ == '__main__':
+    port = sys.argv[1] if len(sys.argv) > 1 else 6565
+    logging.basicConfig(level=logging.ERROR)
+    asyncio.run(run_client())
