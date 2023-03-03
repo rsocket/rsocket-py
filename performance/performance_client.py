@@ -105,7 +105,7 @@ class PerformanceClient:
     async def __aenter__(self):
         logging.info('Connecting to server at localhost:%s', self._server_port)
 
-        connection = await asyncio.open_connection('127.0.0.1', self._server_port, limit=data_size + 3000)
+        connection = await asyncio.open_connection('localhost', self._server_port, limit=data_size + 3000)
 
         self._client = AwaitableRSocket(RSocketClient(
             single_transport_provider(TransportTCP(*connection, read_buffer_size=data_size + 3000)),

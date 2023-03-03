@@ -124,7 +124,7 @@ def client_handler_factory(on_ready=None):
 async def run_server(server_port, on_ready=None):
     logging.info('Starting server at localhost:%s', server_port)
 
-    server = await asyncio.start_server(client_handler_factory(on_ready), '127.0.0.1', server_port, limit=data_size)
+    server = await asyncio.start_server(client_handler_factory(on_ready), 'localhost', server_port, limit=data_size)
 
     async with server:
         await server.serve_forever()
