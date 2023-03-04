@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+v0.4.9
+======
+
+- Optimization to routing requests to methods and parsing composite metadata
+
 v0.4.8
 ======
 - Removed copying data and metadata into frame during serialization
