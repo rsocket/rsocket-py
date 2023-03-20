@@ -3,7 +3,7 @@ aiohttp==3.8.4
 aioquic==0.9.20
 asyncclick==8.1.3.4
 asyncstdlib==3.10.5
-coverage==6.5.0
+coverage==7.2.2
 coveralls==3.3.1
 decoy==2.0.0
 flake8==5.0.4
