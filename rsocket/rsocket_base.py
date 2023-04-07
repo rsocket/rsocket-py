@@ -211,11 +211,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._stream_control.assert_stream_id_available(stream_id)
         handler = self._handler
 
-        try:
-            response_future = await handler.request_response(payload_from_frame(frame))
-        except Exception as exception:
-            self.send_error(stream_id, exception)
-            return
+        response_future = await handler.request_response(payload_from_frame(frame))
 
         self._register_stream(stream_id, RequestResponseResponder(self, response_future)).setup()
 
@@ -224,11 +220,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._stream_control.assert_stream_id_available(stream_id)
         handler = self._handler
 
-        try:
-            publisher = await handler.request_stream(payload_from_frame(frame))
-        except Exception as exception:
-            self.send_error(stream_id, exception)
-            return
+        publisher = await handler.request_stream(payload_from_frame(frame))
 
         request_responder = RequestStreamResponder(self, publisher)
         self._register_stream(stream_id, request_responder)
@@ -279,11 +271,7 @@ class RSocketBase(RSocket, RSocketInternal):
         self._stream_control.assert_stream_id_available(stream_id)
         handler = self._handler
 
-        try:
-            publisher, subscriber = await handler.request_channel(payload_from_frame(frame))
-        except Exception as exception:
-            self.send_error(stream_id, exception)
-            return
+        publisher, subscriber = await handler.request_channel(payload_from_frame(frame))
 
         channel_responder = RequestChannelResponder(self, publisher)
         self._register_stream(stream_id, channel_responder)
