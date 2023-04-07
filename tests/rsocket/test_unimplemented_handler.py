@@ -9,6 +9,7 @@ from rsocket.rsocket_server import RSocketServer
 from tests.rsocket.helpers import get_components
 
 
+@pytest.mark.allow_error_log(regex_filter='(Protocol|Setup|Unknown) error')
 async def test_request_response_not_implemented_by_server_by_default(pipe: Tuple[RSocketServer, RSocketClient]):
     payload = Payload(b'abc', b'def')
     server, client = get_components(pipe)
@@ -19,6 +20,7 @@ async def test_request_response_not_implemented_by_server_by_default(pipe: Tuple
     assert str(exc_info.value) == 'Not implemented'
 
 
+@pytest.mark.allow_error_log(regex_filter='(Protocol|Setup|Unknown) error')
 async def test_request_stream_not_implemented_by_server_by_default(pipe: Tuple[RSocketServer, RSocketClient]):
     payload = Payload(b'abc', b'def')
     server, client = get_components(pipe)
@@ -29,6 +31,7 @@ async def test_request_stream_not_implemented_by_server_by_default(pipe: Tuple[R
     assert str(exc_info.value) == 'Not implemented'
 
 
+@pytest.mark.allow_error_log(regex_filter='(Protocol|Setup|Unknown) error')
 async def test_request_channel_not_implemented_by_server_by_default(pipe: Tuple[RSocketServer, RSocketClient]):
     payload = Payload(b'abc', b'def')
     server, client = get_components(pipe)

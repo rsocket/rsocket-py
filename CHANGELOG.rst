@@ -1,9 +1,13 @@
 Changelog
 ---------
 
+v0.4.10
+======
+- Code cleanup
+- Breaking change: Removed deprecated rsocket.routing.helpers module
+
 v0.4.9
 ======
-
 - Optimization to routing requests to methods and parsing composite metadata
 
 v0.4.8

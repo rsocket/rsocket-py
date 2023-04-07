@@ -6,8 +6,7 @@ from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription
 from rsocket.disposable import Disposable
-from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, \
-    PayloadFrame, Frame, error_frame_to_exception
+from rsocket.frame import CancelFrame, ErrorFrame, RequestNFrame, PayloadFrame, Frame, error_frame_to_exception
 from rsocket.helpers import payload_from_frame
 from rsocket.logger import logger
 from rsocket.payload import Payload
@@ -51,7 +50,7 @@ class RequestChannelCommon(StreamHandler, Publisher, Subscription, Disposable, m
         self._sent_complete = False
         self._received_complete = False
         self._publisher = publisher
-        self.subscriber = None
+        self.subscriber: Optional[DefaultSubscriber] = None
 
     def setup(self):
         self.subscriber = StreamSubscriber(self.stream_id, self.socket, self)
