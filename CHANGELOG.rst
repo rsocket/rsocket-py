@@ -1,9 +1,12 @@
 Changelog
 ---------
 
+v0.4.10
+======
+- Code cleanup
+
 v0.4.9
 ======
-
 - Optimization to routing requests to methods and parsing composite metadata
 
 v0.4.8
