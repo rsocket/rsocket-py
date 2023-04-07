@@ -5,7 +5,7 @@ import pytest
 
 from reactivestreams.subscriber import Subscriber
 from rsocket.exceptions import RSocketProtocolError
-from rsocket.lease import SingleLeasePublisher, DefinedLease
+from rsocket.lease import SingleLeasePublisher, DefinedLease, NullLease
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from tests.rsocket.helpers import future_from_payload
@@ -149,3 +149,13 @@ async def test_request_response_with_lease_server_side_exception(lazy_pipe):
 
         with pytest.raises(RSocketProtocolError):
             await client.request_response(Payload(b'invalid request'))
+
+
+async def test_null_lease():
+    null_lease = NullLease()
+
+    assert null_lease.is_request_allowed(1)
+
+    frame = null_lease.to_frame()
+
+    assert frame.serialize() == b'\x00\x00\x00\x00\x08\x00\x7f\xff\xff\xff\x7f\xff\xff\xff'
