@@ -4,6 +4,7 @@ Changelog
 v0.4.10
 ======
 - Code cleanup
+- Breaking change: Removed deprecated rsocket.routing.helpers module
 
 v0.4.9
 ======
