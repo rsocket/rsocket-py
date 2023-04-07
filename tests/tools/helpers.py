@@ -2,11 +2,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Awaitable, Any
 
-from aioquic.quic.configuration import QuicConfiguration
 from cryptography.hazmat.primitives import serialization
 
 
 def quic_client_configuration(certificate, **kwargs):
+    from aioquic.quic.configuration import QuicConfiguration
+
     client_configuration = QuicConfiguration(
         is_client=True,
         **kwargs

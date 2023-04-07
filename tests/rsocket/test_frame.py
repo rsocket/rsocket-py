@@ -10,7 +10,7 @@ from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, FrameType,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
                            MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
                            serialize_with_frame_size_header, RequestStreamFrame, RequestChannelFrame, ParseError,
-                           parse_or_ignore, Frame, RequestFireAndForgetFrame)
+                           parse_or_ignore, Frame, RequestFireAndForgetFrame, serialize_prefix_with_frame_size_header)
 from rsocket.frame_parser import FrameParser
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
@@ -69,6 +69,7 @@ async def test_setup_readable(frame_parser, metadata_flag, metadata, lease, fram
     frame = await parse_frame(data, frame_parser)
 
     assert isinstance(frame, SetupFrame)
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.metadata_encoding == b'application/octet-stream'
@@ -130,6 +131,7 @@ async def test_setup_with_resume(frame_parser, lease):
     frame = await parse_frame(data, frame_parser)
 
     assert isinstance(frame, SetupFrame)
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.metadata_encoding == b'application/octet-stream'
@@ -179,6 +181,7 @@ async def test_request_stream_frame(frame_parser, follows):
     frame = await parse_frame(data, frame_parser)
 
     assert isinstance(frame, RequestStreamFrame)
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.data == b'\x01\x02\x03'
@@ -254,6 +257,7 @@ async def test_request_channel_frame(frame_parser, follows, complete):
     frame = await parse_frame(data, frame_parser)
 
     assert isinstance(frame, RequestChannelFrame)
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.data == b'\x01\x02\x03'
@@ -340,6 +344,7 @@ async def test_request_with_composite_metadata(frame_parser):
     frame = await parse_frame(data, frame_parser)
 
     assert isinstance(frame, RequestResponseFrame)
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.data == b'\x01\x02\x03'
@@ -441,6 +446,7 @@ async def test_cancel(frame_parser):
 
     assert isinstance(frame, CancelFrame)
     assert frame.frame_type is FrameType.CANCEL
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
 
@@ -462,6 +468,7 @@ async def test_error(frame_parser):
     frame = await parse_frame(data, frame_parser)
 
     assert isinstance(frame, ErrorFrame)
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.error_code == ErrorCode.REJECTED_SETUP
@@ -487,6 +494,7 @@ async def test_request_n_frame(frame_parser):
     frame = await parse_frame(data, frame_parser)
 
     assert isinstance(frame, RequestNFrame)
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.request_n == 23
@@ -521,6 +529,7 @@ async def test_resume_frame(frame_parser):
     assert frame.last_server_position == 123
     assert frame.first_client_position == 456
     assert frame.frame_type is FrameType.RESUME
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
 
@@ -542,6 +551,7 @@ async def test_metadata_push_frame(frame_parser):
     assert isinstance(frame, MetadataPushFrame)
     assert frame.metadata == b'metadata'
     assert frame.frame_type is FrameType.METADATA_PUSH
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
 
@@ -557,7 +567,6 @@ async def test_payload_frame(frame_parser, follows, complete, is_next):
         bits(1, 0, 'Padding'),
         bits(31, 6, 'Stream id'),
         bits(6, FrameType.PAYLOAD, 'Frame type'),
-        # Flags
         bits(1, 0, 'Ignore'),
         bits(1, 1, 'Metadata'),
         bits(1, follows, 'Follows'),
@@ -576,6 +585,7 @@ async def test_payload_frame(frame_parser, follows, complete, is_next):
     assert frame.data == b'actual_data'
     assert frame.frame_type is FrameType.PAYLOAD
     assert frame.stream_id == 6
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.flags_follows is bool(follows)
@@ -603,6 +613,7 @@ async def test_payload_without_body(frame_parser):
     assert isinstance(frame, PayloadFrame)
     assert frame.frame_type is FrameType.PAYLOAD
     assert frame.stream_id == 6
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
     assert frame.flags_follows is False
@@ -634,6 +645,7 @@ async def test_lease_frame(frame_parser):
     assert frame.time_to_live == 456
     assert frame.frame_type is FrameType.LEASE
     assert frame.metadata == b'Metadata on lease frame'
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
 
@@ -674,6 +686,7 @@ async def test_resume_ok_frame(frame_parser):
     assert isinstance(frame, ResumeOKFrame)
     assert frame.last_received_client_position == 456
     assert frame.frame_type is FrameType.RESUME_OK
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
 
@@ -699,6 +712,7 @@ async def test_keepalive_frame(frame_parser):
     assert frame.stream_id == 0
     assert frame.frame_type is FrameType.KEEPALIVE
     assert frame.data == b'additional data'
+    assert serialize_prefix_with_frame_size_header(frame) == data[:frame.prefix_length + 3]
     assert serialize_with_frame_size_header(frame) == data
 
 

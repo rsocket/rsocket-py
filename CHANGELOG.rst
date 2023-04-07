@@ -1,6 +1,19 @@
 Changelog
 ---------
 
+v0.4.10
+======
+- Code cleanup
+- Breaking change: Removed deprecated rsocket.routing.helpers module
+
+v0.4.9
+======
+- Optimization to routing requests to methods and parsing composite metadata
+
+v0.4.8
+======
+- Removed copying data and metadata into frame during serialization
+
 v0.4.7
 ======
 - Send **cancel** to responders when requester disconnects and **error** to requesters when requester disconnects

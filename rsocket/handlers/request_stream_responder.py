@@ -1,10 +1,9 @@
-from typing import Union
+from typing import Union, Optional
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.disposable import Disposable
-from rsocket.frame import CancelFrame, RequestNFrame, \
-    RequestStreamFrame, Frame
+from rsocket.frame import CancelFrame, RequestNFrame, RequestStreamFrame, Frame
 from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
@@ -39,7 +38,7 @@ class RequestStreamResponder(StreamHandler, Disposable):
     def __init__(self, socket: RSocket, publisher: Union[Publisher, Disposable]):
         super().__init__(socket)
         self.publisher = publisher
-        self.subscriber = None
+        self.subscriber: Optional[DefaultSubscriber] = None
 
     def setup(self):
         self.subscriber = StreamSubscriber(self.stream_id, self.socket)

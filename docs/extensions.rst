@@ -51,3 +51,21 @@ RoutingRequestHandler
 
 .. automodule:: rsocket.routing.routing_request_handler
     :members:
+
+
+Load Balancer
+-------------
+
+.. automodule:: rsocket.load_balancer.load_balancer_rsocket
+    :members:
+
+Strategies
+~~~~~~~~~~
+
+.. automodule:: rsocket.load_balancer.round_robin
+    :members:
+    :inherited-members:
+
+.. automodule:: rsocket.load_balancer.random_client
+    :members:
+    :inherited-members:

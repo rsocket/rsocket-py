@@ -1,6 +1,10 @@
 import logging
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "performance: marks performance tests")
+
+
 def setup_logging(level=logging.DEBUG, use_file: bool = False):
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -19,4 +23,4 @@ def setup_logging(level=logging.DEBUG, use_file: bool = False):
     logging.basicConfig(level=level, handlers=handlers)
 
 
-setup_logging(logging.ERROR)
+setup_logging(logging.DEBUG)

@@ -8,6 +8,7 @@ import pytest
 from performance.performance_client import PerformanceClient
 from performance.performance_server import run_server
 from rsocket.rsocket_server import RSocketServer
+from tests.tools.helpers import measure_time
 
 
 @pytest.mark.timeout(5)
@@ -29,6 +30,13 @@ async def test_request_stream(unused_tcp_port):
                                       lambda: client.request_stream(**arguments), iterations=1)
 
         assert result is not None
+
+
+@pytest.mark.performance
+async def test_large_request():
+    async with run_with_client(6565) as client:
+        result = await measure_time(client.large_request())
+        print(result.delta)
 
 
 @asynccontextmanager

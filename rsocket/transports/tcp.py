@@ -1,6 +1,6 @@
 from asyncio import StreamReader, StreamWriter
 
-from rsocket.frame import Frame, serialize_with_frame_size_header
+from rsocket.frame import Frame, serialize_prefix_with_frame_size_header
 from rsocket.helpers import wrap_transport_exception
 from rsocket.transports.transport import Transport
 
@@ -13,14 +13,22 @@ class TransportTCP(Transport):
     :param writer: asyncio connection writer stream
     """
 
-    def __init__(self, reader: StreamReader, writer: StreamWriter):
+    def __init__(self,
+                 reader: StreamReader,
+                 writer: StreamWriter,
+                 read_buffer_size=1024):
         super().__init__()
+        self._read_buffer_size = read_buffer_size
         self._writer = writer
         self._reader = reader
 
     async def send_frame(self, frame: Frame):
+        await self.serialize_partial(frame)
+
+    async def serialize_partial(self, frame: Frame):
         with wrap_transport_exception():
-            self._writer.write(serialize_with_frame_size_header(frame))
+            self._writer.write(serialize_prefix_with_frame_size_header(frame))
+            frame.write_data_metadata(self._writer.write)
             await self._writer.drain()
 
     async def on_send_queue_empty(self):
@@ -33,7 +41,7 @@ class TransportTCP(Transport):
 
     async def next_frame_generator(self):
         with wrap_transport_exception():
-            data = await self._reader.read(1024)
+            data = await self._reader.read(self._read_buffer_size)
 
             if not data:
                 self._writer.close()
