@@ -159,3 +159,9 @@ async def test_null_lease():
     frame = null_lease.to_frame()
 
     assert frame.serialize() == b'\x00\x00\x00\x00\x08\x00\x7f\xff\xff\xff\x7f\xff\xff\xff'
+
+
+async def test_defined_lease():
+    lease = DefinedLease(5, timedelta(minutes=1))
+
+    assert str(lease) == '{maximum_request_count: 5, lease_ttl: 0:01:00}'
