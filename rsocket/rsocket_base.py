@@ -1,6 +1,6 @@
 import abc
 import asyncio
-from asyncio import Task, Queue, QueueEmpty
+from asyncio import Task
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Union, Optional, Dict, Any, Coroutine, Callable, Type, cast, TypeVar
@@ -103,7 +103,6 @@ class RSocketBase(RSocket, RSocketInternal):
 
     def _reset_internals(self):
         self._frame_fragment_cache = FrameFragmentCache()
-        self._priority_queue = Queue()
         self._send_queue = QueuePeekable()
         self._request_queue = asyncio.Queue(self._request_queue_size)
 
@@ -163,7 +162,13 @@ class RSocketBase(RSocket, RSocketInternal):
         self._request_queue.put_nowait(frame)
 
     def send_priority_frame(self, frame: Frame):
-        self._priority_queue.put_nowait(frame)
+        items = []
+        while not self._send_queue.empty():
+            items.append(self._send_queue.get_nowait())
+
+        self._send_queue.put_nowait(frame)
+        for item in items:
+            self._send_queue.put_nowait(item)
 
     def send_frame(self, frame: Frame):
         self._send_queue.put_nowait(frame)
@@ -382,13 +387,6 @@ class RSocketBase(RSocket, RSocketInternal):
 
     @asynccontextmanager
     async def _get_next_frame_to_send(self, transport: Transport) -> Frame:
-        try:
-            next_priority_frame = self._priority_queue.get_nowait()
-            yield next_priority_frame
-            return
-        except QueueEmpty:
-            pass
-
         next_frame_source = await self._send_queue.peek()
 
         if isinstance(next_frame_source, FrameFragmentMixin):
@@ -421,7 +419,7 @@ class RSocketBase(RSocket, RSocketInternal):
                         if frame.sent_future is not None:
                             frame.sent_future.set_result(None)
 
-                    if self._send_queue.empty() and self._priority_queue.empty():
+                    if self._send_queue.empty():
                         await transport.on_send_queue_empty()
             except RSocketTransportError:
                 pass
