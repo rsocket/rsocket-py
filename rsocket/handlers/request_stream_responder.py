@@ -1,7 +1,9 @@
+from typing import Union, Optional
+
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import DefaultSubscriber
-from rsocket.frame import CancelFrame, RequestNFrame, \
-    RequestStreamFrame, Frame
+from rsocket.disposable import Disposable
+from rsocket.frame import CancelFrame, RequestNFrame, RequestStreamFrame, Frame
 from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
@@ -31,12 +33,12 @@ class StreamSubscriber(DefaultSubscriber):
         self.socket.finish_stream(self.stream_id)
 
 
-class RequestStreamResponder(StreamHandler):
+class RequestStreamResponder(StreamHandler, Disposable):
 
-    def __init__(self, socket: RSocket, publisher: Publisher):
+    def __init__(self, socket: RSocket, publisher: Union[Publisher, Disposable]):
         super().__init__(socket)
         self.publisher = publisher
-        self.subscriber = None
+        self.subscriber: Optional[DefaultSubscriber] = None
 
     def setup(self):
         self.subscriber = StreamSubscriber(self.stream_id, self.socket)
@@ -51,3 +53,7 @@ class RequestStreamResponder(StreamHandler):
             self._finish_stream()
         elif isinstance(frame, RequestNFrame):
             self.subscriber.subscription.request(frame.request_n)
+
+    def dispose(self):
+        if self.subscriber is not None and self.subscriber.subscription is not None:
+            self.subscriber.subscription.cancel()

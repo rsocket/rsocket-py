@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from asyncio import Queue
+from asyncio import Queue, Task
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Awaitable
 from weakref import WeakValueDictionary
@@ -85,9 +85,13 @@ class ChatUserSession:
             class MessagePublisher(DefaultPublisher, DefaultSubscription):
                 def __init__(self, session: UserSessionData):
                     self._session = session
+                    self._sender: Optional[Task] = None
 
                 def cancel(self):
-                    self._sender.cancel()
+                    if self._sender is not None:
+                        logging.info('Canceling message sender task')
+                        self._sender.cancel()
+                        self._sender = None
 
                 def subscribe(self, subscriber: Subscriber):
                     super(MessagePublisher, self).subscribe(subscriber)

@@ -2,7 +2,8 @@ from enum import unique, Enum
 from typing import Optional
 
 from rsocket.exceptions import RSocketUnknownAuthType
-from rsocket.helpers import WellKnownType, map_types_by_id, map_types_by_name
+from rsocket.helpers import WellKnownType, map_type_names_by_id, \
+    map_type_ids_by_name
 
 
 class WellKnownAuthenticationType(WellKnownType):
@@ -26,5 +27,5 @@ class WellKnownAuthenticationTypes(Enum):
         return type_by_name.get(metadata_name)
 
 
-type_by_id = map_types_by_id(WellKnownAuthenticationTypes)
-type_by_name = map_types_by_name(WellKnownAuthenticationTypes)
+type_by_id = map_type_names_by_id(WellKnownAuthenticationTypes)
+type_by_name = map_type_ids_by_name(WellKnownAuthenticationTypes)

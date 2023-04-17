@@ -18,14 +18,15 @@ def default_or_value(value, default=None):
     return value
 
 
-def metadata_item_factory(metadata_encoding: bytes) -> Type[CompositeMetadataItem]:
-    metadata_item_factory_by_type = {
-        WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value.name: RoutingMetadata,
-        WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value.name: StreamDataMimetype,
-        WellKnownMimeTypes.MESSAGE_RSOCKET_ACCEPT_MIMETYPES.value.name: StreamDataMimetypes,
-        WellKnownMimeTypes.MESSAGE_RSOCKET_AUTHENTICATION.value.name: AuthenticationContent
-    }
+metadata_item_factory_by_type = {
+    WellKnownMimeTypes.MESSAGE_RSOCKET_ROUTING.value.name: RoutingMetadata,
+    WellKnownMimeTypes.MESSAGE_RSOCKET_MIMETYPE.value.name: StreamDataMimetype,
+    WellKnownMimeTypes.MESSAGE_RSOCKET_ACCEPT_MIMETYPES.value.name: StreamDataMimetypes,
+    WellKnownMimeTypes.MESSAGE_RSOCKET_AUTHENTICATION.value.name: AuthenticationContent
+}
 
+
+def metadata_item_factory(metadata_encoding: bytes) -> Type[CompositeMetadataItem]:
     return metadata_item_factory_by_type.get(metadata_encoding, CompositeMetadataItem)
 
 

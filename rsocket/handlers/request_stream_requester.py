@@ -1,13 +1,14 @@
 from reactivestreams.subscriber import Subscriber
 from rsocket.frame import ErrorFrame, PayloadFrame, Frame, error_frame_to_exception
 from rsocket.frame_builders import to_request_stream_frame
+from rsocket.handlers.interfaces import Requester
 from rsocket.helpers import payload_from_frame, DefaultPublisherSubscription
 from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 from rsocket.streams.stream_handler import StreamHandler
 
 
-class RequestStreamRequester(StreamHandler, DefaultPublisherSubscription):
+class RequestStreamRequester(StreamHandler, DefaultPublisherSubscription, Requester):
     def __init__(self, socket: RSocket, payload: Payload):
         super().__init__(socket)
         self.payload = payload

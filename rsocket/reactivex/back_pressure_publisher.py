@@ -107,11 +107,11 @@ async def observable_to_async_event_generator(observable: Observable) -> AsyncGe
 
     completed = object()
 
-    def on_next(i):
-        queue.put_nowait(i)
+    def on_next_event(event):
+        queue.put_nowait(event)
 
     observable.pipe(materialize()).subscribe(
-        on_next=on_next,
+        on_next=on_next_event,
         on_completed=lambda: queue.put_nowait(completed)
     )
 
@@ -175,7 +175,7 @@ def from_async_event_iterator(iterator, backpressure: Subject) -> Observable:
 class InternalBackPressurePublisher(DefaultPublisherSubscription):
     def __init__(self, _observable_factory: Callable[[Subject], Observable]):
         self._factory = _observable_factory
-        self._feedback = None
+        self._feedback: Optional[Subject] = None
 
     def subscribe(self, subscriber: Subscriber):
         super().subscribe(subscriber)

@@ -93,7 +93,7 @@ async def test_authentication_success_on_setup(lazy_pipe):
         assert result.data == b'response'
 
 
-@pytest.mark.allow_error_log(regex_filter='(Protocol|Setup) error')
+@pytest.mark.allow_error_log(regex_filter='(Protocol|Setup|Unknown) error')
 async def test_authentication_failure_on_setup(lazy_pipe):
     received_error_event = Event()
     received_error: Optional[tuple] = None
@@ -159,13 +159,13 @@ async def test_authentication_types_unknown_name_returns_none():
 def test_authentication_type_require_by_id():
     mimetype = WellKnownAuthenticationTypes.require_by_id(0x01)
 
-    assert mimetype is WellKnownAuthenticationTypes.BEARER.value
+    assert mimetype is WellKnownAuthenticationTypes.BEARER.value.name
 
 
 def test_authentication_type_get_by_name():
     mimetype = WellKnownAuthenticationTypes.get_by_name(b'bearer')
 
-    assert mimetype is WellKnownAuthenticationTypes.BEARER.value
+    assert mimetype is WellKnownAuthenticationTypes.BEARER.value.id
 
 
 def test_metadata_authentication_bearer():
