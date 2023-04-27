@@ -107,7 +107,7 @@ class ChatUserSession:
         self._requested_statistics = ServerStatisticsRequest()
 
     def router_factory(self):
-        router = RequestRouter(payload_mapper=decode_payload)
+        router = RequestRouter(payload_deserializer=decode_payload)
 
         @router.response('login')
         async def login(username: str) -> Awaitable[Payload]:

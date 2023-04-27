@@ -25,11 +25,10 @@ async def main(server_port: int):
             'source': 'https://spring.io/foos'
         }, data=json.dumps({'value': 'Dave'}))
 
-        data = to_json(event)
-        response = await client.request_response(Payload(data=data, metadata=composite(route('event'))))
+        response = await client.request_response(Payload(data=to_json(event), metadata=composite(route('event'))))
 
-        event = from_json(CloudEvent, response.data)
-        response_data = json.loads(event.data)
+        response_event = from_json(CloudEvent, response.data)
+        response_data = json.loads(response_event.data)
 
         assert response_data['value'] == 'Dave'
 

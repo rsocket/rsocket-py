@@ -1,3 +1,4 @@
+from asyncio import Future
 from dataclasses import dataclass
 from inspect import signature
 from typing import Callable, Any, Dict
@@ -6,6 +7,7 @@ from rsocket.exceptions import RSocketUnknownRoute, RSocketEmptyRoute
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.frame import FrameType
 from rsocket.frame_helpers import safe_len
+from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.rsocket import RSocket
 
@@ -58,12 +60,16 @@ class RequestRouter:
         '_fnf_routes',
         '_metadata_push',
         '_route_map_by_frame_type',
-        '_payload_mapper',
+        '_payload_deserializer',
+        '_payload_serializer',
         '_unknown'
     )
 
-    def __init__(self, payload_mapper=lambda cls, _: _):
-        self._payload_mapper = payload_mapper
+    def __init__(self,
+                 payload_deserializer=lambda cls, _: _,
+                 payload_serializer=lambda cls, _: _):
+        self._payload_serializer = payload_serializer
+        self._payload_deserializer = payload_deserializer
         self._channel_routes: Dict[str, RouteInfo] = {}
         self._stream_routes: Dict[str, RouteInfo] = {}
         self._response_routes: Dict[str, RouteInfo] = {}
@@ -148,7 +154,15 @@ class RequestRouter:
                                                      payload,
                                                      composite_metadata)
 
-        return await route_info.method(**route_kwargs)
+        result = await route_info.method(**route_kwargs)
+
+        if frame_type == FrameType.REQUEST_RESPONSE and not isinstance(result, Future):
+            if not isinstance(result, Payload):
+                result = self._payload_serializer(route_info.signature.return_annotation, result)
+
+            return create_future(result)
+
+        return result
 
     def _collect_route_arguments(self,
                                  route_info: RouteInfo,
@@ -163,10 +177,12 @@ class RequestRouter:
             if 'composite_metadata' == parameter or parameter_type is CompositeMetadata:
                 route_kwargs['composite_metadata'] = composite_metadata
             else:
-                if parameter_type.annotation not in (Payload, parameter_type.empty):
-                    payload = self._payload_mapper(parameter_type.annotation, payload)
+                payload_data = payload
 
-                route_kwargs[parameter] = payload
+                if parameter_type.annotation not in (Payload, parameter_type.empty):
+                    payload_data = self._payload_deserializer(parameter_type.annotation, payload)
+
+                route_kwargs[parameter] = payload_data
 
         return route_kwargs
 

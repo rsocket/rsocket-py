@@ -2,31 +2,42 @@ import asyncio
 import json
 import logging
 import sys
+from typing import Any
 
 from cloudevents.conversion import to_json, from_json
 from cloudevents.pydantic import CloudEvent
 
-from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
 
-router = RequestRouter()
+
+def cloud_event_deserialize(cls, payload: Payload) -> Any:
+    if cls == CloudEvent:
+        return from_json(CloudEvent, payload.data)
+
+    return payload
+
+
+def cloud_event_serialize(cls, value: Any) -> Payload:
+    if cls == CloudEvent:
+        return Payload(to_json(value))
+
+    return value
+
+
+router = RequestRouter(cloud_event_deserialize,
+                       cloud_event_serialize)
 
 
 @router.response('event')
-async def single_request_response(payload):
-    received_event = from_json(CloudEvent, payload.data)
-    received_data = json.loads(received_event.data)
-
-    event = CloudEvent.create(attributes={
+async def event_response(event: CloudEvent) -> CloudEvent:
+    return CloudEvent.create(attributes={
         'type': 'io.spring.event.Foo',
         'source': 'https://spring.io/foos'
-    }, data=json.dumps(received_data))
-
-    return create_future(Payload(to_json(event)))
+    }, data=json.dumps(json.loads(event.data)))
 
 
 def handler_factory():
@@ -39,9 +50,7 @@ async def run_server(server_port):
     def session(*connection):
         RSocketServer(TransportTCP(*connection), handler_factory=handler_factory)
 
-    server = await asyncio.start_server(session, 'localhost', server_port)
-
-    async with server:
+    async with await asyncio.start_server(session, 'localhost', server_port) as server:
         await server.serve_forever()
 
 
