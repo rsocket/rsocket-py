@@ -23,7 +23,8 @@ setup(
         'quart': {'quart >= 0.15.0'},
         'quic': {'aioquic >= 0.9.0'},
         'cli': {'asyncclick >= 8.0.0'},
-        'optimized': {'cbitstruct >= 1.0.9'}
+        'optimized': {'cbitstruct >= 1.0.9'},
+        'cloudevents': {'cloudevents >= 1.9.0', 'pydantic >= 1.10.7'}
     },
     project_urls={
         'Documentation': 'https://rsocket.io/guides/rsocket-py',
