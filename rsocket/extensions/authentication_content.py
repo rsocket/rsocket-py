@@ -21,7 +21,7 @@ class AuthenticationContent(CompositeMetadataItem):
 
         return serialized
 
-    def parse(self, buffer: bytes):
+    def parse(self, buffer: memoryview):
         authentication_type, offset = parse_well_known_encoding(buffer, WellKnownAuthenticationTypes.require_by_id)
         self.authentication = authentication_item_factory(authentication_type)()
         self.authentication.parse(buffer[offset:])

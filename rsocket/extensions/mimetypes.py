@@ -91,7 +91,7 @@ def ensure_encoding_name(encoding: Union[WellKnownMimeTypes, str, bytes]) -> byt
     return ensure_bytes(encoding)
 
 
-def ensure_well_known_encoding_enum_value(data_encoding):
+def ensure_well_known_encoding_enum_value(data_encoding: Union[memoryview, WellKnownMimeTypes, WellKnownMimeType]) -> memoryview:
     if isinstance(data_encoding, WellKnownMimeTypes):
         data_encoding = data_encoding.value
 

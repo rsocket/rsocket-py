@@ -16,7 +16,7 @@ class StreamDataMimetype(CompositeMetadataItem):
 
         self.data_encoding = data_encoding
 
-    def parse(self, buffer: bytes):
+    def parse(self, buffer: memoryview):
         self.data_encoding, _ = parse_well_known_encoding(buffer, WellKnownMimeTypes.require_by_id)
 
     def serialize(self) -> bytes:
@@ -28,7 +28,7 @@ class StreamDataMimetypes(CompositeMetadataItem):
         'data_encodings'
     )
 
-    def __init__(self, data_encodings: Optional[List[Union[bytes, WellKnownMimeTypes]]] = None):
+    def __init__(self, data_encodings: Optional[List[Union[memoryview, WellKnownMimeTypes]]] = None):
         super().__init__(WellKnownMimeTypes.MESSAGE_RSOCKET_ACCEPT_MIMETYPES.value.name, None)
 
         if data_encodings is None:
@@ -37,7 +37,7 @@ class StreamDataMimetypes(CompositeMetadataItem):
         self.data_encodings = [ensure_well_known_encoding_enum_value(data_encoding)
                                for data_encoding in data_encodings]
 
-    def parse(self, buffer: bytes):
+    def parse(self, buffer: memoryview):
         offset = 0
 
         while offset < len(buffer):

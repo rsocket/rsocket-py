@@ -95,7 +95,7 @@ class RoutingRequestHandler(BaseRequestHandler):
             frame_type: FrameType,
             payload: Payload
     ) -> Union[Future, Publisher, None, Tuple[Optional[Publisher], Optional[Subscriber]]]:
-        composite_metadata = self._parse_composite_metadata(payload.metadata)
+        composite_metadata = self._parse_composite_metadata(memoryview(payload.metadata))
         route = require_route(composite_metadata)
         await self._verify_authentication(route, composite_metadata)
         return await self.router.route(frame_type, route, payload, composite_metadata)

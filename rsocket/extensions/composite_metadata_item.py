@@ -23,7 +23,7 @@ class CompositeMetadataItem:
         self.encoding = ensure_well_known_encoding_enum_value(default_or_value(encoding))
         self.content = default_or_value(body)
 
-    def parse(self, buffer: bytes):
+    def parse(self, buffer: memoryview):
         self.content = buffer
 
     def serialize(self) -> bytes:

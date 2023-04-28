@@ -33,7 +33,7 @@ class TaggingMetadata(CompositeMetadataItem):
 
         return serialized
 
-    def parse(self, buffer: bytes):
+    def parse(self, buffer: memoryview):
         self.tags = []
         offset = 0
 

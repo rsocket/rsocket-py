@@ -29,7 +29,7 @@ async def test_authentication_frame_bearer():
     )
 
     composite_metadata = CompositeMetadata()
-    composite_metadata.parse(data)
+    composite_metadata.parse(memoryview(data))
 
     auth = composite_metadata.items[0].authentication
     assert auth.token == b'abcd1234'
@@ -52,7 +52,7 @@ async def test_authentication_frame_simple():
     )
 
     composite_metadata = CompositeMetadata()
-    composite_metadata.parse(data)
+    composite_metadata.parse(memoryview(data))
 
     auth = composite_metadata.items[0].authentication
     assert auth.username == b'username'
@@ -72,7 +72,7 @@ async def test_authentication_success_on_setup(lazy_pipe):
                            data_encoding: bytes,
                            metadata_encoding: bytes,
                            payload: Payload):
-            composite_metadata = self._parse_composite_metadata(payload.metadata)
+            composite_metadata = self._parse_composite_metadata(memoryview(payload.metadata))
             authentication: AuthenticationSimple = composite_metadata.items[0].authentication
             if authentication.username != b'user' or authentication.password != b'12345':
                 raise Exception('Authentication rejected')
@@ -106,7 +106,7 @@ async def test_authentication_failure_on_setup(lazy_pipe):
                            data_encoding: bytes,
                            metadata_encoding: bytes,
                            payload: Payload):
-            composite_metadata = self._parse_composite_metadata(payload.metadata)
+            composite_metadata = self._parse_composite_metadata(memoryview(payload.metadata))
             authentication: AuthenticationSimple = composite_metadata.items[0].authentication
             if authentication.username != b'user' or authentication.password != b'12345':
                 raise Exception('Authentication error')
@@ -179,7 +179,7 @@ def test_metadata_authentication_bearer():
     )
 
     composite_metadata = CompositeMetadata()
-    composite_metadata.parse(metadata)
+    composite_metadata.parse(memoryview(metadata))
 
     assert composite_metadata.items[0].authentication.token == b'12345'
 
@@ -194,6 +194,6 @@ async def test_authentication_helper_bearer():
     metadata = composite(authenticate_bearer('token'))
 
     composite_metadata = CompositeMetadata()
-    composite_metadata.parse(metadata)
+    composite_metadata.parse(memoryview(metadata))
 
     assert composite_metadata.items[0].authentication.token == b'token'

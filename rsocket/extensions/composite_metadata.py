@@ -26,7 +26,7 @@ metadata_item_factory_by_type = {
 }
 
 
-def metadata_item_factory(metadata_encoding: bytes) -> Type[CompositeMetadataItem]:
+def metadata_item_factory(metadata_encoding: memoryview) -> Type[CompositeMetadataItem]:
     return metadata_item_factory_by_type.get(metadata_encoding, CompositeMetadataItem)
 
 
@@ -49,7 +49,7 @@ class CompositeMetadata:
         self.items.extend(items)
         return self
 
-    def parse(self, metadata: bytes) -> 'CompositeMetadata':
+    def parse(self, metadata: memoryview) -> 'CompositeMetadata':
         composite_length = len(metadata)
         offset = 0
 

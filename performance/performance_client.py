@@ -121,9 +121,13 @@ class PerformanceClient:
 
 async def run_client():
     async with PerformanceClient(6565) as client:
-        for i in range(10000):
+        runtime = 0
+        for i in range(500):
             result = await measure_time(client.large_request())
-            # print(result.delta)
+            runtime += result.delta
+            print(i)
+
+        print(runtime / 500)
 
 
 if __name__ == '__main__':

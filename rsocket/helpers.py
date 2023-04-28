@@ -88,9 +88,9 @@ def noop(*args, **kwargs):
 
 
 def serialize_well_known_encoding(
-        encoding: Union[bytes, WellKnownType],
+        encoding: Union[bytes, memoryview, WellKnownType],
         encoding_parser: Callable[[bytes], Optional[WellKnownType]]) -> bytes:
-    if isinstance(encoding, (bytes, bytearray, str)):
+    if isinstance(encoding, (bytes, bytearray, str, memoryview)):
         known_type = encoding_parser(encoding)
     else:
         known_type = encoding.id
@@ -103,7 +103,7 @@ def serialize_well_known_encoding(
     return serialized
 
 
-def parse_well_known_encoding(buffer: bytes, encoding_name_provider: Callable[[int], V]) -> Tuple[bytes, int]:
+def parse_well_known_encoding(buffer: memoryview, encoding_name_provider: Callable[[int], V]) -> Tuple[memoryview, int]:
     is_known_mime_id, mime_length_or_type = parse_type(buffer)
 
     if is_known_mime_id:

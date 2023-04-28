@@ -42,6 +42,6 @@ def data_mime_types(*metadata_mime_types: Union[bytes, WellKnownMimeType]) -> St
 def require_route(composite_metadata: CompositeMetadata) -> str:
     for item in composite_metadata.items:
         if isinstance(item, RoutingMetadata):
-            return item.tags[0].decode()
+            return bytes(item.tags[0]).decode()
 
     raise Exception('No route found in request')

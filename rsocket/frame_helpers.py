@@ -15,11 +15,11 @@ def is_flag_set(flags: int, bit: int) -> bool:
     return (flags & bit) != 0
 
 
-def pack_string(buffer: bytes) -> bytes:
-    return struct.pack('b', len(buffer)) + buffer
+def pack_string(buffer: memoryview) -> bytes:
+    return struct.pack('b', len(buffer)) + bytes(buffer)
 
 
-def unpack_string(buffer: bytes, offset: int) -> Tuple[int, bytes]:
+def unpack_string(buffer: memoryview, offset: int) -> Tuple[int, memoryview]:
     length = struct.unpack_from('b', buffer, offset)[0]
     result = buffer[offset + 1:offset + length + 1]
     return length, result
@@ -29,7 +29,7 @@ def pack_24bit_length(item_metadata: bytes) -> bytes:
     return pack_24bit(len(item_metadata))
 
 
-def unpack_32bit(buffer: bytes, offset: int) -> int:
+def unpack_32bit(buffer: memoryview, offset: int) -> int:
     return struct.unpack_from('>I', buffer, offset)[0]
 
 
@@ -44,7 +44,7 @@ def ensure_bytes(item: Optional[Union[bytes, str]]) -> Optional[bytes]:
     return item
 
 
-def serialize_128max_value(encoding: bytes) -> bytes:
+def serialize_128max_value(encoding: memoryview) -> bytes:
     encoding_length = len(encoding)
     encoded_encoding_length = encoding_length - 1  # mime length cannot be 0
 
@@ -67,15 +67,15 @@ try:
     import cbitstruct
 
 
-    def parse_type(buffer: bytes) -> Tuple[int, int]:
+    def parse_type(buffer: memoryview) -> Tuple[int, int]:
         return cbitstruct.unpack('u1u7', buffer[:1])
 
 
-    def unpack_position(chunk: bytes) -> int:
+    def unpack_position(chunk: memoryview) -> int:
         return cbitstruct.unpack('u1u63', chunk)[1]
 
 
-    def unpack_24bit(metadata: bytes, offset: int) -> int:
+    def unpack_24bit(metadata: memoryview, offset: int) -> int:
         return cbitstruct.unpack('u24', metadata[offset:offset + 3])[0]
 
 

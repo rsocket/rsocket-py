@@ -71,7 +71,7 @@ class RequestHandler(metaclass=ABCMeta):
         ...
 
     # noinspection PyMethodMayBeStatic
-    def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:
+    def _parse_composite_metadata(self, metadata: memoryview) -> CompositeMetadata:
         composite_metadata = CompositeMetadata()
         composite_metadata.parse(metadata)
         return composite_metadata
