@@ -6,6 +6,7 @@ v0.4.10
 - Code cleanup
 - Breaking change: Removed deprecated rsocket.routing.helpers module
 - Added CloudEvents client/server usage example (compatible with java rsocket example from cloudevents/sdk-java)
+- Switched to pyproject.toml
 
 v0.4.9
 ======
