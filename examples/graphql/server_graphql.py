@@ -8,6 +8,7 @@ from quart import Quart
 
 from examples.graphql.schema import AsyncSchema
 from rsocket.frame_helpers import str_to_bytes
+from rsocket.graphql.helpers import execute_query_in_payload
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
@@ -20,7 +21,18 @@ router = RequestRouter()
 
 
 @router.response('graphql')
-async def graphql(payload: Payload):
+async def graphql_query(payload: Payload):
+    execution_result = await execute_query_in_payload(payload)
+
+    response_data = str_to_bytes(json.dumps({
+        'data': execution_result.data
+    }))
+
+    return create_future(Payload(response_data))
+
+
+@router.stream('graphql')
+async def graphql_subscription(payload: Payload):
     data = json.loads(payload.data.decode('utf-8'))
     params = get_graphql_params(data, {})
     schema = AsyncSchema

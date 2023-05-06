@@ -1,5 +1,3 @@
-import asyncio
-
 from graphql.type.definition import (
     GraphQLArgument,
     GraphQLField,
@@ -13,6 +11,17 @@ from graphql.type.schema import GraphQLSchema
 def resolve_raises(*_):
     raise Exception("Throws!")
 
+
+EchoType = GraphQLObjectType(
+    name="Echo",
+    fields={
+        "message": GraphQLField(
+            type_=GraphQLString,
+            description="The message echoed back",
+        )
+    },
+    description="The result of an echo request",
+)
 
 # Sync schema
 QueryRootType = GraphQLObjectType(
@@ -50,6 +59,37 @@ QueryRootType = GraphQLObjectType(
     },
 )
 
+
+# Schema with async methods
+async def resolve_greeting(_obj, info):
+    return "hello world"
+
+
+async def resolve_echo(_obj, info, input):
+    return {'message': input}
+
+
+async def resolve_multiple_greetings(_obj, info):
+    for greeting in ['Hello', 'Hi', 'Yo']:
+        yield greeting
+
+
+AsyncQueryType = GraphQLObjectType(
+    "AsyncQueryType",
+    {
+        "greeting": GraphQLField(
+            GraphQLString,
+            resolve=resolve_greeting),
+        "echo": GraphQLField(
+            EchoType,
+            args={"input": GraphQLArgument(GraphQLString)},
+            resolve=resolve_echo),
+        "multipleGreetings": GraphQLField(
+            GraphQLString,
+            resolve=resolve_multiple_greetings),
+    },
+)
+
 MutationRootType = GraphQLObjectType(
     name="MutationRoot",
     fields={
@@ -62,55 +102,10 @@ MutationRootType = GraphQLObjectType(
 SubscriptionsRootType = GraphQLObjectType(
     name="SubscriptionsRoot",
     fields={
-        "subscriptionsTest": GraphQLField(
-            type_=QueryRootType, resolve=lambda *args: QueryRootType
+        "multipleGreetings": GraphQLField(
+            type_=GraphQLString, resolve=resolve_multiple_greetings
         )
     },
 )
 
-Schema = GraphQLSchema(QueryRootType, MutationRootType, SubscriptionsRootType)
-
-
-# Schema with async methods
-async def greeting(_obj, info):
-    return "hello world"
-
-
-async def echo(_obj, info, input):
-    return input
-
-
-def resolver_field_sync(_obj, info):
-    return "hey3"
-
-
-AsyncQueryType = GraphQLObjectType(
-    "AsyncQueryType",
-    {
-        "greeting": GraphQLField(GraphQLString, resolve=greeting),
-        "echo": GraphQLField(GraphQLString,
-                             args={"input": GraphQLArgument(GraphQLString)},
-                             resolve=echo),
-        "c": GraphQLField(GraphQLString, resolve=resolver_field_sync),
-    },
-)
-
-
-def resolver_field_sync_1(_obj, info):
-    return "synced_one"
-
-
-def resolver_field_sync_2(_obj, info):
-    return "synced_two"
-
-
-SyncQueryType = GraphQLObjectType(
-    "SyncQueryType",
-    {
-        "a": GraphQLField(GraphQLString, resolve=resolver_field_sync_1),
-        "b": GraphQLField(GraphQLString, resolve=resolver_field_sync_2),
-    },
-)
-
-AsyncSchema = GraphQLSchema(AsyncQueryType)
-SyncSchema = GraphQLSchema(SyncQueryType)
+AsyncSchema = GraphQLSchema(AsyncQueryType, subscription=SubscriptionsRootType)
