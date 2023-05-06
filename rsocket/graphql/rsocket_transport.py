@@ -3,12 +3,14 @@ import functools
 import io
 import json
 import logging
+from asyncio import Queue, Event
 from typing import Any, AsyncGenerator, Callable, Dict, Optional, Tuple, Type
 
 import aiohttp
 from gql.transport import AsyncTransport
 from graphql import DocumentNode, ExecutionResult, print_ast
 
+from reactivestreams.subscriber import DefaultSubscriber
 from ..extensions.helpers import composite, route
 from ..frame_helpers import str_to_bytes
 from ..payload import Payload
@@ -121,6 +123,21 @@ class RSocketTransport(AsyncTransport):
         :returns: an ExecutionResult object.
         """
 
+        rsocket_payload = self._create_rsocket_payload(document, variable_values, operation_name)
+        response = await self._rsocket_client.request_response(rsocket_payload)
+
+        return self._response_to_execution_result(response)
+
+    def _response_to_execution_result(self, response: Payload) -> ExecutionResult:
+        result = json.loads(response.data.decode('utf-8'))
+
+        return ExecutionResult(
+            errors=result.get("errors"),
+            data=result.get("data"),
+            extensions=result.get("extensions"),
+        )
+
+    def _create_rsocket_payload(self, document, variable_values, operation_name):
         query_str = print_ast(document)
 
         payload: Dict[str, Any] = {
@@ -130,56 +147,6 @@ class RSocketTransport(AsyncTransport):
         if operation_name:
             payload["operationName"] = operation_name
 
-        # if upload_files:
-        #
-        #     # If the upload_files flag is set, then we need variable_values
-        #     assert variable_values is not None
-        #
-        #     # If we upload files, we will extract the files present in the
-        #     # variable_values dict and replace them by null values
-        #     nulled_variable_values, files = extract_files(
-        #         variables=variable_values,
-        #         file_classes=self.file_classes,
-        #     )
-        #
-        #     # Save the nulled variable values in the payload
-        #     payload["variables"] = nulled_variable_values
-        #
-        #     # Prepare aiohttp to send multipart-encoded data
-        #     data = aiohttp.FormData()
-        #
-        #     # Generate the file map
-        #     # path is nested in a list because the spec allows multiple pointers
-        #     # to the same file. But we don't support that.
-        #     # Will generate something like {"0": ["variables.file"]}
-        #     file_map = {str(i): [path] for i, path in enumerate(files)}
-        #
-        #     # Enumerate the file streams
-        #     # Will generate something like {'0': <_io.BufferedReader ...>}
-        #     file_streams = {str(i): files[path] for i, path in enumerate(files)}
-        #
-        #     # Add the payload to the operations field
-        #     operations_str = self._json_serialize(payload)
-        #     log.debug("operations %s", operations_str)
-        #     data.add_field(
-        #         "operations", operations_str, content_type="application/json"
-        #     )
-        #
-        #     # Add the file map field
-        #     file_map_str = self._json_serialize(file_map)
-        #     log.debug("file_map %s", file_map_str)
-        #     data.add_field("map", file_map_str, content_type="application/json")
-        #
-        #     # Add the extracted files as remaining fields
-        #     for k, f in file_streams.items():
-        #         name = getattr(f, "name", k)
-        #         content_type = getattr(f, "content_type", None)
-        #
-        #         data.add_field(k, f, filename=name, content_type=content_type)
-        #
-        #     post_args: Dict[str, Any] = {"data": data}
-        #
-        # else:
         if variable_values:
             payload["variables"] = variable_values
 
@@ -187,61 +154,10 @@ class RSocketTransport(AsyncTransport):
             log.info(">>> %s", self._json_serialize(payload))
 
         rsocket_payload = Payload(str_to_bytes(self._json_serialize(payload)), composite(route('graphql')))
-        response = await self._rsocket_client.request_response(rsocket_payload)
 
-        result = json.loads(response.data.decode('utf-8'))
+        return rsocket_payload
 
-        return ExecutionResult(
-            errors=result.get("errors"),
-            data=result.get("data"),
-            extensions=result.get("extensions"),
-        )
-
-        # async with self.session.post(self.url, ssl=self.ssl, **post_args) as resp:
-        #
-        #     # Saving latest response headers in the transport
-        #     self.response_headers = resp.headers
-        #
-        #     async def raise_response_error(resp: aiohttp.ClientResponse, reason: str):
-        #         # We raise a TransportServerError if the status code is 400 or higher
-        #         # We raise a TransportProtocolError in the other cases
-        #
-        #         try:
-        #             # Raise a ClientResponseError if response status is 400 or higher
-        #             resp.raise_for_status()
-        #         except ClientResponseError as e:
-        #             raise TransportServerError(str(e), e.status) from e
-        #
-        #         result_text = await resp.text()
-        #         raise TransportProtocolError(
-        #             f"Server did not return a GraphQL result: "
-        #             f"{reason}: "
-        #             f"{result_text}"
-        #         )
-        #
-        #     try:
-        #         result = await resp.json(content_type=None)
-        #
-        #         if log.isEnabledFor(logging.INFO):
-        #             result_text = await resp.text()
-        #             log.info("<<< %s", result_text)
-        #
-        #     except Exception:
-        #         await raise_response_error(resp, "Not a JSON answer")
-        #
-        #     if result is None:
-        #         await raise_response_error(resp, "Not a JSON answer")
-        #
-        #     if "errors" not in result and "data" not in result:
-        #         await raise_response_error(resp, 'No "data" or "errors" keys in answer')
-        #
-        #     return ExecutionResult(
-        #         errors=result.get("errors"),
-        #         data=result.get("data"),
-        #         extensions=result.get("extensions"),
-        #     )
-
-    def subscribe(
+    async def subscribe(
             self,
             document: DocumentNode,
             variable_values: Optional[Dict[str, Any]] = None,
@@ -251,4 +167,34 @@ class RSocketTransport(AsyncTransport):
 
         :meta private:
         """
-        raise NotImplementedError(" The HTTP transport does not support subscriptions")
+
+        complete_object = object()
+
+        class StreamSubscriber(DefaultSubscriber):
+            def __init__(self, _received_queue: Queue):
+                super().__init__()
+                self._received_queue = _received_queue
+
+            def on_next(self, value: Payload, is_complete: bool = False):
+                self._received_queue.put_nowait(value)
+
+                if is_complete:
+                    self._received_queue.put_nowait(complete_object)
+
+            def on_complete(self):
+                self._received_queue.put_nowait(complete_object)
+
+        rsocket_payload = self._create_rsocket_payload(document, variable_values, operation_name)
+
+        received_queue = Queue()
+        subscriber = StreamSubscriber(received_queue)
+
+        self._rsocket_client.request_stream(rsocket_payload).subscribe(subscriber)
+
+        while True:
+            response = await received_queue.get()
+
+            if response is complete_object:
+                break
+
+            yield self._response_to_execution_result(response)

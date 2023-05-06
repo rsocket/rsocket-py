@@ -26,31 +26,43 @@ async def main(server_port: int):
 
                 graphql = RSocketTransport(client)
 
-                response = await graphql.execute(gql("""
-                query greeting {
-                    greeting
+                await greeting(graphql)
+
+                await echo(graphql)
+
+                async for response in graphql.subscribe(
+                        document=gql("""
+                subscription multipleGreetings {
+                    multipleGreetings
                 }
-                """))
+                """)):
+                    print(response.data)
 
-                assert response.data['greeting'] == 'hello world'
 
-                print(response.data)
-
-                message = 'and now for something completely different'
-                response = await graphql.execute(
-                    document=gql("""
+async def echo(graphql):
+    message = 'and now for something completely different'
+    response = await graphql.execute(
+        document=gql("""
                 query echo($input: String) {
                     echo(input: $input) {
                       message
                     }
                   }
                 """),
-                    variable_values={
-                        'input': message})
+        variable_values={
+            'input': message})
+    assert response.data['echo']['message'] == message
+    print(response.data)
 
-                assert response.data['echo']['message'] == message
 
-                print(response.data)
+async def greeting(graphql):
+    response = await graphql.execute(gql("""
+                query greeting {
+                    greeting
+                }
+                """))
+    assert response.data['greeting'] == 'hello world'
+    print(response.data)
 
 
 if __name__ == '__main__':
