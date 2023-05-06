@@ -25,6 +25,7 @@ You may also install using some **extras**:
 | cli         | Command line                        |
 | optimized   | Frame parse/serialize optimizations |
 | cloudevents | CloudEvents integration             |
+| graphql     | GraphQL integration                 |
 
 ```shell
 pip install rsocket[reactivex]
