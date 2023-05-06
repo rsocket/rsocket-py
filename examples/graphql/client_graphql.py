@@ -15,13 +15,11 @@ from rsocket.transports.aiohttp_websocket import TransportAioHttpClient
 
 
 async def main(server_port: int):
-
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect('ws://localhost:%s' % server_port, verify_ssl=False) as websocket:
             async with RSocketClient(
                     single_transport_provider(TransportAioHttpClient(websocket=websocket)),
                     metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
-
                 response = await client.request_response(Payload(metadata=composite(route('ping'))))
 
                 assert response.data == b'pong'
@@ -35,6 +33,22 @@ async def main(server_port: int):
                 """))
 
                 assert response.data['greeting'] == 'hello world'
+
+                print(response.data)
+
+                message = 'and now for something completely different'
+                response = await graphql.execute(
+                    document=gql("""
+                query echo($input: String) {
+                    echo(input: $input) {
+                      message
+                    }
+                  }
+                """),
+                    variable_values={
+                        'input': message})
+
+                assert response.data['echo']['message'] == message
 
                 print(response.data)
 

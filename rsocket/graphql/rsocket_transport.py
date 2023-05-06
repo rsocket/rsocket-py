@@ -180,13 +180,11 @@ class RSocketTransport(AsyncTransport):
         #     post_args: Dict[str, Any] = {"data": data}
         #
         # else:
-        #     if variable_values:
-        #         payload["variables"] = variable_values
-        #
+        if variable_values:
+            payload["variables"] = variable_values
+
         if log.isEnabledFor(logging.INFO):
             log.info(">>> %s", self._json_serialize(payload))
-        #
-        #     post_args = {"json": payload}
 
         rsocket_payload = Payload(str_to_bytes(self._json_serialize(payload)), composite(route('graphql')))
         response = await self._rsocket_client.request_response(rsocket_payload)
