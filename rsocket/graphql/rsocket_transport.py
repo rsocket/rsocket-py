@@ -92,7 +92,6 @@ class RSocketTransport(AsyncTransport):
             operation_name: Optional[str] = None,
     ) -> AsyncGenerator[ExecutionResult, None]:
 
-
         complete_object = object()
 
         class StreamSubscriber(DefaultSubscriber):
