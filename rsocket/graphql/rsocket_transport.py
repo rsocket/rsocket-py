@@ -3,7 +3,7 @@ import functools
 import io
 import json
 import logging
-from asyncio import Queue, Event
+from asyncio import Queue
 from typing import Any, AsyncGenerator, Callable, Dict, Optional, Tuple, Type
 
 import aiohttp
