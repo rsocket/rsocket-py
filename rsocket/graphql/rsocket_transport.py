@@ -1,20 +1,16 @@
-import asyncio
-import functools
-import io
 import json
 import logging
 from asyncio import Queue
-from typing import Any, AsyncGenerator, Callable, Dict, Optional, Tuple, Type
+from typing import Any, AsyncGenerator, Callable, Dict, Optional
 
-import aiohttp
 from gql.transport import AsyncTransport
 from graphql import DocumentNode, ExecutionResult, print_ast
 
 from reactivestreams.subscriber import DefaultSubscriber
-from ..extensions.helpers import composite, route
-from ..frame_helpers import str_to_bytes
-from ..payload import Payload
-from ..rsocket_client import RSocketClient
+from rsocket.extensions.helpers import composite, route
+from rsocket.frame_helpers import str_to_bytes
+from rsocket.payload import Payload
+from rsocket.rsocket_client import RSocketClient
 
 log = logging.getLogger(__name__)
 
