@@ -29,8 +29,8 @@ async def main(server_port: int):
                 assert response.data == b'pong'
 
                 await greeting(graphql)
-                #
-                # await echo(graphql)
+
+                await echo(graphql)
                 #
                 # await subscription(graphql)
 
