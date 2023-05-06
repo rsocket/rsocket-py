@@ -30,17 +30,22 @@ async def main(server_port: int):
 
                 await echo(graphql)
 
-                async for response in graphql.subscribe(
-                        document=gql("""
+                await subscription(graphql)
+
+
+async def subscription(graphql):
+    async for response in graphql.subscribe(
+            document=gql("""
                 subscription multipleGreetings {
                     multipleGreetings
                 }
                 """)):
-                    print(response.data)
+        print(response.data)
 
 
 async def echo(graphql):
     message = 'and now for something completely different'
+
     response = await graphql.execute(
         document=gql("""
                 query echo($input: String) {
@@ -51,7 +56,9 @@ async def echo(graphql):
                 """),
         variable_values={
             'input': message})
+
     assert response.data['echo']['message'] == message
+
     print(response.data)
 
 
@@ -61,7 +68,9 @@ async def greeting(graphql):
                     greeting
                 }
                 """))
+
     assert response.data['greeting'] == 'hello world'
+
     print(response.data)
 
 

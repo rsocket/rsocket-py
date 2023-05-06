@@ -20,17 +20,6 @@ log = logging.getLogger(__name__)
 
 
 class RSocketTransport(AsyncTransport):
-    """:ref:`Async Transport <async_transports>` to execute GraphQL queries
-    on remote servers with an HTTP connection.
-
-    This transport use the aiohttp library with asyncio.
-    """
-
-    file_classes: Tuple[Type[Any], ...] = (
-        io.IOBase,
-        aiohttp.StreamReader,
-        AsyncGenerator,
-    )
 
     def __init__(
             self,
@@ -43,59 +32,6 @@ class RSocketTransport(AsyncTransport):
     async def connect(self) -> None:
         pass
 
-    @staticmethod
-    def create_aiohttp_closed_event(session) -> asyncio.Event:
-        """Work around aiohttp issue that doesn't properly close transports on exit.
-
-        See https://github.com/aio-libs/aiohttp/issues/1925#issuecomment-639080209
-
-        Returns:
-           An event that will be set once all transports have been properly closed.
-        """
-
-        ssl_transports = 0
-        all_is_lost = asyncio.Event()
-
-        def connection_lost(exc, orig_lost):
-            nonlocal ssl_transports
-
-            try:
-                orig_lost(exc)
-            finally:
-                ssl_transports -= 1
-                if ssl_transports == 0:
-                    all_is_lost.set()
-
-        def eof_received(orig_eof_received):
-            try:
-                orig_eof_received()
-            except AttributeError:  # pragma: no cover
-                # It may happen that eof_received() is called after
-                # _app_protocol and _transport are set to None.
-                pass
-
-        for conn in session.connector._conns.values():
-            for handler, _ in conn:
-                proto = getattr(handler.transport, "_ssl_protocol", None)
-                if proto is None:
-                    continue
-
-                ssl_transports += 1
-                orig_lost = proto.connection_lost
-                orig_eof_received = proto.eof_received
-
-                proto.connection_lost = functools.partial(
-                    connection_lost, orig_lost=orig_lost
-                )
-                proto.eof_received = functools.partial(
-                    eof_received, orig_eof_received=orig_eof_received
-                )
-
-        if ssl_transports == 0:
-            all_is_lost.set()
-
-        return all_is_lost
-
     async def close(self) -> None:
         pass
 
@@ -107,11 +43,7 @@ class RSocketTransport(AsyncTransport):
             extra_args: Dict[str, Any] = None,
             upload_files: bool = False,
     ) -> ExecutionResult:
-        """Execute the provided document AST against the configured remote server
-        using the current session.
-        This uses the aiohttp library to perform a HTTP POST request asynchronously
-        to the remote server.
-
+        """
         Don't call this coroutine directly on the transport, instead use
         :code:`execute` on a client or a session.
 
