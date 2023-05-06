@@ -91,10 +91,7 @@ class RSocketTransport(AsyncTransport):
             variable_values: Optional[Dict[str, Any]] = None,
             operation_name: Optional[str] = None,
     ) -> AsyncGenerator[ExecutionResult, None]:
-        """Subscribe is not supported on HTTP.
 
-        :meta private:
-        """
 
         complete_object = object()
 
