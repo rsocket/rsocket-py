@@ -3,7 +3,7 @@ import logging
 import sys
 from typing import AsyncGenerator, Tuple
 
-from graphql import execute, parse, subscribe
+from graphql import parse, subscribe
 from graphql_server import get_graphql_params
 from quart import Quart
 
@@ -24,7 +24,7 @@ router = RequestRouter()
 
 @router.response('graphql')
 async def graphql_query(payload: Payload):
-    execution_result = await execute_query_in_payload(payload)
+    execution_result = await execute_query_in_payload(payload, AsyncSchema)
 
     response_data = str_to_bytes(json.dumps({
         'data': execution_result.data

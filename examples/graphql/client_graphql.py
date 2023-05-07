@@ -32,7 +32,7 @@ async def main(server_port: int):
 
                 await echo(graphql)
 
-                # await subscription(graphql)
+                await subscription(graphql)
 
 
 async def subscription(graphql: Client):

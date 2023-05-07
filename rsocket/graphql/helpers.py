@@ -1,16 +1,15 @@
 import json
 
-from graphql import execute, parse, ExecutionResult
+from graphql import execute, parse, ExecutionResult, GraphQLSchema
 from graphql_server import get_graphql_params
 
-from examples.graphql.schema import AsyncSchema
 from rsocket.payload import Payload
 
 
-async def execute_query_in_payload(payload: Payload) -> ExecutionResult:
+async def execute_query_in_payload(payload: Payload,
+                                   schema: GraphQLSchema) -> ExecutionResult:
     data = json.loads(payload.data.decode('utf-8'))
     params = get_graphql_params(data, {})
-    schema = AsyncSchema
     document = parse(params.query)
 
     execution_result = await execute(
