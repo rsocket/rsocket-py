@@ -2,31 +2,14 @@ import asyncio
 import json
 import logging
 import sys
-from typing import Any
 
-from cloudevents.conversion import to_json, from_json
 from cloudevents.pydantic import CloudEvent
 
-from rsocket.payload import Payload
+from rsocket.cloudevents.serialize import cloud_event_deserialize, cloud_event_serialize
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
-
-
-def cloud_event_deserialize(cls, payload: Payload) -> Any:
-    if cls == CloudEvent:
-        return from_json(CloudEvent, payload.data)
-
-    return payload
-
-
-def cloud_event_serialize(cls, value: Any) -> Payload:
-    if cls == CloudEvent:
-        return Payload(to_json(value))
-
-    return value
-
 
 router = RequestRouter(cloud_event_deserialize,
                        cloud_event_serialize)
