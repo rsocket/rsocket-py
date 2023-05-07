@@ -83,11 +83,8 @@ AsyncQueryType = GraphQLObjectType(
         "echo": GraphQLField(
             EchoType,
             args={"input": GraphQLArgument(GraphQLString)},
-            resolve=resolve_echo),
-        "multipleGreetings": GraphQLField(
-            GraphQLString,
-            resolve=resolve_multiple_greetings),
-    },
+            resolve=resolve_echo)
+    }
 )
 
 MutationRootType = GraphQLObjectType(
@@ -105,7 +102,7 @@ SubscriptionsRootType = GraphQLObjectType(
         "multipleGreetings": GraphQLField(
             type_=GraphQLString, resolve=resolve_multiple_greetings
         )
-    },
+    }
 )
 
 AsyncSchema = GraphQLSchema(AsyncQueryType, subscription=SubscriptionsRootType)

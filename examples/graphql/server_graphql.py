@@ -1,8 +1,9 @@
 import json
 import logging
 import sys
+from typing import AsyncGenerator, Tuple
 
-from graphql import execute, parse
+from graphql import execute, parse, subscribe
 from graphql_server import get_graphql_params
 from quart import Quart
 
@@ -13,6 +14,7 @@ from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
+from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.transports.quart_websocket import websocket_handler
 
 app = Quart(__name__)
@@ -33,20 +35,24 @@ async def graphql_query(payload: Payload):
 
 @router.stream('graphql')
 async def graphql_subscription(payload: Payload):
-    data = json.loads(payload.data.decode('utf-8'))
-    params = get_graphql_params(data, {})
-    schema = AsyncSchema
-    document = parse(params.query)
-    execution_result = await execute(
-        schema,
-        document,
-        variable_values=params.variables,
-        operation_name=params.operation_name
-    )
-    response_data = str_to_bytes(json.dumps({
-        'data': execution_result.data
-    }))
-    return create_future(Payload(response_data))
+    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
+        data = json.loads(payload.data.decode('utf-8'))
+        params = get_graphql_params(data, {})
+        schema = AsyncSchema
+        document = parse(params.query)
+
+        async for execution_result in await subscribe(
+                schema,
+                document,
+                variable_values=params.variables,
+                operation_name=params.operation_name
+        ):
+            response_data = str_to_bytes(json.dumps({
+                'data': execution_result.data
+            }))
+            yield Payload(response_data)
+
+    return StreamFromAsyncGenerator(generator)
 
 
 @router.response('ping')
