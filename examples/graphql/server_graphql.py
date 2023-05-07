@@ -47,10 +47,11 @@ async def graphql_subscription(payload: Payload):
                 variable_values=params.variables,
                 operation_name=params.operation_name
         ):
+            item = execution_result.data
             response_data = str_to_bytes(json.dumps({
-                'data': execution_result.data
+                'data': item[0]
             }))
-            yield Payload(response_data)
+            yield Payload(response_data), item[1]
 
     return StreamFromAsyncGenerator(generator)
 

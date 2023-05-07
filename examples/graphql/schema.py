@@ -23,6 +23,17 @@ EchoType = GraphQLObjectType(
     description="The result of an echo request",
 )
 
+GreetingType = GraphQLObjectType(
+    name="Greeting",
+    fields={
+        "message": GraphQLField(
+            type_=GraphQLString,
+            description="The message echoed back",
+        )
+    },
+    description="The result of an echo request",
+)
+
 # Sync schema
 QueryRootType = GraphQLObjectType(
     name="QueryRoot",
@@ -60,7 +71,6 @@ QueryRootType = GraphQLObjectType(
 )
 
 
-# Schema with async methods
 async def resolve_greeting(_obj, info):
     return "hello world"
 
@@ -70,8 +80,8 @@ async def resolve_echo(_obj, info, input):
 
 
 async def resolve_multiple_greetings(_obj, info):
-    for greeting in ['Hello', 'Hi', 'Yo']:
-        yield greeting
+    for index, greeting in enumerate(['Hello', 'Hi', 'Yo']):
+        yield {'message': greeting}
 
 
 AsyncQueryType = GraphQLObjectType(
@@ -100,7 +110,7 @@ SubscriptionsRootType = GraphQLObjectType(
     name="SubscriptionsRoot",
     fields={
         "multipleGreetings": GraphQLField(
-            type_=GraphQLString, resolve=resolve_multiple_greetings
+            type_=GreetingType, subscribe=resolve_multiple_greetings
         )
     }
 )
