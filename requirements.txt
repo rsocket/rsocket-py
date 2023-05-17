@@ -16,7 +16,7 @@ pytest-xdist==3.2.1
 pytest==7.3.1
 quart==0.18.4
 reactivex==4.0.4
-starlette==0.26.1
+starlette==0.27.0
 cbitstruct==1.0.9
 cloudevents==1.9.0
 pydantic==1.10.7
