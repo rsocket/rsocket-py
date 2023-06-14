@@ -5,7 +5,7 @@ asyncclick==8.1.3.4
 asyncstdlib==3.10.8
 coverage==6.5.0
 coveralls==3.3.1
-decoy==2.0.1
+decoy==2.0.2
 flake8==5.0.4
 pytest-asyncio==0.21.0
 pytest-cov==4.1.0
@@ -13,7 +13,7 @@ pytest-profiling==1.7.0
 pytest-rerunfailures==11.1.2
 pytest-timeout==2.1.0
 pytest-xdist==3.3.1
-pytest==7.3.1
+pytest==7.3.2
 quart==0.18.4
 reactivex==4.0.4
 starlette==0.27.0
