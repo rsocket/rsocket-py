@@ -25,10 +25,10 @@ class TaggingMetadata(CompositeMetadataItem):
         serialized = b''
 
         for tag in list(map(ensure_bytes, self.tags)):
-            if len(tag) > 256:
-                raise RSocketError('Tag length longer than 256 characters: "%s"' % tag)
+            if len(tag) > 255:
+                raise RSocketError('Tag length longer than 255 characters: "%s"' % tag)
 
-            serialized += struct.pack('>b', len(tag))
+            serialized += struct.pack('>B', len(tag))
             serialized += tag
 
         return serialized
@@ -38,7 +38,7 @@ class TaggingMetadata(CompositeMetadataItem):
         offset = 0
 
         while offset < len(buffer):
-            tag_length = struct.unpack('>b', buffer[offset:offset + 1])[0]
+            tag_length = struct.unpack('>B', buffer[offset:offset + 1])[0]
             offset += 1
             self.tags.append(buffer[offset:offset + tag_length])
             offset += tag_length
