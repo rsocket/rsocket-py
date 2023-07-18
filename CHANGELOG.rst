@@ -4,6 +4,7 @@ Changelog
 v0.4.12
 =======
 - Fixed fragmentation for fire and forget
+- Fixed incorrect limit on tag (and route) length from 127 to 255 (GooDer)
 
 v0.4.11
 =======
