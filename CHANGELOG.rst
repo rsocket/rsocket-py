@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+v0.4.12
+=======
+- Fixed fragmentation for fire and forget
+
 v0.4.11
 =======
 - Breaking change: RequestRouter argument 'payload_mapper' was replaced with 'payload_deserializer' and 'payload_serializer'

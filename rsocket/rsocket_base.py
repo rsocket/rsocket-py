@@ -487,7 +487,7 @@ class RSocketBase(RSocket, RSocketInternal):
         logger().debug('%s: fire-and-forget: %s', self._log_identifier(), payload)
 
         stream_id = self._allocate_stream()
-        frame = to_fire_and_forget_frame(stream_id, payload)
+        frame = to_fire_and_forget_frame(stream_id, payload, self._fragment_size_bytes)
         self.send_request(frame)
         frame.sent_future.add_done_callback(lambda _: self.finish_stream(stream_id))
         return frame.sent_future
