@@ -422,6 +422,7 @@ class RSocketBase(RSocket, RSocketInternal):
                     if self._send_queue.empty():
                         await transport.on_send_queue_empty()
             except RSocketTransportError:
+                logger().error('Error', exc_info=True)
                 pass
 
         except asyncio.CancelledError:
