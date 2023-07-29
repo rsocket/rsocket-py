@@ -1,6 +1,8 @@
 import asyncio
 from typing import Optional
 
+import pytest
+
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -36,6 +38,7 @@ async def test_request_fire_and_forget(lazy_pipe):
     await asyncio.sleep(2)  # wait for server to close
 
 
+@pytest.mark.timeout(15)
 async def test_request_fire_and_forget_fragmented(lazy_pipe):
     handler: Optional[FireAndForgetHandler] = None
 
