@@ -92,7 +92,7 @@ async def test_request_response_bidirectional(pipe):
                 other.set_result(payload)
 
         async def request_response(self, payload: Payload) -> Awaitable[Payload]:
-            future = create_response()
+            future = create_future()
             server.request_response(payload).add_done_callback(
                 functools.partial(self.future_done, future))
             return future
