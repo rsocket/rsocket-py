@@ -5,7 +5,7 @@ import pytest
 from rsocket.exceptions import RSocketStreamIdInUse
 from rsocket.frame import MetadataPushFrame
 from rsocket.frame_builders import to_payload_frame
-from rsocket.helpers import create_future
+from rsocket.helpers import create_response
 from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -23,7 +23,7 @@ async def test_send_frame_for_non_existing_stream(pipe_tcp, caplog):
             done.set()
 
         async def request_response(self, payload: Payload) -> Awaitable[Payload]:
-            return create_future(Payload(b'response'))
+            return create_response(b'response')
 
     server.set_handler_using_factory(Handler)
 
@@ -49,7 +49,7 @@ async def test_send_frame_for_unknown_type(pipe_tcp, caplog):
     class Handler(BaseRequestHandler):
 
         async def request_response(self, payload: Payload) -> Awaitable[Payload]:
-            return create_future(Payload(b'response'))
+            return create_response(b'response')
 
     bad_client = MisbehavingRSocket(client._transport)
     server.set_handler_using_factory(Handler)
@@ -79,7 +79,7 @@ async def test_send_frame_for_stream_id_in_use(pipe_tcp, caplog):
 
         async def request_response(self, payload: Payload) -> Awaitable[Payload]:
             await asyncio.sleep(2)
-            return create_future(Payload(b'response'))
+            return create_response(b'response')
 
     server.set_handler_using_factory(Handler)
     server._stream_control = BrokenStreamControl(3)
@@ -95,7 +95,7 @@ async def test_metadata_frame_with_non_zero_stream_id_is_ignored(pipe_tcp):
     class Handler(BaseRequestHandler):
 
         async def request_response(self, payload: Payload) -> Awaitable[Payload]:
-            return create_future(Payload(b'response'))
+            return create_response(b'response')
 
     bad_client = MisbehavingRSocket(client._transport)
     server.set_handler_using_factory(Handler)

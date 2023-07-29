@@ -3,7 +3,7 @@ from typing import Optional
 
 import pytest
 
-from rsocket.helpers import create_future
+from rsocket.helpers import create_response
 from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -30,7 +30,7 @@ async def test_setup_with_explicit_data_encoding(lazy_pipe, data_mimetype):
             received_data_encoding_event.set()
 
         async def request_response(self, payload: Payload) -> Awaitable[Payload]:
-            return create_future(Payload(b'response'))
+            return create_response(b'response')
 
     async with lazy_pipe(
             client_arguments={

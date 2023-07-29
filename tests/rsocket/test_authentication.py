@@ -1,4 +1,3 @@
-import asyncio
 from asyncio import Event
 from typing import Optional
 
@@ -11,7 +10,7 @@ from rsocket.extensions.authentication_types import WellKnownAuthenticationTypes
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import composite, authenticate_simple, authenticate_bearer
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.helpers import create_future
+from rsocket.helpers import create_response
 from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
@@ -83,7 +82,7 @@ async def test_authentication_success_on_setup(lazy_pipe):
             if not self._authenticated:
                 raise RSocketApplicationError("Not authenticated")
 
-            return create_future(Payload(b'response'))
+            return create_response(b'response')
 
     async with lazy_pipe(
             client_arguments={'setup_payload': Payload(metadata=composite(authenticate_simple('user', '12345')))},
@@ -117,9 +116,7 @@ async def test_authentication_failure_on_setup(lazy_pipe):
             if not self._authenticated:
                 raise Exception("Not authenticated")
 
-            future = asyncio.get_event_loop().create_future()
-            future.set_result(Payload(b'response'))
-            return future
+            return create_response(b'response')
 
     class ClientHandler(BaseRequestHandler):
         async def on_error(self, error_code: ErrorCode, payload: Payload):
