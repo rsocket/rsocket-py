@@ -10,8 +10,8 @@ from aiohttp import web
 
 from examples.example_fixtures import large_data1
 from examples.fixtures import generate_certificate_and_key
-from examples.response_channel import response_stream_1, LoggingSubscriber
-from response_stream import response_stream_2
+from examples.response_channel import sample_async_response_stream, LoggingSubscriber
+from response_stream import sample_sync_response_stream
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.helpers import create_future
@@ -22,93 +22,80 @@ from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.aiohttp_websocket import TransportAioHttpWebsocket
 from rsocket.transports.tcp import TransportTCP
 
-router = RequestRouter()
 
+def handler_factory_factory(is_infinite_stream: bool = False):
+    router = RequestRouter()
 
-@dataclass
-class Storage:
-    last_metadata_push: Optional[bytes] = None
-    last_fire_and_forget: Optional[bytes] = None
+    @dataclass
+    class Storage:
+        last_metadata_push: Optional[bytes] = None
+        last_fire_and_forget: Optional[bytes] = None
 
+    storage = Storage()
 
-storage = Storage()
+    @router.response('single_request')
+    async def single_request_response(payload, composite_metadata):
+        logging.info('Got single request')
+        return create_future(Payload(b'single_response'))
 
+    @router.response('last_fnf')
+    async def get_last_fnf():
+        logging.info('Got single request')
+        return create_future(Payload(storage.last_fire_and_forget))
 
-@router.response('single_request')
-async def single_request_response(payload, composite_metadata):
-    logging.info('Got single request')
-    return create_future(Payload(b'single_response'))
+    @router.response('last_metadata_push')
+    async def get_last_metadata_push():
+        logging.info('Got single request')
+        return create_future(Payload(storage.last_metadata_push))
 
+    @router.response('large_data')
+    async def get_large_data():
+        return create_future(Payload(large_data1))
 
-@router.response('last_fnf')
-async def get_last_fnf():
-    logging.info('Got single request')
-    return create_future(Payload(storage.last_fire_and_forget))
+    @router.response('large_request')
+    async def get_large_data_request(payload: Payload):
+        return create_future(Payload(payload.data))
 
+    @router.stream('stream')
+    async def stream_response(payload, composite_metadata):
+        logging.info('Got stream request')
+        return sample_async_response_stream(is_infinite_stream=is_infinite_stream)
 
-@router.response('last_metadata_push')
-async def get_last_metadata_push():
-    logging.info('Got single request')
-    return create_future(Payload(storage.last_metadata_push))
+    @router.fire_and_forget('no_response')
+    async def no_response(payload: Payload, composite_metadata):
+        storage.last_fire_and_forget = payload.data
+        logging.info('No response sent to client')
 
+    @router.metadata_push('metadata_push')
+    async def metadata_push(payload: Payload, composite_metadata: CompositeMetadata):
+        for item in composite_metadata.items:
+            if item.encoding == b'text/plain':
+                storage.last_metadata_push = item.content
 
-@router.response('large_data')
-async def get_large_data():
-    return create_future(Payload(large_data1))
+    @router.channel('channel')
+    async def channel_response(payload, composite_metadata):
+        logging.info('Got channel request')
+        subscriber = LoggingSubscriber()
+        channel = sample_async_response_stream(local_subscriber=subscriber)
+        return channel, subscriber
 
+    @router.stream('slow_stream')
+    async def stream_slow(**kwargs):
+        logging.info('Got slow stream request')
+        return sample_sync_response_stream(delay_between_messages=timedelta(seconds=2),
+                                           is_infinite_stream=is_infinite_stream)
 
-@router.response('large_request')
-async def get_large_data_request(payload: Payload):
-    return create_future(Payload(payload.data))
+    async def authenticator(route: str, authentication: Authentication):
+        if isinstance(authentication, AuthenticationSimple):
+            if authentication.password != b'12345':
+                raise Exception('Authentication error')
+        else:
+            raise Exception('Unsupported authentication')
 
+    def handler_factory():
+        return RoutingRequestHandler(router, authenticator)
 
-@router.stream('stream')
-async def stream_response(payload, composite_metadata):
-    logging.info('Got stream request')
-    return response_stream_1()
-
-
-@router.fire_and_forget('no_response')
-async def no_response(payload: Payload, composite_metadata):
-    storage.last_fire_and_forget = payload.data
-    logging.info('No response sent to client')
-
-
-@router.metadata_push('metadata_push')
-async def metadata_push(payload: Payload, composite_metadata: CompositeMetadata):
-    for item in composite_metadata.items:
-        if item.encoding == b'text/plain':
-            storage.last_metadata_push = item.content
-
-
-@router.channel('channel')
-async def channel_response(payload, composite_metadata):
-    logging.info('Got channel request')
-    subscriber = LoggingSubscriber()
-    channel = response_stream_1(local_subscriber=subscriber)
-    return channel, subscriber
-
-
-@router.stream('slow_stream')
-async def stream_slow(**kwargs):
-    logging.info('Got slow stream request')
-    return response_stream_2(delay_between_messages=timedelta(seconds=2))
-
-
-async def authenticator(route: str, authentication: Authentication):
-    if isinstance(authentication, AuthenticationSimple):
-        if authentication.password != b'12345':
-            raise Exception('Authentication error')
-    else:
-        raise Exception('Unsupported authentication')
-
-
-def handler_factory():
-    return RoutingRequestHandler(router, authenticator)
-
-
-def handle_client(reader, writer):
-    RSocketServer(TransportTCP(reader, writer), handler_factory=handler_factory)
+    return handler_factory
 
 
 def websocket_handler_factory(**kwargs):
@@ -127,14 +114,17 @@ def websocket_handler_factory(**kwargs):
 @click.option('--port', help='Port to listen on', default=6565, type=int)
 @click.option('--with-ssl', is_flag=True, help='Enable SSL mode')
 @click.option('--transport', is_flag=False, default='tcp')
-async def start_server(with_ssl: bool, port: int, transport: str):
+@click.option('--infinite-stream', is_flag=True)
+async def start_server(with_ssl: bool, port: int, transport: str, infinite_stream: bool):
     logging.basicConfig(level=logging.DEBUG)
 
     logging.info(f'Starting {transport} server at localhost:{port}')
 
     if transport in ['ws', 'wss']:
         app = web.Application()
-        app.add_routes([web.get('/', websocket_handler_factory(handler_factory=handler_factory))])
+        app.add_routes([web.get('/', websocket_handler_factory(
+            handler_factory=handler_factory_factory(infinite_stream)
+        ))])
 
         with generate_certificate_and_key() as (certificate_path, key_path):
             if with_ssl:
@@ -149,6 +139,10 @@ async def start_server(with_ssl: bool, port: int, transport: str):
 
             await web._run_app(app, port=port, ssl_context=ssl_context)
     elif transport == 'tcp':
+        def handle_client(reader, writer):
+            RSocketServer(TransportTCP(reader, writer),
+                          handler_factory=handler_factory_factory(infinite_stream)
+                          )
 
         server = await asyncio.start_server(handle_client, 'localhost', port)
 
