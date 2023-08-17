@@ -15,9 +15,10 @@ from aioquic.h3.events import (
 )
 from aioquic.quic.events import QuicEvent
 from starlette.websockets import WebSocket, WebSocketDisconnect
+from wsproto.utilities import LocalProtocolError
 
 from rsocket.exceptions import RSocketTransportError
-from rsocket.frame import Frame, serialize_with_frame_size_header
+from rsocket.frame import Frame, serialize_with_frame_size_header, KeepAliveFrame
 from rsocket.helpers import wrap_transport_exception, cancel_if_task_exists
 from rsocket.logger import logger
 from rsocket.transports.abstract_messaging import AbstractMessagingTransport
@@ -164,7 +165,12 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
         with wrap_transport_exception():
             try:
                 data = serialize_with_frame_size_header(frame)
-                await self._websocket.send_bytes(data)
+                try:
+                    await self._websocket.send_bytes(data)
+                except LocalProtocolError as exception:
+                    if (not (str(exception).endswith('ConnectionState.REMOTE_CLOSING')
+                             and isinstance(frame, KeepAliveFrame))):
+                        raise
                 await asyncio.sleep(0)
             except WebSocketDisconnect:
                 self._disconnect_event.set()
