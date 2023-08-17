@@ -9,7 +9,7 @@ from rsocket.extensions.authentication import Authentication, AuthenticationSimp
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.helpers import create_future
+from rsocket.helpers import create_response
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
@@ -51,7 +51,7 @@ async def test_routed_request_response_properly_finished(lazy_pipe):
 
     @router.response('test.path')
     async def response():
-        return create_future(Payload(b'result'))
+        return create_response(b'result')
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -70,7 +70,7 @@ async def test_routed_request_response_aliases(lazy_pipe):
     @router.response('test.path')
     @router.response('test.alternate_path')
     async def response():
-        return create_future(Payload(b'result'))
+        return create_response(b'result')
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -92,7 +92,7 @@ async def test_routed_request_response_with_payload_mapper(lazy_pipe):
 
     @router.response('test.path')
     async def response(payload: dict):
-        return create_future(Payload(('Response %s' % payload['key']).encode()))
+        return create_response(('Response %s' % payload['key']).encode())
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -111,7 +111,7 @@ async def test_routed_request_response_properly_finished_accept_payload_only(laz
 
     @router.response('test.path')
     async def response(payload: Payload):
-        return create_future(Payload(('Response %s' % payload.data.decode()).encode()))
+        return create_response(('Response %s' % payload.data.decode()).encode())
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -129,7 +129,7 @@ async def test_routed_request_response_properly_finished_accept_metadata_only(la
 
     @router.response('test.path')
     async def response(composite_metadata: CompositeMetadata):
-        return create_future(Payload(metadata=composite_metadata.items[0].tags[0]))
+        return create_response(metadata=composite_metadata.items[0].tags[0])
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -147,8 +147,8 @@ async def test_routed_request_response_properly_finished_accept_payload_and_meta
 
     @router.response('test.path')
     async def response(payload: Payload, composite_metadata: CompositeMetadata):
-        return create_future(Payload(('Response %s' % payload.data.decode()).encode(),
-                                     composite_metadata.items[0].tags[0]))
+        return create_response(('Response %s' % payload.data.decode()).encode(),
+                               composite_metadata.items[0].tags[0])
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -344,7 +344,7 @@ async def test_valid_authentication_in_routing_handler(lazy_pipe):
 
     @router.response('test.path')
     async def response():
-        return create_future(Payload(b'result'))
+        return create_response(b'result')
 
     def handler_factory():
         return RoutingRequestHandler(router, authentication_verifier=authenticate)

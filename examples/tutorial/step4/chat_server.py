@@ -89,7 +89,7 @@ class ChatUserSession:
         self._session: Optional[UserSessionData] = None
 
     def router_factory(self):
-        router = RequestRouter(payload_mapper=decode_payload)
+        router = RequestRouter(payload_deserializer=decode_payload)
 
         @router.response('login')
         async def login(payload: Payload) -> Awaitable[Payload]:

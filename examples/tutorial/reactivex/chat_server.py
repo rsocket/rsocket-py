@@ -115,7 +115,7 @@ class ChatUserSession:
             del chat_data.user_session_by_id[self._session.session_id]
 
     def router_factory(self):
-        router = RequestRouter(payload_mapper=decode_payload)
+        router = RequestRouter(payload_deserializer=decode_payload)
 
         @router.response('login')
         async def login(username: str) -> Observable:

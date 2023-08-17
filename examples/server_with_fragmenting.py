@@ -6,8 +6,8 @@ from datetime import timedelta
 from typing import Optional
 
 from examples.example_fixtures import large_data1
-from examples.response_channel import response_stream_1, LoggingSubscriber
-from response_stream import response_stream_2
+from examples.response_channel import sample_async_response_stream, LoggingSubscriber
+from response_stream import sample_sync_response_stream
 from rsocket.extensions.authentication import Authentication, AuthenticationSimple
 from rsocket.extensions.composite_metadata import CompositeMetadata
 from rsocket.helpers import create_future
@@ -60,7 +60,7 @@ async def get_large_data_request(payload: Payload):
 @router.stream('stream')
 async def stream_response(payload, composite_metadata):
     logging.info('Got stream request')
-    return response_stream_1()
+    return sample_async_response_stream()
 
 
 @router.fire_and_forget('no_response')
@@ -80,14 +80,14 @@ async def metadata_push(payload: Payload, composite_metadata: CompositeMetadata)
 async def channel_response(payload, composite_metadata):
     logging.info('Got channel request')
     subscriber = LoggingSubscriber()
-    channel = response_stream_1(local_subscriber=subscriber)
+    channel = sample_async_response_stream(local_subscriber=subscriber)
     return channel, subscriber
 
 
 @router.stream('slow_stream')
 async def stream_slow(**kwargs):
     logging.info('Got slow stream request')
-    return response_stream_2(delay_between_messages=timedelta(seconds=2))
+    return sample_sync_response_stream(delay_between_messages=timedelta(seconds=2))
 
 
 async def authenticator(route: str, authentication: Authentication):

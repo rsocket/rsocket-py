@@ -1,6 +1,5 @@
 import asyncio
-from asyncio import Future
-from typing import Tuple, AsyncGenerator, Optional
+from typing import Tuple, AsyncGenerator, Optional, Awaitable
 
 import reactivex
 from reactivex import operators
@@ -8,7 +7,7 @@ from reactivex import operators
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber, DefaultSubscriber
 from reactivestreams.subscription import Subscription
-from rsocket.helpers import create_future, DefaultPublisherSubscription
+from rsocket.helpers import DefaultPublisherSubscription, create_response
 from rsocket.payload import Payload
 from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.request_handler import BaseRequestHandler
@@ -93,8 +92,8 @@ async def test_rx_support_request_response_properly_finished(pipe: Tuple[RSocket
     server, client = pipe
 
     class Handler(BaseRequestHandler):
-        async def request_response(self, payload: Payload) -> Future:
-            return create_future(Payload(b'Response'))
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
+            return create_response(b'Response')
 
     server.set_handler_using_factory(Handler)
 
@@ -111,8 +110,8 @@ async def test_rx_support_request_response_empty_response(pipe: Tuple[RSocketSer
     server, client = pipe
 
     class Handler(BaseRequestHandler):
-        async def request_response(self, payload: Payload) -> Future:
-            return create_future(Payload())
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
+            return create_response()
 
     server.set_handler_using_factory(Handler)
 
@@ -205,8 +204,8 @@ async def test_rx_support_request_channel_response_only_properly_finished(pipe: 
 
 async def test_rx_rsocket_context_manager(pipe_tcp_without_auto_connect):
     class Handler(BaseRequestHandler):
-        async def request_response(self, payload: Payload) -> Future:
-            return create_future(Payload(b'Response'))
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
+            return create_response(b'Response')
 
     server_provider, client = pipe_tcp_without_auto_connect
 

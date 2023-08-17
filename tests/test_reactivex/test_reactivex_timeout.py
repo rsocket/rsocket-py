@@ -1,12 +1,11 @@
 import asyncio
-from asyncio import Future
-from typing import Tuple
+from typing import Tuple, Awaitable
 
 import pytest
 from reactivex import operators
 
 from reactivestreams.publisher import Publisher
-from rsocket.helpers import create_future, DefaultPublisherSubscription
+from rsocket.helpers import DefaultPublisherSubscription, create_response
 from rsocket.payload import Payload
 from rsocket.reactivex.reactivex_client import ReactiveXClient
 from rsocket.request_handler import BaseRequestHandler
@@ -62,11 +61,11 @@ async def test_rx_support_request_response_cancel_on_timeout(pipe: Tuple[RSocket
 
     class Handler(BaseRequestHandler):
 
-        async def request_response(self, payload: Payload) -> Future:
+        async def request_response(self, payload: Payload) -> Awaitable[Payload]:
             nonlocal response_sent
             await asyncio.sleep(3)
             response_sent = True
-            return create_future(Payload(b'response'))
+            return create_response(b'response')
 
     server.set_handler_using_factory(Handler)
 

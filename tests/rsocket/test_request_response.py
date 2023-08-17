@@ -5,7 +5,7 @@ from typing import Awaitable
 import pytest
 
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
-from rsocket.helpers import create_future
+from rsocket.helpers import create_future, create_response
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from tests.rsocket.helpers import future_from_payload, get_components
@@ -99,8 +99,8 @@ async def test_request_response_bidirectional(pipe):
 
     class ClientHandler(BaseRequestHandler):
         async def request_response(self, payload: Payload):
-            return create_future(Payload(b'(client ' + payload.data + b')',
-                                         b'(client ' + payload.metadata + b')'))
+            return create_response(b'(client ' + payload.data + b')',
+                                   b'(client ' + payload.metadata + b')')
 
     server, client = get_components(pipe)
     server.set_handler_using_factory(ServerHandler)
@@ -133,7 +133,7 @@ async def test_request_response_fragmented(lazy_pipe, data_size_multiplier):
 async def test_request_response_fragmented_empty_payload(lazy_pipe):
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
-            return create_future(Payload())
+            return create_response()
 
     async with lazy_pipe(
             server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 64},
