@@ -154,6 +154,7 @@ class ChatClient:
         ).pipe(operators.map(lambda _: utf8_decode(_.data)),
                operators.to_list())
 
+
 async def main():
     connection1 = await asyncio.open_connection('localhost', 6565)
 

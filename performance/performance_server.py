@@ -39,7 +39,7 @@ async def single_request_response(payload, composite_metadata):
 
 
 @router.response('large')
-async def single_request_response(payload, composite_metadata):
+async def single_large_request_response(payload, composite_metadata):
     logging.info('Got single request')
     return create_future(Payload(large_data))
 
