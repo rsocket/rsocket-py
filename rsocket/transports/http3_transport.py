@@ -168,7 +168,7 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
                 try:
                     await self._websocket.send_bytes(data)
                 except LocalProtocolError as exception:
-                    if (not (str(exception).endswith('ConnectionState.REMOTE_CLOSING')
+                    if (not (str(exception).endswith('ConnectionState.REMOTE_CLOSING.')
                              and isinstance(frame, KeepAliveFrame))):
                         raise RSocketTransportError(str(frame)) from exception
                 await asyncio.sleep(0)

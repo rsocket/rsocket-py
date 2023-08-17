@@ -100,6 +100,7 @@ def new_statistics_data(statistics_request: ServerStatisticsRequest):
 
     return ServerStatistics(**statistics_data)
 
+
 class ChatUserSession:
 
     def __init__(self):

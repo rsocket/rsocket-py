@@ -17,7 +17,7 @@ from rsocket.transports.tcp import TransportTCP
 from tests.rsocket.helpers import to_json_bytes, create_large_random_data
 from tests.tools.helpers import measure_time
 
-data_size = 1920 # * 1080 * 3
+data_size = 1920  # * 1080 * 3
 large_data = create_large_random_data(data_size)
 
 
@@ -123,7 +123,7 @@ async def run_client():
     async with PerformanceClient(6565) as client:
         for i in range(10000):
             result = await measure_time(client.large_request())
-            # print(result.delta)
+            print(result.delta)
 
 
 if __name__ == '__main__':
