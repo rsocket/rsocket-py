@@ -287,7 +287,7 @@ class Frame(Header, metaclass=ABCMeta):
         return length
 
     def __str__(self):
-        return str(f'({FrameType(self.frame_type).name},{self.data},{self.metadata},{self.flags_complete})')
+        return str(f'({FrameType(self.frame_type).name})')
 
 
 class FrameFragmentMixin(metaclass=abc.ABCMeta):
