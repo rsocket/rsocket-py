@@ -50,6 +50,8 @@ async def test_metadata_push_await(pipe):
 
     await client.metadata_push(b'cat')
 
+    await handler.received.wait()
+
 
 async def test_metadata_push_awaitable_client(pipe):
     handler: Optional[MetadataPushHandler] = None

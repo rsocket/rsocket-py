@@ -1,10 +1,22 @@
 Changelog
 ---------
 
+v0.4.12
+=======
+- Fixed fragmentation for fire and forget
+- Fixed incorrect limit on tag (and route) length from 127 to 255 (GooDer)
+
+v0.4.11
+=======
+- Breaking change: RequestRouter argument 'payload_mapper' was replaced with 'payload_deserializer' and 'payload_serializer'
+- Added CloutEvent serialize/deserialize helpers for use in RequestRouter
+
 v0.4.10
-======
+=======
 - Code cleanup
 - Breaking change: Removed deprecated rsocket.routing.helpers module
+- Added CloudEvents client/server usage example (compatible with java rsocket example from cloudevents/sdk-java)
+- Switched to pyproject.toml
 
 v0.4.9
 ======

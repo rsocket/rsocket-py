@@ -15,15 +15,16 @@ pip install rsocket
 
 You may also install using some **extras**:
 
-| Extra     | Functionality                       |
-|-----------|-------------------------------------|
-| rx        | ReactiveX (v3) integration          |
-| reactivex | ReactiveX (v4) integration          |
-| aiohttp   | Websocket transport (server/client) |
-| quart     | Websocket transport (server only)   |
-| quic      | QUIC transport                      |
-| cli       | Command line                        |
-| optimized | Frame parse/serialize optimizations |
+| Extra       | Functionality                       |
+|-------------|-------------------------------------|
+| rx          | ReactiveX (v3) integration          |
+| reactivex   | ReactiveX (v4) integration          |
+| aiohttp     | Websocket transport (server/client) |
+| quart       | Websocket transport (server only)   |
+| quic        | QUIC transport                      |
+| cli         | Command line                        |
+| optimized   | Frame parse/serialize optimizations |
+| cloudevents | CloudEvents integration             |
 
 ```shell
 pip install rsocket[reactivex]

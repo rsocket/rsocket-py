@@ -115,7 +115,7 @@ class ChatUserSession:
             del chat_data.user_session_by_id[self._session.session_id]
 
     def router_factory(self):
-        router = RequestRouter(payload_mapper=decode_payload)
+        router = RequestRouter(payload_deserializer=decode_payload)
 
         @router.response('login')
         async def login(username: str) -> Observable:
@@ -170,8 +170,8 @@ class ChatUserSession:
                 return reactivex.empty()
 
             return reactivex.from_iterable(Payload(ensure_bytes(find_username_by_session(session_id))) for
-                         session_id in
-                         chat_data.channel_users[channel_name])
+                                           session_id in
+                                           chat_data.channel_users[channel_name])
 
         @router.fire_and_forget('statistics')
         async def receive_statistics(statistics: ClientStatistics):

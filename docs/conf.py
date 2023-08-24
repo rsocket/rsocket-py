@@ -24,7 +24,7 @@ copyright = '2022, jellofishi@pm.me'
 author = 'jellofishi@pm.me'
 
 # The full version, including alpha/beta/rc tags
-release = '0.4.10'
+release = '0.4.12'
 
 # -- General configuration ---------------------------------------------------
 
