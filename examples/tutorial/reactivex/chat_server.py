@@ -170,8 +170,8 @@ class ChatUserSession:
                 return reactivex.empty()
 
             return reactivex.from_iterable(Payload(ensure_bytes(find_username_by_session(session_id))) for
-                         session_id in
-                         chat_data.channel_users[channel_name])
+                                           session_id in
+                                           chat_data.channel_users[channel_name])
 
         @router.fire_and_forget('statistics')
         async def receive_statistics(statistics: ClientStatistics):

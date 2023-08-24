@@ -13,8 +13,11 @@ def sample_sync_response_stream(response_count: int = 3,
         try:
             current_response = 0
 
+            def range_counter():
+                return range(response_count)
+
             if not is_infinite_stream:
-                counter = lambda: range(response_count)
+                counter = range_counter
             else:
                 counter = itertools.count
 
