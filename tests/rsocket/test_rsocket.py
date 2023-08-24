@@ -7,7 +7,7 @@ import pytest
 
 from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError
-from rsocket.helpers import create_future
+from rsocket.helpers import create_response
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket import RSocket
@@ -25,7 +25,7 @@ async def test_rsocket_max_server_keepalive_reached_and_request_not_canceled_by_
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
             await asyncio.sleep(4)
-            return create_future(Payload(b'response'))
+            return create_response(b'response')
 
     async with lazy_pipe_tcp(
             client_arguments={
@@ -42,7 +42,7 @@ async def test_rsocket_max_server_keepalive_reached_and_request_canceled_explici
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
             await asyncio.sleep(4)
-            return create_future(Payload(b'response'))
+            return create_response(b'response')
 
     class ClientHandler(BaseRequestHandler):
 

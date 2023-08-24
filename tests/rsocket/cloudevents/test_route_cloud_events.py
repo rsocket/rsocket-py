@@ -3,31 +3,27 @@ import json
 from cloudevents.conversion import to_json, from_json
 from cloudevents.pydantic import CloudEvent
 
-from rsocket.extensions.helpers import route, composite
+from rsocket.cloudevents.serialize import cloud_event_deserialize, cloud_event_serialize
+from rsocket.extensions.helpers import composite, route
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.helpers import create_response
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
 
 
-async def test_routed_request_cloud_event(lazy_pipe):
-    router = RequestRouter()
+async def test_routed_cloudevents(lazy_pipe):
+    router = RequestRouter(cloud_event_deserialize,
+                           cloud_event_serialize)
 
     def handler_factory():
         return RoutingRequestHandler(router)
 
-    @router.response('event')
-    async def single_request_response(payload):
-        received_event = from_json(CloudEvent, payload.data)
-        received_data = json.loads(received_event.data)
-
-        event = CloudEvent.create(attributes={
+    @router.response('cloud_event')
+    async def response_request(value: CloudEvent) -> CloudEvent:
+        return CloudEvent.create(attributes={
             'type': 'io.spring.event.Foo',
             'source': 'https://spring.io/foos'
-        }, data=json.dumps(received_data))
-
-        return create_response(to_json(event))
+        }, data=json.dumps(json.loads(value.data)))
 
     async with lazy_pipe(
             client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
@@ -37,10 +33,9 @@ async def test_routed_request_cloud_event(lazy_pipe):
             'source': 'https://spring.io/foos'
         }, data=json.dumps({'value': 'Dave'}))
 
-        data = to_json(event)
-        response = await client.request_response(Payload(data=data, metadata=composite(route('event'))))
+        response = await client.request_response(Payload(data=to_json(event), metadata=composite(route('cloud_event'))))
 
-        event = from_json(CloudEvent, response.data)
-        response_data = json.loads(event.data)
+        response_event = from_json(CloudEvent, response.data)
+        response_data = json.loads(response_event.data)
 
         assert response_data['value'] == 'Dave'

@@ -1,10 +1,17 @@
 Changelog
 ---------
 
+- GraphQL basic support
+
+v0.4.12
+=======
+- Fixed fragmentation for fire and forget
+- Fixed incorrect limit on tag (and route) length from 127 to 255 (GooDer)
+
 v0.4.11
 =======
-
-- GraphQL basic support
+- Breaking change: RequestRouter argument 'payload_mapper' was replaced with 'payload_deserializer' and 'payload_serializer'
+- Added CloutEvent serialize/deserialize helpers for use in RequestRouter
 
 v0.4.10
 =======

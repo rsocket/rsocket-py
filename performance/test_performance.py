@@ -53,6 +53,7 @@ async def run_against_server(unused_tcp_port: int) -> PerformanceClient:
     server_task = asyncio.create_task(run_server(unused_tcp_port, on_ready=on_ready))
 
     try:
+        await asyncio.sleep(1)  # wait for server
         async with run_with_client(unused_tcp_port) as client:
             await server_ready.wait()
             yield client

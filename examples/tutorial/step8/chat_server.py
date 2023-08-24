@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from asyncio import Queue, Task
+from asyncio import Queue
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable, Tuple
@@ -110,7 +110,7 @@ class ChatUserSession:
         self._requested_statistics = ServerStatisticsRequest()
 
     def router_factory(self):
-        router = RequestRouter(payload_mapper=decode_payload)
+        router = RequestRouter(payload_deserializer=decode_payload)
 
         @router.response('login')
         async def login(username: str) -> Awaitable[Payload]:

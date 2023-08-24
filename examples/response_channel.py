@@ -1,3 +1,4 @@
+import itertools
 import logging
 from typing import AsyncGenerator, Tuple, Optional
 
@@ -7,23 +8,39 @@ from rsocket.payload import Payload
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 
 
-def response_stream_1(response_count: int = 3, local_subscriber: Optional[Subscriber] = None):
+def sample_async_response_stream(response_count: int = 3,
+                                 local_subscriber: Optional[Subscriber] = None,
+                                 is_infinite_stream: bool = False):
     async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
-        current_response = 0
+        try:
+            current_response = 0
 
-        for i in range(response_count):
-            is_complete = (current_response + 1) == response_count
+            def range_counter():
+                return range(response_count)
 
-            message = 'Item on channel: %s' % current_response
-            yield Payload(message.encode('utf-8')), is_complete
+            if not is_infinite_stream:
+                counter = range_counter
+            else:
+                counter = itertools.count
 
-            if local_subscriber is not None:
-                local_subscriber.subscription.request(2)
+            for i in counter():
+                if is_infinite_stream:
+                    is_complete = False
+                else:
+                    is_complete = (current_response + 1) == response_count
 
-            if is_complete:
-                break
+                message = 'Item on channel: %s' % current_response
+                yield Payload(message.encode('utf-8')), is_complete
 
-            current_response += 1
+                if local_subscriber is not None:
+                    local_subscriber.subscription.request(2)
+
+                if is_complete:
+                    break
+
+                current_response += 1
+        finally:
+            logging.info('Closing async stream generator')
 
     return StreamFromAsyncGenerator(generator)
 

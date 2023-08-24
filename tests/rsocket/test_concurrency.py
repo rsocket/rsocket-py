@@ -6,7 +6,7 @@ import pytest
 from rsocket.async_helpers import async_range
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.frame_helpers import ensure_bytes
-from rsocket.helpers import utf8_decode, create_future
+from rsocket.helpers import utf8_decode, create_response
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
@@ -61,7 +61,7 @@ async def test_concurrent_fragmented_responses(pipe_factory_by_id, unused_tcp_po
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
             data = 'a' * 100 * int(utf8_decode(request.data))
-            return create_future(Payload(ensure_bytes(data)))
+            return create_response(ensure_bytes(data))
 
     async with pipe_factory_by_id(transport_id)(unused_tcp_port,
                                                 server_arguments={'handler_factory': Handler,
