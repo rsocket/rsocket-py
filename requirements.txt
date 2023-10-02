@@ -19,4 +19,4 @@ reactivex==4.0.4
 starlette==0.31.1
 cbitstruct==1.0.9
 cloudevents==1.9.0
-pydantic==1.10.12
+pydantic==1.10.13
