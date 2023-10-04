@@ -13,7 +13,7 @@ pytest-profiling==1.7.0
 pytest-rerunfailures==12.0
 pytest-timeout==2.1.0
 pytest-xdist==3.3.1
-pytest==7.4.0
+pytest==7.4.2
 quart==0.19.2
 reactivex==4.0.4
 starlette==0.31.1
