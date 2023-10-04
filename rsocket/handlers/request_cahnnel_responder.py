@@ -18,10 +18,6 @@ class RequestChannelResponder(RequestChannelCommon):
             else:
                 self.subscriber.subscription.request(frame.initial_request_n)
 
-            if self.remote_subscriber is not None:
-                self.remote_subscriber.on_next(payload_from_frame(frame),
-                                               is_complete=frame.flags_complete)
-
             if frame.flags_complete:
                 self._complete_remote_subscriber()
 
