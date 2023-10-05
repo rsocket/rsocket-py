@@ -44,6 +44,7 @@ async def test_request_channel_immediately_finished_without_payloads(pipe: Tuple
         def __init__(self):
             super().__init__()
             self.received_messages = []
+            self.channel_request = None
 
         def on_next(self, value, is_complete=False):
             self.received_messages.append(value)
@@ -59,6 +60,7 @@ async def test_request_channel_immediately_finished_without_payloads(pipe: Tuple
             self._subscriber.on_complete()
 
         async def request_channel(self, payload: Payload) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
+            self.channel_request = payload
             return self, self
 
     handler: Optional[Handler] = None
@@ -75,9 +77,10 @@ async def test_request_channel_immediately_finished_without_payloads(pipe: Tuple
 
     server.set_handler_using_factory(handler_factory)
 
-    received_messages = await AwaitableRSocket(client).request_channel(Payload(), RequesterPublisher())
+    received_messages = await AwaitableRSocket(client).request_channel(Payload(b'channel request'), RequesterPublisher())
 
     await response_stream_finished.wait()
 
     assert len(received_messages) == 0
     assert len(handler.received_messages) == 0
+    assert handler.channel_request.data == b'channel request'
