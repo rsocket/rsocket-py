@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+from pathlib import Path
 
 from gql import gql, Client
 
@@ -16,16 +17,11 @@ async def main(server_port: int):
 
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
-        graphql = Client(
-            schema="""
-            type Query {
-    greeting: Greeting
-}
+        with (Path(__file__).parent / 'rsocket.graphqls').open() as fd:
+            schema = fd.read()
 
-type Greeting {
-    message: String
-}
-            """,
+        graphql = Client(
+            schema=schema,
             transport=RSocketTransport(client),
         )
 

@@ -1,76 +1,101 @@
+import asyncio
 import json
 import logging
 import sys
+from pathlib import Path
 from typing import AsyncGenerator, Tuple
 
-from graphql import parse, subscribe
-from graphql_server import get_graphql_params
-from quart import Quart
+from graphql import build_schema, subscribe, parse
 
-from examples.graphql.schema import AsyncSchema
 from rsocket.frame_helpers import str_to_bytes
-from rsocket.graphql.helpers import execute_query_in_payload
+from rsocket.graphql.helpers import execute_query_in_payload, get_graphql_params
 from rsocket.helpers import create_future
 from rsocket.payload import Payload
 from rsocket.routing.request_router import RequestRouter
 from rsocket.routing.routing_request_handler import RoutingRequestHandler
+from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
-from rsocket.transports.quart_websocket import websocket_handler
-
-app = Quart(__name__)
-
-router = RequestRouter()
+from rsocket.transports.tcp import TransportTCP
 
 
-@router.response('graphql')
-async def graphql_query(payload: Payload):
-    execution_result = await execute_query_in_payload(payload, AsyncSchema)
-
-    response_data = str_to_bytes(json.dumps({
-        'data': execution_result.data
-    }))
-
-    return create_future(Payload(response_data))
+def greeting(*args):
+    return {
+        'message': "Hello world"
+    }
 
 
-@router.stream('graphql')
-async def graphql_subscription(payload: Payload):
-    async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
-        data = json.loads(payload.data.decode('utf-8'))
-        params = get_graphql_params(data, {})
-        schema = AsyncSchema
-        document = parse(params.query)
+def greetings(*args):
+    async def results():
+        for i in range(10):
+            yield {'greetings': {'message': f"Hello world {i}"}}
+            await asyncio.sleep(1)
 
-        async for execution_result in await subscribe(
-                schema,
-                document,
-                variable_values=params.variables,
-                operation_name=params.operation_name
-        ):
-            item = execution_result.data
+    return results()
+
+
+class GraphqlRequestHandler:
+
+    def __init__(self):
+        with (Path(__file__).parent / 'rsocket.graphqls').open() as fd:
+            schema = build_schema(fd.read())
+
+        schema.query_type.fields['greeting'].resolve = greeting
+        schema.subscription_type.fields['greetings'].subscribe = greetings
+
+        router = RequestRouter()
+
+        @router.response('graphql')
+        async def graphql_query(payload: Payload):
+            execution_result = await execute_query_in_payload(payload, schema)
+
             response_data = str_to_bytes(json.dumps({
-                'data': item[0]
+                'data': execution_result.data
             }))
-            yield Payload(response_data), item[1]
 
-    return StreamFromAsyncGenerator(generator)
+            return create_future(Payload(response_data))
 
+        @router.stream('graphql')
+        async def graphql_subscription(payload: Payload):
+            async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
+                data = json.loads(payload.data.decode('utf-8'))
+                params = get_graphql_params(data, {})
+                document = parse(params.query)
 
-@router.response('ping')
-async def ping():
-    return create_future(Payload(b'pong'))
+                async for execution_result in await subscribe(
+                        schema,
+                        document,
+                        operation_name=params.operation_name
+                ):
+                    item = execution_result.data
+                    response_data = str_to_bytes(json.dumps({
+                        'data': item
+                    }))
+                    yield Payload(response_data), False
+
+                yield Payload(), True
+
+            return StreamFromAsyncGenerator(generator)
+
+        self.router = router
 
 
 def handler_factory():
-    return RoutingRequestHandler(router)
+    return RoutingRequestHandler(GraphqlRequestHandler().router)
 
 
-@app.websocket("/")
-async def ws():
-    await websocket_handler(handler_factory=handler_factory)
+async def run_server(server_port):
+    logging.info('Starting server at localhost:%s', server_port)
+
+    def session(*connection):
+        RSocketServer(TransportTCP(*connection), handler_factory=handler_factory)
+
+    server = await asyncio.start_server(session, 'localhost', server_port)
+
+    async with server:
+        await server.serve_forever()
 
 
-if __name__ == "__main__":
-    port = sys.argv[1] if len(sys.argv) > 1 else 7000
+if __name__ == '__main__':
+    port = sys.argv[1] if len(sys.argv) > 1 else 9191
     logging.basicConfig(level=logging.DEBUG)
-    app.run(port=port)
+    asyncio.run(run_server(port))

@@ -21,3 +21,4 @@ cbitstruct==1.0.9
 cloudevents==1.10.0
 pydantic==1.10.13
 Werkzeug==3.0.0
+graphql-core==3.2.3
