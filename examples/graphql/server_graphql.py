@@ -11,7 +11,7 @@ from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
 
 
-def greeting(*args):
+async def greeting(*args):
     return {
         'message': "Hello world"
     }

@@ -15,7 +15,7 @@ async def execute_query_in_payload(payload: Payload,
     params = get_graphql_params(data, {})
     document = parse(params.query)
 
-    execution_result = execute(
+    execution_result = await execute(
         schema,
         document,
         variable_values=params.variables,
