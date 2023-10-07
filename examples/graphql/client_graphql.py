@@ -21,6 +21,15 @@ async def main(server_port: int):
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
         graphql = Client(
+            schema="""
+            type Query {
+    greeting: Greeting
+}
+
+type Greeting {
+    message: String
+}
+            """,
             transport=RSocketTransport(client),
         )
 
@@ -68,10 +77,10 @@ async def echo(graphql: Client):
 
 async def greeting(graphql: Client):
     response = await graphql.execute_async(
-        gql("""query greeting {message}"""),
+        gql("""query { greeting { message } }"""),
         get_execution_result=True)
 
-    assert response.data['message'] == 'hello world'
+    assert response.data['greeting']['message'] == 'Hello world'
 
     print(response.data)
 
