@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+v0.4.13
+=======
+- GraphQL basic support (See examples/graphql)
+
 v0.4.12
 =======
 - Fixed fragmentation for fire and forget
