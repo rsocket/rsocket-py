@@ -9,7 +9,6 @@ import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @SpringBootApplication
@@ -26,15 +25,8 @@ public class DemoApplication {
 class GreetingsController {
     @SubscriptionMapping
     Flux<Greeting> greetings() {
-        return Flux.fromStream(Stream.generate(
-                        new Supplier<Greeting>() {
-                            @Override
-                            public Greeting get() {
-                                return new Greeting("Hello world @" + Instant.now() + "!");
-                            }
-                        }
-                )).delayElements(Duration.ofSeconds(1))
-                .take(10);
+        return Flux.fromStream(Stream.generate(() -> new Greeting("Hello world @" + Instant.now() + "!")))
+                .delayElements(Duration.ofSeconds(1)).take(10);
     }
 
     @QueryMapping
