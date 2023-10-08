@@ -26,8 +26,10 @@ async def main(server_port: int):
         )
 
         await greeting(graphql)
-
         await subscription(graphql)
+
+        await set_message(graphql, "updated message")
+        await verify_message(graphql, "updated message")
 
 
 async def subscription(graphql: Client):
@@ -49,6 +51,25 @@ async def greeting(graphql: Client):
     assert response.data['greeting']['message'] == 'Hello world'
 
     print(response.data)
+
+
+async def verify_message(graphql: Client, expected_message: str):
+    response = await graphql.execute_async(
+        gql("""query { getMessage }""")
+    )
+
+    assert response['getMessage'] == expected_message
+
+    print(response)
+
+
+async def set_message(graphql: Client, message: str):
+    response = await graphql.execute_async(
+        gql("""mutation SetMessage($message:String) { setMessage (message: $message ) {message}}"""),
+        variable_values={"message": message}
+    )
+
+    print(response)
 
 
 if __name__ == '__main__':

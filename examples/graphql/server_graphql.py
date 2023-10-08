@@ -10,10 +10,25 @@ from rsocket.routing.routing_request_handler import RoutingRequestHandler
 from rsocket.rsocket_server import RSocketServer
 from rsocket.transports.tcp import TransportTCP
 
+stored_message = ""
+
 
 async def greeting(*args):
     return {
         'message': "Hello world"
+    }
+
+
+async def get_message(*args):
+    global stored_message
+    return stored_message
+
+
+async def set_message(root, _info, message):
+    global stored_message
+    stored_message = message
+    return {
+        "message": message
     }
 
 
@@ -30,6 +45,8 @@ with (Path(__file__).parent / 'rsocket.graphqls').open() as fd:
     schema = build_schema(fd.read())
 
 schema.query_type.fields['greeting'].resolve = greeting
+schema.query_type.fields['getMessage'].resolve = get_message
+schema.mutation_type.fields['setMessage'].resolve = set_message
 schema.subscription_type.fields['greetings'].subscribe = greetings
 
 

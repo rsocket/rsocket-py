@@ -76,7 +76,7 @@ class RSocketTransport(AsyncTransport):
             payload["operationName"] = operation_name
 
         if variable_values:
-            payload["variables"] = variable_values
+            payload["variables"] = json.dumps(variable_values)
 
         if log.isEnabledFor(logging.INFO):
             log.info(">>> %s", self._json_serialize(payload))

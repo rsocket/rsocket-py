@@ -1,5 +1,6 @@
 type Query {
     greeting: Greeting
+    getMessage: String
 }
 
 type Subscription {
@@ -8,4 +9,8 @@ type Subscription {
 
 type Greeting {
     message: String
+}
+
+type Mutation {
+    setMessage(message: String): Greeting
 }
