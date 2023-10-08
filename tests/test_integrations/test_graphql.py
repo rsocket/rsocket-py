@@ -51,3 +51,28 @@ async def test_graphql_subscription(lazy_pipe, graphql_schema):
         assert len(responses) == 10
         assert responses[0] == {'greetings': {'message': 'Hello world 0'}}
         assert responses[9] == {'greetings': {'message': 'Hello world 9'}}
+
+
+async def test_graphql_get_schema(lazy_pipe, graphql_schema):
+    expected_schema = {'__schema': {
+        'types': [{'name': 'Query'}, {'name': 'String'}, {'name': 'Subscription'}, {'name': 'Greeting'},
+                  {'name': 'Mutation'}, {'name': 'Boolean'}, {'name': '__Schema'}, {'name': '__Type'},
+                  {'name': '__TypeKind'}, {'name': '__Field'}, {'name': '__InputValue'}, {'name': '__EnumValue'},
+                  {'name': '__Directive'}, {'name': '__DirectiveLocation'}]}}
+
+    def handler_factory():
+        return RoutingRequestHandler(graphql_handler(graphql_schema, 'graphql'))
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        graphql = Client(
+            schema=graphql_schema,
+            transport=RSocketTransport(client),
+        )
+
+        response = await graphql.execute_async(
+            gql("""{__schema { types { name  }  } }"""),
+            get_execution_result=True)
+
+        assert response.data == expected_schema
