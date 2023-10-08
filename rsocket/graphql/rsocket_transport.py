@@ -65,7 +65,10 @@ class RSocketTransport(AsyncTransport):
             extensions=result.get("extensions"),
         )
 
-    def _create_rsocket_payload(self, document, variable_values, operation_name):
+    def _create_rsocket_payload(self,
+                                document: DocumentNode,
+                                variable_values: Optional[Dict[str, Any]],
+                                operation_name: str) -> Payload:
         query_str = print_ast(document)
 
         payload: Dict[str, Any] = {
