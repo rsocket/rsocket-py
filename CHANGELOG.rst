@@ -3,7 +3,7 @@ Changelog
 
 v0.4.13
 =======
-- GraphQL use async methods for query resolvers
+- GraphQL: use async methods for query resolvers. Fixed using mutation methods and passing variables.
 
 v0.4.13
 =======
