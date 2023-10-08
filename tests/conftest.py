@@ -14,6 +14,7 @@ from tests.tools.helpers_aiohttp import pipe_factory_aiohttp_websocket
 pytest_plugins = [
     "tests.tools.fixtures_shared",
     "tests.tools.fixtures_aiohttp",
+    "tests.tools.fixtures_graphql",
 ]
 
 

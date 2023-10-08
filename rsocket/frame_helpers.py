@@ -33,8 +33,8 @@ def unpack_32bit(buffer: bytes, offset: int) -> int:
     return struct.unpack_from('>I', buffer, offset)[0]
 
 
-def str_to_bytes(route_path: str) -> bytes:
-    return route_path.encode('utf-8')
+def str_to_bytes(string: str) -> bytes:
+    return string.encode('utf-8')
 
 
 def ensure_bytes(item: Optional[Union[bytes, str]]) -> Optional[bytes]:

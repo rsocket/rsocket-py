@@ -32,22 +32,26 @@ def log_default(direction: str, frame: Any, log_identifier: str):
 
 def log_request_response(direction: str, frame: Any, log_identifier: str):
     logger().debug(
-        '%s: %s frame (type=%s, stream_id=%d)',
+        '%s: %s frame (type=%s, stream_id=%d, data_length=%d, metadata_length=%d)',
         log_identifier,
         direction,
         frame.frame_type.name,
-        frame.stream_id
+        frame.stream_id,
+        safe_len(frame.data),
+        safe_len(frame.metadata)
     )
 
 
 def log_request_stream_channel(direction: str, frame: Any, log_identifier: str):
     logger().debug(
-        '%s: %s frame (type=%s, stream_id=%d, n=%d)',
+        '%s: %s frame (type=%s, stream_id=%d, n=%d, data_length=%d, metadata_length=%d)',
         log_identifier,
         direction,
         frame.frame_type.name,
         frame.stream_id,
-        frame.initial_request_n
+        frame.initial_request_n,
+        safe_len(frame.data),
+        safe_len(frame.metadata)
     )
 
 
