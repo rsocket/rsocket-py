@@ -72,6 +72,7 @@ the [Spring RSocket demo](https://github.com/benwilcock/spring-rsocket-demo).
 |                             | ServerWithFragmentation | client_with_routing.py             |                 |
 | server_quart_websocket.py   |                         | client_websocket.py                |                 |
 | server_aiohttp_websocket.py |                         | client_websocket.py                |                 |
+| server_graphql.py           | ServerWithGraphQL       | client_graphql.py                  |                 |
 
 # Build Status
 

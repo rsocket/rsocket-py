@@ -1,4 +1,4 @@
-package com.example.demo;
+package io.rsocket.pythontest;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -12,10 +12,10 @@ import java.time.Instant;
 import java.util.stream.Stream;
 
 @SpringBootApplication
-public class DemoApplication {
+public class ServerWithGraphQL {
 
     public static void main(String[] args) {
-        SpringApplication.run(DemoApplication.class, args);
+        SpringApplication.run(ServerWithGraphQL.class, args);
     }
 
 }
