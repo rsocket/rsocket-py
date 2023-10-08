@@ -39,18 +39,6 @@ class RSocketTransport(AsyncTransport):
             extra_args: Dict[str, Any] = None,
             upload_files: bool = False,
     ) -> ExecutionResult:
-        """
-        Don't call this coroutine directly on the transport, instead use
-        :code:`execute` on a client or a session.
-
-        :param document: the parsed GraphQL request
-        :param variable_values: An optional Dict of variable values
-        :param operation_name: An optional Operation name for the request
-        :param extra_args: additional arguments to send to the aiohttp post method
-        :param upload_files: Set to True if you want to put files in the variable values
-        :returns: an ExecutionResult object.
-        """
-
         rsocket_payload = self._create_rsocket_payload(document, variable_values, operation_name)
         response = await self._rsocket_client.request_response(rsocket_payload)
 
@@ -79,12 +67,14 @@ class RSocketTransport(AsyncTransport):
             payload["operationName"] = operation_name
 
         if variable_values:
-            payload["variables"] = json.dumps(variable_values)
+            payload["variables"] = self._json_serialize(variable_values)
+
+        payload_serialized = self._json_serialize(payload)
 
         if log.isEnabledFor(logging.INFO):
-            log.info(">>> %s", self._json_serialize(payload))
+            log.info(">>> %s", payload_serialized)
 
-        rsocket_payload = Payload(str_to_bytes(self._json_serialize(payload)), composite(route('graphql')))
+        rsocket_payload = Payload(str_to_bytes(payload_serialized), composite(route('graphql')))
 
         return rsocket_payload
 
