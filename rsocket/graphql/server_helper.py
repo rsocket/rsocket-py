@@ -5,6 +5,7 @@ from typing import Dict, Optional, Union
 
 from graphql import execute, parse, GraphQLSchema, ExecutionResult
 from graphql import subscribe
+from graphql.pyutils import is_awaitable
 
 from rsocket.frame_helpers import str_to_bytes
 from rsocket.helpers import create_future
@@ -25,12 +26,11 @@ def graphql_handler(schema: GraphQLSchema, route: str,
     async def graphql_query(payload: Payload):
         document, params = parse_payload(payload, json_deserialize)
 
-        execution_result = await execute(
-            schema,
-            document,
-            variable_values=params.variables,
-            operation_name=params.operation_name
-        )
+        execution_result = execute(schema, document, variable_values=params.variables,
+                                   operation_name=params.operation_name)
+
+        if is_awaitable(execution_result):
+            execution_result = await execution_result
 
         rsocket_payload = graphql_to_rsocket_payload(execution_result, json_serialize)
 
@@ -41,11 +41,12 @@ def graphql_handler(schema: GraphQLSchema, route: str,
         async def generator() -> AsyncGenerator[Tuple[Payload, bool], None]:
             document, params = parse_payload(payload, json_deserialize)
 
-            async for execution_result in await subscribe(
-                    schema,
-                    document,
-                    operation_name=params.operation_name
-            ):
+            subscription = subscribe(schema, document, operation_name=params.operation_name)
+
+            if is_awaitable(subscription):
+                subscription = await subscription
+
+            async for execution_result in subscription:
                 rsocket_payload = graphql_to_rsocket_payload(execution_result, json_serialize)
                 yield rsocket_payload, False
 

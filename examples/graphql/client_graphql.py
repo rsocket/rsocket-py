@@ -25,11 +25,26 @@ async def main(server_port: int):
             transport=RSocketTransport(client),
         )
 
+        await query_schema(graphql)
+
         await greeting(graphql)
         await subscription(graphql)
 
         await set_message(graphql, "updated message")
         await verify_message(graphql, "updated message")
+
+
+async def query_schema(graphql: Client):
+    response = await graphql.execute_async(
+        gql("""{
+        __schema {
+        types {
+        name
+    }
+    }
+    }"""),
+        get_execution_result=True)
+    print(response.data)
 
 
 async def subscription(graphql: Client):
