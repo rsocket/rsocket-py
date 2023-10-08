@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
+from typing import Dict
 
 from graphql import build_schema
 
@@ -13,18 +14,18 @@ from rsocket.transports.tcp import TransportTCP
 stored_message = ""
 
 
-async def greeting(*args):
+async def greeting(*args) -> Dict:
     return {
         'message': "Hello world"
     }
 
 
-async def get_message(*args):
+async def get_message(*args) -> str:
     global stored_message
     return stored_message
 
 
-async def set_message(root, _info, message):
+async def set_message(root, _info, message) -> Dict:
     global stored_message
     stored_message = message
     return {
