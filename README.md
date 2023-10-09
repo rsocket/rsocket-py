@@ -2,9 +2,6 @@
 
 Python implementation of [RSocket](http://rsocket.io)
 
-| NOTE: The python api is not final and may be broken between minor versions<br/>See CHANGELOG for <b>Breaking Changes</b> |
-|--------------------------------------------------------------------------------------------------------------------------|
-
 # Installation
 
 The latest version from [pypi](https://pypi.org/project/rsocket/) can be installed using:
