@@ -793,10 +793,6 @@ def new_frame_fragment(base_frame: FragmentableFrame, fragment: Fragment) -> Fra
     else:
         frame = PayloadFrame()
 
-    if isinstance(frame, PayloadFrame):
-        if not is_blank(frame.data) or not is_blank(frame.metadata):
-            frame.flags_next = True
-
     frame.stream_id = base_frame.stream_id
 
     frame.flags_ignore = base_frame.flags_ignore
