@@ -15,17 +15,18 @@ pip install rsocket
 
 You may also install using some **extras**:
 
-| Extra       | Functionality                       | Documentation                                                       |
-|-------------|-------------------------------------|---------------------------------------------------------------------|
-| rx          | ReactiveX (v3) integration          | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
-| reactivex   | ReactiveX (v4) integration          | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
-| aiohttp     | Websocket transport (server/client) | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/websocket) |
-| quart       | Websocket transport (server only)   |                                                                     |
-| quic        | QUIC transport                      |                                                                     |
-| cli         | Command line                        | [Tutorial](https://rsocket.io/guides/rsocket-py/cli)                |
-| optimized   | Frame parse/serialize optimizations |                                                                     |
-| cloudevents | CloudEvents integration             |                                                                     |
-| graphql     | GraphQL integration                 |                                                                     |
+| Extra       | Functionality                                                                         | Documentation                                                       |
+|-------------|---------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| rx          | ReactiveX (v3) integration                                                            | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
+| reactivex   | ReactiveX (v4) integration                                                            | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
+| aiohttp     | Websocket transport (server/client)                                                   | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/websocket) |
+| quart       | Websocket transport (server only)                                                     |                                                                     |
+| quic        | [QUIC](https://github.com/aiortc/aioquic) transport                                   |                                                                     |
+| websockets  | [Websockets](https://github.com/python-websockets/websockets) transport (server only) |                                                                     |
+| cli         | Command line                                                                          | [Tutorial](https://rsocket.io/guides/rsocket-py/cli)                |
+| optimized   | Frame parse/serialize optimizations                                                   |                                                                     |
+| cloudevents | CloudEvents integration                                                               |                                                                     |
+| graphql     | GraphQL integration                                                                   |                                                                     |
 
 ```shell
 pip install rsocket[reactivex]

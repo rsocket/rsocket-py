@@ -10,6 +10,7 @@ from tests.tools.fixtures_http3 import pipe_factory_http3
 from tests.tools.fixtures_quart import pipe_factory_quart_websocket
 from tests.tools.fixtures_tcp import pipe_factory_tcp
 from tests.tools.helpers_aiohttp import pipe_factory_aiohttp_websocket
+from tests.tools.fixtures_websockets import pipe_factory_websockets
 
 pytest_plugins = [
     "tests.tools.fixtures_shared",
@@ -43,7 +44,8 @@ tested_transports = [
     'aiohttp',
     'quart',
     'quic',
-    'http3'
+    'http3',
+    'websockets'
 ]
 
 
@@ -122,6 +124,8 @@ def get_pipe_factory_by_id(aiohttp_raw_server,
         return functools.partial(pipe_factory_quic, generate_test_certificates)
     if transport_id == 'http3':
         return functools.partial(pipe_factory_http3, generate_test_certificates)
+    if transport_id == 'websockets':
+        return pipe_factory_websockets
 
 
 @pytest.fixture

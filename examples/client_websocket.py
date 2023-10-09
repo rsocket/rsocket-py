@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 import aiohttp
@@ -23,7 +22,7 @@ async def application(with_ssl: bool, serve_port: int):
     else:
         async with websocket_client('http://localhost:%s' % serve_port) as client:
             result = await client.request_response(Payload(b'ping'))
-            print(result)
+            print(result.data)
 
 
 @click.command()
@@ -31,4 +30,8 @@ async def application(with_ssl: bool, serve_port: int):
 @click.option('--port', is_flag=False, default=6565)
 async def command(with_ssl, port: int):
     logging.basicConfig(level=logging.DEBUG)
-    asyncio.run(application(with_ssl, port))
+    await application(with_ssl, port)
+
+
+if __name__ == '__main__':
+    command()
