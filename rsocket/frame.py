@@ -136,12 +136,10 @@ try:
         return flags
 
 
-    parse_header = parse_header_cbitstruct
+    ParseHelper.parse_header = parse_header_cbitstruct
 except ImportError:
 
-    parse_header = parse_header_native
-
-ParseHelper.parse_header = parse_header
+    ParseHelper.parse_header = parse_header_native
 
 
 class Frame(Header, metaclass=ABCMeta):
