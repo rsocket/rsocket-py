@@ -101,6 +101,9 @@ class RSocketTransport(AsyncTransport):
             def on_complete(self):
                 self._received_queue.put_nowait(complete_object)
 
+            def on_error(self, exception: Exception):
+                self._received_queue.put_nowait(exception)
+
         rsocket_payload = self._create_rsocket_payload(document, variable_values, operation_name)
 
         received_queue = Queue()
@@ -110,6 +113,9 @@ class RSocketTransport(AsyncTransport):
 
         while True:
             response = await received_queue.get()
+
+            if isinstance(response, Exception):
+                raise response
 
             if response is complete_object:
                 break

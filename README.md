@@ -3,7 +3,7 @@
 Python implementation of [RSocket](http://rsocket.io)
 
 | NOTE: The python api is not final and may be broken between minor versions<br/>See CHANGELOG for <b>Breaking Changes</b> |
-|--------------------------------------------------------------------------------------------------------------------------------|
+|--------------------------------------------------------------------------------------------------------------------------|
 
 # Installation
 
@@ -15,17 +15,17 @@ pip install rsocket
 
 You may also install using some **extras**:
 
-| Extra       | Functionality                       |
-|-------------|-------------------------------------|
-| rx          | ReactiveX (v3) integration          |
-| reactivex   | ReactiveX (v4) integration          |
-| aiohttp     | Websocket transport (server/client) |
-| quart       | Websocket transport (server only)   |
-| quic        | QUIC transport                      |
-| cli         | Command line                        |
-| optimized   | Frame parse/serialize optimizations |
-| cloudevents | CloudEvents integration             |
-| graphql     | GraphQL integration                 |
+| Extra       | Functionality                       | Documentation                                                       |
+|-------------|-------------------------------------|---------------------------------------------------------------------|
+| rx          | ReactiveX (v3) integration          | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
+| reactivex   | ReactiveX (v4) integration          | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
+| aiohttp     | Websocket transport (server/client) | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/websocket) |
+| quart       | Websocket transport (server only)   |                                                                     |
+| quic        | QUIC transport                      |                                                                     |
+| cli         | Command line                        | [Tutorial](https://rsocket.io/guides/rsocket-py/cli)                |
+| optimized   | Frame parse/serialize optimizations |                                                                     |
+| cloudevents | CloudEvents integration             |                                                                     |
+| graphql     | GraphQL integration                 |                                                                     |
 
 ```shell
 pip install rsocket[reactivex]
@@ -49,27 +49,30 @@ python3 setup.py install
 
 # Examples
 
-Examples can be found in the **/examples** folder. It contains various server and client usages. The following is a table
+Examples can be found in the **/examples** folder. It contains various server and client usages. The following is a
+table
 denoting which client example is constructed to be run against which server example. Some examples
 are in java to show compatibility with a different implementation. To run the java examples first build using <code>mvn
 package</code>.
 
 The **examples/test_examples.py** can be used to execute the relevant example server/client pairs.
 
-client_springboot.py is set up to work against the [Spring RSocket demo](https://github.com/benwilcock/spring-rsocket-demo).
+client_springboot.py is set up to work against
+the [Spring RSocket demo](https://github.com/benwilcock/spring-rsocket-demo).
 
-| server (python)                    | server (java)           | client (python)                    | client(java)    |
-|------------------------------------|-------------------------|------------------------------------|-----------------|
-| server.py                          |                         | client.py                          |                 |
-| server_quic.py                     |                         | client_quic.py                     |                 |
-| server_with_lease.py               |                         |                                    | ClientWithLease |
-| server_with_routing.py             |                         | client_with_routing.py             | Client          |
-| server_with_routing.py             |                         | client_rx.py                       |                 |
-| server_with_routing.py             |                         | client_reconnect.py                |                 |
-|                                    | Server                  | run_against_example_java_server.py |                 |
-|                                    | ServerWithFragmentation | client_with_routing.py             |                 |
-| server_quart_websocket.py          |                         | client_websocket.py                |                 |
-| server_aiohttp_websocket.py        |                         | client_websocket.py                |                 |
+| server (python)             | server (java)           | client (python)                    | client(java)    |
+|-----------------------------|-------------------------|------------------------------------|-----------------|
+| server.py                   |                         | client.py                          |                 |
+| server_quic.py              |                         | client_quic.py                     |                 |
+| server_with_lease.py        |                         |                                    | ClientWithLease |
+| server_with_routing.py      |                         | client_with_routing.py             | Client          |
+| server_with_routing.py      |                         | client_rx.py                       |                 |
+| server_with_routing.py      |                         | client_reconnect.py                |                 |
+|                             | Server                  | run_against_example_java_server.py |                 |
+|                             | ServerWithFragmentation | client_with_routing.py             |                 |
+| server_quart_websocket.py   |                         | client_websocket.py                |                 |
+| server_aiohttp_websocket.py |                         | client_websocket.py                |                 |
+| server_graphql.py           | ServerWithGraphQL       | client_graphql.py                  |                 |
 
 # Build Status
 
