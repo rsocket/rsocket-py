@@ -86,8 +86,6 @@ def is_blank(value: Optional[bytes]) -> bool:
 
 class Flags:
     __slots__ = [
-        'flags_ignore',
-        'flags_metadata',
         'flags_follows_resume_respond',
         'flags_complete_lease',
         'flags_next',
@@ -96,6 +94,27 @@ class Flags:
 
 class ParseHelper:
     parse_header: Callable = None
+
+
+from rsocket.frame_helpers import is_flag_set
+
+
+def parse_header_native(frame: Header, buffer: bytes, offset: int) -> Flags:
+    frame.length = len(buffer)
+    frame.stream_id, frame.frame_type, flag_bits = struct.unpack_from('>IBB', buffer, offset)
+    flag_bits |= (frame.frame_type & 3) << 8
+    frame_type_id = frame.frame_type >> 2
+
+    frame.frame_type = FrameType.from_id(frame_type_id)
+    frame.flags_ignore = is_flag_set(flag_bits, _FLAG_IGNORE_BIT)
+    frame.flags_metadata = is_flag_set(flag_bits, _FLAG_METADATA_BIT)
+
+    flags = Flags()
+    flags.flags_follows_resume_respond = is_flag_set(flag_bits, _FLAG_FOLLOWS_BIT)
+    flags.flags_complete_lease = is_flag_set(flag_bits, _FLAG_COMPLETE_BIT)
+    flags.flags_next = is_flag_set(flag_bits, _FLAG_NEXT_BIT)
+
+    return flags
 
 
 try:
@@ -119,25 +138,6 @@ try:
 
     parse_header = parse_header_cbitstruct
 except ImportError:
-    from rsocket.frame_helpers import is_flag_set
-
-    def parse_header_native(frame: Header, buffer: bytes, offset: int) -> Flags:
-        frame.length = len(buffer)
-        frame.stream_id, frame.frame_type, flag_bits = struct.unpack_from('>IBB', buffer, offset)
-        flag_bits |= (frame.frame_type & 3) << 8
-        frame_type_id = frame.frame_type >> 2
-
-        flags = Flags()
-        frame.frame_type = FrameType.from_id(frame_type_id)
-
-        frame.flags_ignore = is_flag_set(flag_bits, _FLAG_IGNORE_BIT)
-        frame.flags_metadata = is_flag_set(flag_bits, _FLAG_METADATA_BIT)
-        flags.flags_follows_resume_respond = is_flag_set(flag_bits, _FLAG_FOLLOWS_BIT)
-        flags.flags_complete_lease = is_flag_set(flag_bits, _FLAG_COMPLETE_BIT)
-        flags.flags_next = is_flag_set(flag_bits, _FLAG_NEXT_BIT)
-
-        return flags
-
 
     parse_header = parse_header_native
 
