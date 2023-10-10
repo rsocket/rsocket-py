@@ -9,6 +9,9 @@ from rsocket.helpers import map_type_names_by_id, map_type_ids_by_name
 
 @unique
 class WellKnownMimeTypes(Enum):
+    """
+    Known mime types for data and metadata included in payloads.
+    """
     UNPARSEABLE_MIME_TYPE = WellKnownMimeType(b'UNPARSEABLE_MIME_TYPE_DO_NOT_USE', -2)
     UNKNOWN_RESERVED_MIME_TYPE = WellKnownMimeType(b'UNKNOWN_YET_RESERVED_DO_NOT_USE', -1)
 

@@ -25,6 +25,13 @@ Handler
     :members:
 
 
+Enums
+-----
+
+.. automodule:: rsocket.extensions.mimetypes
+    :members:
+
+
 Models
 ------
 
@@ -51,4 +58,28 @@ Subscription
 ~~~~~~~~~~~~
 
 .. automodule:: reactivestreams.subscription
+    :members:
+
+Transports
+----------
+
+.. automodule:: rsocket.transports.transport
+    :members:
+
+Implementations
+~~~~~~~~~~~~~~~
+
+.. automodule:: rsocket.transports.tcp
+    :members:
+
+.. automodule:: rsocket.transports.aiohttp_websocket
+    :members:
+
+.. automodule:: rsocket.transports.aioquic_transport
+    :members:
+
+.. automodule:: rsocket.transports.quart_websocket
+    :members:
+
+.. automodule:: rsocket.transports.websockets_transport
     :members:
