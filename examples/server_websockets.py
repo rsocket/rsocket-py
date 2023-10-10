@@ -23,8 +23,9 @@ class Handler(BaseRequestHandler):
 
 async def endpoint(websocket):
     transport = WebsocketsTransport()
-    RSocketServer(transport, handler_factory=Handler)
-    await transport.handler(websocket)
+
+    async with RSocketServer(transport, handler_factory=Handler):
+        await transport.handler(websocket)
 
 
 async def run_server(server_port):
