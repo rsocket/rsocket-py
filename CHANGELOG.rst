@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+v0.4.15
+=======
+- Websockets (https://github.com/python-websockets/websockets) server support
+
 v0.4.14
 =======
 - GraphQL: Use async methods for query resolvers. Fixed using mutation methods and passing variables.

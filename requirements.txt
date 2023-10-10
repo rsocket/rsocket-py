@@ -23,3 +23,4 @@ pydantic==1.10.13
 Werkzeug==3.0.0
 graphql-core==3.2.3
 gql==3.4.1
+websockets==11.0.3

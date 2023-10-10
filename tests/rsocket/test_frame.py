@@ -10,10 +10,46 @@ from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, FrameType,
                            RequestResponseFrame, RequestNFrame, ResumeFrame,
                            MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
                            serialize_with_frame_size_header, RequestStreamFrame, RequestChannelFrame, ParseError,
-                           parse_or_ignore, Frame, RequestFireAndForgetFrame, serialize_prefix_with_frame_size_header)
+                           parse_or_ignore, Frame, RequestFireAndForgetFrame, serialize_prefix_with_frame_size_header,
+                           parse_header_native, Header)
 from rsocket.frame_parser import FrameParser
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
+
+@pytest.mark.parametrize('follows, complete, is_next', (
+        (0, 1, 1),
+        (1, 1, 1),
+        (0, 0, 1),
+        (1, 0, 1)
+))
+def test_parse_header_native(follows, complete, is_next):
+
+    data = build_frame(
+        bits(24, 28, 'Frame size'),
+        bits(1, 0, 'Padding'),
+        bits(31, 6, 'Stream id'),
+        bits(6, FrameType.PAYLOAD, 'Frame type'),
+        bits(1, 0, 'Ignore'),
+        bits(1, 1, 'Metadata'),
+        bits(1, follows, 'Follows'),
+        bits(1, complete, 'Complete'),
+        bits(1, is_next, 'Next'),
+        bits(5, 0, 'Padding flags'),
+        bits(24, 8, 'Metadata length'),
+        data_bits(b'metadata'),
+        data_bits(b'actual_data'),
+    )
+
+    header = Header()
+    flags = parse_header_native(header, data, 3)
+
+    assert header.frame_type == FrameType.PAYLOAD
+    assert header.flags_ignore == 0
+    assert header.flags_metadata == 1
+
+    assert flags.flags_follows_resume_respond == follows
+    assert flags.flags_complete_lease == complete
+    assert flags.flags_next == is_next
 
 @pytest.mark.parametrize('metadata_flag, metadata, lease, frame_data', (
         (0, b'', 0, b'\x01\x02\x03'),
