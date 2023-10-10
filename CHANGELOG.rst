@@ -4,6 +4,7 @@ Changelog
 v0.4.15
 =======
 - Websockets (https://github.com/python-websockets/websockets) server support
+- Channels (django) (https://github.com/django/channels) server support
 
 v0.4.14
 =======

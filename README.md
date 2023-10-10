@@ -18,6 +18,7 @@ You may also install using some **extras**:
 | reactivex   | ReactiveX (v4) integration                                                            | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
 | aiohttp     | Websocket transport (server/client)                                                   | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/websocket) |
 | quart       | Websocket transport (server only)                                                     |                                                                     |
+| channels    | Websocket transport (server only) using channels (django)                             |                                                                     |
 | quic        | [QUIC](https://github.com/aiortc/aioquic) transport                                   |                                                                     |
 | websockets  | [Websockets](https://github.com/python-websockets/websockets) transport (server only) |                                                                     |
 | cli         | Command line                                                                          | [Tutorial](https://rsocket.io/guides/rsocket-py/cli)                |
