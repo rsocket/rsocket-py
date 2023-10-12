@@ -40,9 +40,10 @@ async def pipe_factory_websockets(unused_tcp_port, client_arguments=None, server
 
     finally:
         stop_websocket_server.set()
-        await server.close()
+        if server is not None:
+            await server.close()
 
-        assert_no_open_streams(client, server)
+            assert_no_open_streams(client, server)
 
         try:
             server_task.cancel()
