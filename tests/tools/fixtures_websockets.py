@@ -32,18 +32,20 @@ async def pipe_factory_websockets(unused_tcp_port, client_arguments=None, server
 
     server_task = asyncio.create_task(server_app())
 
-    async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
-                                **(client_arguments or {})) as client:
-        await wait_for_server.wait()
-        yield server, client
-
-    stop_websocket_server.set()
-    await server.close()
-
-    assert_no_open_streams(client, server)
-
     try:
-        server_task.cancel()
-        await server_task
-    except asyncio.CancelledError:
-        pass
+        async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
+                                    **(client_arguments or {})) as client:
+            await wait_for_server.wait()
+            yield server, client
+
+    finally:
+        stop_websocket_server.set()
+        await server.close()
+
+        assert_no_open_streams(client, server)
+
+        try:
+            server_task.cancel()
+            await server_task
+        except asyncio.CancelledError:
+            pass
