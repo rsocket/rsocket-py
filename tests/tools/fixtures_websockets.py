@@ -17,6 +17,7 @@ async def pipe_factory_websockets(unused_tcp_port, client_arguments=None, server
 
     server: Optional[RSocketBase] = None
     wait_for_server = Event()
+    stop_websocket_server = Event()
 
     async def endpoint(websocket):
         nonlocal server
@@ -27,7 +28,7 @@ async def pipe_factory_websockets(unused_tcp_port, client_arguments=None, server
 
     async def server_app():
         async with websockets.serve(endpoint, "localhost", unused_tcp_port):
-            await asyncio.Future()
+            await stop_websocket_server.wait()
 
     server_task = asyncio.create_task(server_app())
 
@@ -36,7 +37,9 @@ async def pipe_factory_websockets(unused_tcp_port, client_arguments=None, server
         await wait_for_server.wait()
         yield server, client
 
+    stop_websocket_server.set()
     await server.close()
+
     assert_no_open_streams(client, server)
 
     try:

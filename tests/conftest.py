@@ -45,7 +45,7 @@ tested_transports = [
     'quart',
     'quic',
     'http3',
-    # 'websockets'
+    'websockets'
 ]
 
 
