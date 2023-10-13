@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import Enum, unique
 from importlib.metadata import version as get_version
+from pathlib import Path
 from typing import Optional, Type, Collection, List, Callable
 
 import aiohttp
@@ -128,6 +129,30 @@ async def create_client(parsed_uri,
             yield AwaitableRSocket(client)
 
 
+@asynccontextmanager
+async def create_gql_client(parsed_uri,
+                            schema_file: Path,
+                            allow_untrusted_ssl=False,
+                            http_headers=None,
+                            trust_cert=None):
+    async with transport_from_uri(parsed_uri,
+                                  verify_ssl=not allow_untrusted_ssl,
+                                  headers=http_headers,
+                                  trust_cert=trust_cert) as transport:
+        async with RSocketClient(single_transport_provider(transport),
+                                 metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA) as client:
+            with schema_file.open() as fd:
+                schema = fd.read()
+
+            from gql import Client
+            from rsocket.graphql.rsocket_transport import RSocketTransport
+            with Client(
+                    schema=schema,
+                    transport=RSocketTransport(client),
+            ) as graphql:
+                yield graphql
+
+
 def get_request_type(request: bool,
                      stream: bool,
                      fnf: bool,
@@ -207,6 +232,12 @@ def get_request_type(request: bool,
               help='Timeout in seconds')
 @click.option('--version', is_flag=True,
               help='Print version')
+@click.option('--gql-query', is_flag=False,
+              help='GraphQL query/mutate')
+@click.option('--gql-subscribe', is_flag=False,
+              help='GraphQL subscribe')
+@click.option('--gql-schema', is_flag=False,
+              help='GraphQL schema file')
 @click.argument('uri', required=False)
 @click.pass_context
 async def command(context, data, load,
@@ -216,7 +247,8 @@ async def command(context, data, load,
                   http_header, metadata_push, timeout_seconds,
                   data_mime_type, metadata_mime_type,
                   request, stream, channel, fnf, trust_cert,
-                  uri, debug, version, quiet):
+                  uri, debug, version, quiet,
+                  gql_query, gql_subscribe, gql_schema):
     if version:
         try:
             print(get_version('rsocket'))
@@ -236,13 +268,31 @@ async def command(context, data, load,
     if take_n == 0:
         return
 
+    parsed_uri = parse_uri(uri)
+
+    if gql_query is not None or gql_subscribe is not None:
+        query = ''
+        is_subscription = False
+        if gql_query is not None:
+            query = gql_query
+        elif gql_subscribe is not None:
+            query = gql_subscribe
+            is_subscription = True
+
+        await run_gql_query(query, is_subscription,
+                            allow_untrusted_ssl=allow_untrusted_ssl,
+                            metadata_mime_type=metadata_mime_type,
+                            data_mime_type=data_mime_type,
+                            trust_cert=trust_cert,
+                            parsed_uri=parsed_uri)
+        return
+
     request_type = get_request_type(request, stream, fnf, metadata_push, channel, interaction_model)
     http_headers = parse_headers(http_header)
     composite_items = build_composite_metadata(auth_simple, route_value, auth_bearer)
     setup_payload = create_setup_payload(setup_data, setup_metadata)
     metadata_value = get_metadata_value(composite_items, metadata)
     metadata_mime_type = normalize_metadata_mime_type(composite_items, metadata_mime_type)
-    parsed_uri = parse_uri(uri)
 
     def payload_provider():
         return create_request_payload(data, load, metadata_value)
@@ -263,6 +313,23 @@ async def command(context, data, load,
 
     if not quiet:
         output_result(result)
+
+
+async def run_gql_query(query: str, is_subscription: bool = False, **kwargs):
+    from gql import gql
+
+    client = create_gql_client(**kwargs)
+
+    if is_subscription:
+        async for response in client.subscribe_async(
+                document=gql(query),
+                get_execution_result=True):
+            print(response.data)
+    else:
+        response = await client.execute_async(
+            document=gql(query),
+            get_execution_result=True)
+        print(response.data)
 
 
 async def run_request(request_type: RequestType,
