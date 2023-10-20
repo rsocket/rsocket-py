@@ -6,10 +6,7 @@ from datetime import timedelta
 from typing import Optional, Tuple
 
 import pytest
-from aiohttp.test_utils import RawTestServer
-from aioquic.quic.configuration import QuicConfiguration
 from asyncstdlib import sync
-from cryptography.hazmat.primitives import serialization
 
 from reactivestreams.publisher import Publisher
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
@@ -23,7 +20,6 @@ from rsocket.request_handler import BaseRequestHandler
 from rsocket.rsocket_client import RSocketClient
 from rsocket.rsocket_server import RSocketServer
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
-from rsocket.transports.aiohttp_websocket import websocket_handler_factory, TransportAioHttpClient
 from rsocket.transports.aioquic_transport import rsocket_connect, rsocket_serve
 from rsocket.transports.tcp import TransportTCP
 from rsocket.transports.transport import Transport
@@ -244,6 +240,9 @@ async def start_tcp_client(port: int, generate_test_certificates) -> RSocketClie
 
 
 async def start_websocket_service(waiter: asyncio.Event, container, port: int, generate_test_certificates):
+    from rsocket.transports.aiohttp_websocket import websocket_handler_factory, TransportAioHttpClient
+    from aiohttp.test_utils import RawTestServer
+
     index_iterator = iter(range(1, 3))
 
     def handler_factory(*args, **kwargs):
@@ -264,6 +263,8 @@ async def start_websocket_service(waiter: asyncio.Event, container, port: int, g
 
 
 async def start_websocket_client(port: int, generate_test_certificates) -> RSocketClient:
+    from rsocket.transports.aiohttp_websocket import TransportAioHttpClient
+
     url = 'http://localhost:{}'.format(port)
 
     async def transport_provider():
@@ -281,6 +282,8 @@ async def start_websocket_client(port: int, generate_test_certificates) -> RSock
 
 
 async def start_quic_service(waiter: asyncio.Event, container, port: int, generate_test_certificates):
+    from aioquic.quic.configuration import QuicConfiguration
+
     index_iterator = iter(range(1, 3))
     certificate, private_key = generate_test_certificates
     server_configuration = QuicConfiguration(
@@ -309,6 +312,9 @@ async def start_quic_service(waiter: asyncio.Event, container, port: int, genera
 
 
 async def start_quic_client(port: int, generate_test_certificates) -> RSocketClient:
+    from aioquic.quic.configuration import QuicConfiguration
+    from cryptography.hazmat.primitives import serialization
+
     certificate, private_key = generate_test_certificates
     client_configuration = QuicConfiguration(
         is_client=True
