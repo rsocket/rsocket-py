@@ -11,7 +11,7 @@ from tests.rsocket.helpers import assert_no_open_streams
 async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, server_arguments=None):
     from quart import Quart
     from rsocket.transports.quart_websocket import websocket_handler
-    from rsocket.transports.aiohttp_websocket import websocket_client
+    from rsocket.transports.asyncwebsockets_transport import websocket_client
 
     app = Quart(__name__)
     server: Optional[RSocketBase] = None
@@ -32,7 +32,7 @@ async def pipe_factory_quart_websocket(unused_tcp_port, client_arguments=None, s
     server_task = asyncio.create_task(app.run_task(port=unused_tcp_port))
     await asyncio.sleep(0)
 
-    async with websocket_client('http://localhost:{}'.format(unused_tcp_port),
+    async with websocket_client('ws://localhost:{}'.format(unused_tcp_port),
                                 **client_arguments) as client:
         await wait_for_server.wait()
         yield server, client

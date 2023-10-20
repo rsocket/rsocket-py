@@ -40,13 +40,13 @@ def setup_logging(level=logging.DEBUG, use_file: bool = False):
 setup_logging(logging.WARN)
 
 tested_transports = [
-    'tcp'
+    'tcp',
+    'quart'
 ]
 
 if sys.version_info[:3] < (3, 11, 5):
     tested_transports += [
         'aiohttp',
-        'quart',
         'quic',
         'http3',
         # 'websockets'

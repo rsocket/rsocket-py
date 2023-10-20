@@ -3,7 +3,8 @@ Changelog
 
 v0.4.15
 =======
-- Websockets (https://github.com/python-websockets/websockets) server support
+- Websockets server support (https://github.com/python-websockets/websockets)
+- AsyncWebsockets client support (https://github.com/Fuyukai/asyncwebsockets)
 
 v0.4.14
 =======
