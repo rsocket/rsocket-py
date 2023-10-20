@@ -90,6 +90,16 @@ async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_
 
 
 @pytest.fixture(params=tested_transports)
+async def lazy_pipe_with_id(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):  # noqa: F811
+    transport_id = request.param
+
+    logging.info('Testing transport %s on port %s (lazy)', transport_id, unused_tcp_port)
+
+    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, transport_id, generate_test_certificates)
+    yield transport_id, functools.partial(pipe_factory, unused_tcp_port)
+
+
+@pytest.fixture(params=tested_transports)
 async def pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):  # noqa: F811
     transport_id = request.param
 
