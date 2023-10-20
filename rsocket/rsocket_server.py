@@ -13,7 +13,12 @@ from rsocket.transports.transport import Transport
 
 class RSocketServer(RSocketBase):
     """
-    Server side instance of an rsocket connection.
+    Server side instance of an RSocket connection.
+
+    :param transport: Transport to use with this instance. See `Transport` class implementations.
+    :param request_queue_size: Number of frames which can be queued while waiting for a lease.
+    :param fragment_size_bytes: Minimum 64, Maximum depends on transport.
+    :param on_ready: Called after the RSocket server internals setup is done.
     """
 
     def __init__(self,

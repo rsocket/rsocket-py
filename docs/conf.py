@@ -24,7 +24,7 @@ copyright = '2022, jellofishi@pm.me'
 author = 'jellofishi@pm.me'
 
 # The full version, including alpha/beta/rc tags
-release = '0.4.14'
+release = '0.4.15'
 
 # -- General configuration ---------------------------------------------------
 
@@ -51,12 +51,12 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
-
-if on_rtd:
-    html_theme = 'default'
-else:
-    html_theme = 'sphinx_rtd_theme'
+# on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+#
+# if on_rtd:
+#     html_theme = 'default'
+# else:
+html_theme = 'sphinx_rtd_theme'
 
 html_sidebars = {
     '**': ['globaltoc.html', 'relations.html', 'sourcelink.html', 'searchbox.html'],
