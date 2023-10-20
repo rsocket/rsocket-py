@@ -7,9 +7,7 @@ from enum import Enum, unique
 from importlib.metadata import version as get_version
 from typing import Optional, Type, Collection, List, Callable
 
-import aiohttp
 import asyncclick as click
-from werkzeug.routing import Map
 
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import route, composite, authenticate_simple, authenticate_bearer
@@ -20,7 +18,7 @@ from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.transports.abstract_messaging import AbstractMessagingTransport
-from rsocket.transports.aiohttp_websocket import TransportAioHttpClient
+
 from rsocket.transports.tcp import TransportTCP
 
 
@@ -68,12 +66,13 @@ def parse_uri(uri: str) -> RSocketUri:
 @asynccontextmanager
 async def transport_from_uri(uri: RSocketUri,
                              verify_ssl=True,
-                             headers: Optional[Map] = None,
+                             headers: Optional = None,
                              trust_cert: Optional[str] = None) -> Type[AbstractMessagingTransport]:
     if uri.schema == 'tcp':
         connection = await asyncio.open_connection(uri.host, uri.port)
         yield TransportTCP(*connection)
     elif uri.schema in ['wss', 'ws']:
+        import aiohttp
         async with aiohttp.ClientSession() as session:
             if trust_cert is not None:
                 ssl_context = ssl.create_default_context(cafile=trust_cert)
@@ -84,6 +83,8 @@ async def transport_from_uri(uri: RSocketUri,
                                           verify_ssl=verify_ssl,
                                           ssl_context=ssl_context,
                                           headers=headers) as websocket:
+                from rsocket.transports.aiohttp_websocket import TransportAioHttpClient
+
                 yield TransportAioHttpClient(websocket=websocket)
     else:
         raise Exception('Unsupported schema in CLI')
