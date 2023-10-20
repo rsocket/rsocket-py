@@ -1,7 +1,7 @@
 import functools
 import logging
 import re
-
+import sys
 import pytest
 
 from rsocket.frame_parser import FrameParser
@@ -40,13 +40,17 @@ def setup_logging(level=logging.DEBUG, use_file: bool = False):
 setup_logging(logging.WARN)
 
 tested_transports = [
-    'tcp',
-    'aiohttp',
-    'quart',
-    'quic',
-    'http3',
-    # 'websockets'
+    'tcp'
 ]
+
+if sys.version_info[:3] < (3, 11, 5):
+    tested_transports += [
+        'aiohttp',
+        'quart',
+        'quic',
+        'http3',
+        # 'websockets'
+    ]
 
 
 def pytest_configure(config):
