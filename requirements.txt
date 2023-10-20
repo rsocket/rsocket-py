@@ -1,5 +1,5 @@
 Rx==3.2.0
-aiohttp==3.8.6
+aiohttp==3.8.6; python_version < '3.11.5'
 aioquic==0.9.21
 asyncclick==8.1.3.4
 asyncstdlib==3.10.9
@@ -17,7 +17,7 @@ pytest==7.4.2
 quart==0.19.3
 reactivex==4.0.4
 starlette==0.31.1
-cbitstruct==1.0.9
+cbitstruct==1.0.9; python_version < '3.11.5'
 cloudevents==1.10.0
 pydantic==1.10.13
 Werkzeug==3.0.0
