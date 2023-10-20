@@ -3,13 +3,14 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from rsocket.rsocket_base import RSocketBase
-from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
 from tests.rsocket.helpers import assert_no_open_streams
 
 
 @asynccontextmanager
 async def pipe_factory_aiohttp_websocket(aiohttp_raw_server, unused_tcp_port, client_arguments=None,
                                          server_arguments=None):
+    from rsocket.transports.aiohttp_websocket import websocket_client, websocket_handler_factory
+
     server: Optional[RSocketBase] = None
     wait_for_server = Event()
 

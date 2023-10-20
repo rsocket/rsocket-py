@@ -5,7 +5,11 @@ import pytest
 
 @pytest.fixture
 def aiohttp_raw_server(event_loop: asyncio.BaseEventLoop, unused_tcp_port):
-    from aiohttp.test_utils import RawTestServer
+    try:
+        from aiohttp.test_utils import RawTestServer
+    except ModuleNotFoundError:
+        yield None
+        return
 
     servers = []
 
