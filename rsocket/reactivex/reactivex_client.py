@@ -1,5 +1,4 @@
-import asyncio
-from asyncio import Future
+from asyncio import Future, Event
 from typing import Optional, cast, Union, Callable
 
 import reactivex
@@ -30,7 +29,7 @@ class ReactiveXClient:
                         request: Payload,
                         request_limit: int = MAX_REQUEST_N,
                         observable: Optional[Union[Observable, Callable[[Subject], Observable]]] = None,
-                        sending_done: Optional[asyncio.Event] = None) -> Observable:
+                        sending_done: Optional[Event] = None) -> Observable:
         requester_publisher = observable_to_publisher(observable)
 
         response_publisher = self._rsocket.request_channel(

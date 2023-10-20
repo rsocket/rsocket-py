@@ -9,8 +9,8 @@ from rsocket.error_codes import ErrorCode
 from rsocket.exceptions import RSocketProtocolError, ParseError, RSocketUnknownFrameType
 from rsocket.fragment import Fragment
 from rsocket.frame_fragmenter import data_to_fragments_if_required
-from rsocket.frame_helpers import unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit, \
-    ensure_bytes, pack_string, unpack_string
+from rsocket.frame_helpers import (is_flag_set, unpack_position, pack_position, unpack_24bit, pack_24bit, unpack_32bit,
+                                   ensure_bytes, pack_string, unpack_string)
 from rsocket.logger import logger
 
 PROTOCOL_MAJOR_VERSION = 1
@@ -94,9 +94,6 @@ class Flags:
 
 class ParseHelper:
     parse_header: Callable = None
-
-
-from rsocket.frame_helpers import is_flag_set
 
 
 def parse_header_native(frame: Header, buffer: bytes, offset: int) -> Flags:
@@ -780,11 +777,13 @@ def is_fragmentable_frame(frame: Frame) -> bool:
     ))
 
 
-FragmentableFrame = Union[PayloadFrame,
-RequestResponseFrame,
-RequestChannelFrame,
-RequestStreamFrame,
-RequestFireAndForgetFrame]
+FragmentableFrame = Union[
+    PayloadFrame,
+    RequestResponseFrame,
+    RequestChannelFrame,
+    RequestStreamFrame,
+    RequestFireAndForgetFrame
+]
 
 
 def new_frame_fragment(base_frame: FragmentableFrame, fragment: Fragment) -> Frame:
