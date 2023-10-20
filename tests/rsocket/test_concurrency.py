@@ -49,24 +49,27 @@ async def test_concurrent_streams(pipe: Tuple[RSocketServer, RSocketClient]):
 
 
 @pytest.mark.timeout(30)
-@pytest.mark.parametrize('transport_id, expected_delta, expected_runtime', (
-        ('tcp', 0.3, 3),
-        ('aiohttp', 0.6, 7),
-        ('quart', 1, 7),
-        ('quic', 4, 13),
-        ('http3', 5, 20),
-))
-async def test_concurrent_fragmented_responses(pipe_factory_by_id, unused_tcp_port, transport_id, expected_delta,
-                                               expected_runtime):
+async def test_concurrent_fragmented_responses(lazy_pipe_with_id):
+    transport_id, lazy_pipe = lazy_pipe_with_id
+
+    transport_parameter_map = {
+        'tcp': (0.3, 3),
+        'aiohttp': (0.6, 7),
+        'quart': (1, 7),
+        'quic': (4, 13),
+        'http3': (5, 20),
+    }
+
+    expected_delta, expected_runtime = transport_parameter_map[transport_id]
+
     class Handler(BaseRequestHandler):
         async def request_response(self, request: Payload):
             data = 'a' * 100 * int(utf8_decode(request.data))
             return create_response(ensure_bytes(data))
 
-    async with pipe_factory_by_id(transport_id)(unused_tcp_port,
-                                                server_arguments={'handler_factory': Handler,
-                                                                  'fragment_size_bytes': 100},
-                                                client_arguments={'fragment_size_bytes': 100}) as (server, client):
+    async with lazy_pipe(
+            server_arguments={'handler_factory': Handler, 'fragment_size_bytes': 100},
+            client_arguments={'fragment_size_bytes': 100}) as (server, client):
         async def run():
             request_1 = asyncio.create_task(measure_time(client.request_response(Payload(b'10000'))))
 

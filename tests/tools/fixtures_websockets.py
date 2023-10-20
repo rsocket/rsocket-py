@@ -7,13 +7,13 @@ import websockets
 
 from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_server import RSocketServer
-from rsocket.transports.aiohttp_websocket import websocket_client
 from tests.rsocket.helpers import assert_no_open_streams
 
 
 @asynccontextmanager
 async def pipe_factory_websockets(unused_tcp_port, client_arguments=None, server_arguments=None):
     from rsocket.transports.websockets_transport import WebsocketsTransport
+    from rsocket.transports.aiohttp_websocket import websocket_client
 
     server: Optional[RSocketBase] = None
     wait_for_server = Event()

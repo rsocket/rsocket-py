@@ -6,8 +6,6 @@ from rsocket.helpers import single_transport_provider
 from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from tests.rsocket.helpers import assert_no_open_streams
-from tests.tools.http3_client import http3_ws_transport
-from tests.tools.http3_server import start_http_server
 
 
 @asynccontextmanager
@@ -15,6 +13,9 @@ async def pipe_factory_http3(generate_test_certificates,
                              unused_tcp_port,
                              client_arguments=None,
                              server_arguments=None):
+    from tests.tools.http3_client import http3_ws_transport
+    from tests.tools.http3_server import start_http_server
+
     certificate, private_key = generate_test_certificates
 
     server: Optional[RSocketBase] = None
