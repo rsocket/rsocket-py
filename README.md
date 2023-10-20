@@ -12,18 +12,19 @@ pip install rsocket
 
 You may also install using some **extras**:
 
-| Extra       | Functionality                                                                              | Documentation                                                       |
-|-------------|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
-| rx          | ReactiveX ([v3](https://pypi.org/project/Rx/)) integration                                 | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
-| reactivex   | [ReactiveX](https://reactivex.io/) ([v4](https://pypi.org/project/reactivex/)) integration | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
-| aiohttp     | [aiohttp](https://docs.aiohttp.org/en/stable/) Websocket transport (server/client)         | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/websocket) |
-| quart       | [Quart](https://pgjones.gitlab.io/quart/) Websocket transport (server only)                |                                                                     |
-| quic        | [QUIC](https://github.com/aiortc/aioquic) transport                                        |                                                                     |
-| websockets  | [Websockets](https://github.com/python-websockets/websockets) transport (server only)      |                                                                     |
-| cli         | Command line                                                                               | [Tutorial](https://rsocket.io/guides/rsocket-py/cli)                |
-| optimized   | Frame parse/serialize optimizations                                                        |                                                                     |
-| cloudevents | [CloudEvents](https://cloudevents.io/) integration                                         |                                                                     |
-| graphql     | [GraphQL](https://graphql.org/) integration                                                | [Tutorial](https://rsocket.io/guides/rsocket-py/graphql)            |
+| Extra           | Functionality                                                                              | Documentation                                                       |
+|-----------------|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| rx              | ReactiveX ([v3](https://pypi.org/project/Rx/)) integration                                 | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
+| reactivex       | [ReactiveX](https://reactivex.io/) ([v4](https://pypi.org/project/reactivex/)) integration | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
+| aiohttp         | [aiohttp](https://docs.aiohttp.org/en/stable/) Websocket transport (server/client)         | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/websocket) |
+| quart           | [Quart](https://pgjones.gitlab.io/quart/) Websocket transport (server only)                |                                                                     |
+| quic            | [QUIC](https://github.com/aiortc/aioquic) transport                                        |                                                                     |
+| websockets      | [Websockets](https://github.com/python-websockets/websockets) transport (server only)      |                                                                     |
+| asyncwebsockets | [Websockets](https://github.com/Fuyukai/asyncwebsockets) transport (client only)           |                                                                     |
+| cli             | Command line                                                                               | [Tutorial](https://rsocket.io/guides/rsocket-py/cli)                |
+| optimized       | Frame parse/serialize optimizations                                                        |                                                                     |
+| cloudevents     | [CloudEvents](https://cloudevents.io/) integration                                         |                                                                     |
+| graphql         | [GraphQL](https://graphql.org/) integration                                                | [Tutorial](https://rsocket.io/guides/rsocket-py/graphql)            |
 
 For example:
 
