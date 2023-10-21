@@ -119,7 +119,7 @@ async def pipe_tcp(unused_tcp_port):
 
 
 @pytest.fixture
-async def lazy_pipe_tcp(aiohttp_raw_server, unused_tcp_port):  # noqa: F811
+async def lazy_pipe_tcp(unused_tcp_port):  # noqa: F811
     logging.info('Testing transport tcp (explicitly) on port %s (lazy)', unused_tcp_port)
 
     yield functools.partial(pipe_factory_tcp, unused_tcp_port)
