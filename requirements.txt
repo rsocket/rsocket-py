@@ -16,9 +16,9 @@ pytest-xdist==3.3.1
 pytest==7.4.3
 quart==0.19.3
 reactivex==4.0.4
-starlette==0.31.1
+starlette==0.32.0.post1
 cbitstruct==1.0.9; python_version < '3.11.5'
-cloudevents==1.10.0
+cloudevents==1.10.1
 pydantic==1.10.13
 Werkzeug==3.0.1
 graphql-core==3.2.3
