@@ -19,6 +19,7 @@ async def pipe_factory_http3(generate_test_certificates,
     certificate, private_key = generate_test_certificates
 
     server: Optional[RSocketBase] = None
+    client: Optional[RSocketBase] = None
     wait_for_server = Event()
 
     def store_server(new_server):
@@ -43,7 +44,9 @@ async def pipe_factory_http3(generate_test_certificates,
                 await wait_for_server.wait()
                 yield server, client
     finally:
-        await server.close()
+        if server is not None:
+            await server.close()
+
         assert_no_open_streams(client, server)
 
         http3_server.close()
