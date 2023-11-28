@@ -26,6 +26,7 @@ async def pipe_factory_quic(generate_test_certificates,
     )
 
     server: Optional[RSocketBase] = None
+    client: Optional[RSocketBase] = None
     wait_for_server = Event()
 
     def store_server(new_server):
