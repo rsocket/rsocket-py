@@ -16,7 +16,7 @@ pytest-xdist==3.5.0
 pytest==7.4.3
 quart==0.19.4
 reactivex==4.0.4
-starlette==0.32.0.post1
+starlette==0.33.0
 cbitstruct==1.0.9; python_version < '3.11.5'
 cloudevents==1.10.1
 pydantic==1.10.13
