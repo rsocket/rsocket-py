@@ -5,12 +5,15 @@ from rsocket.frame_parser import FrameParser
 
 
 class Transport(metaclass=abc.ABCMeta):
+    """
+    Base class for all transports.
+    """
 
     def __init__(self):
         self._frame_parser = FrameParser()
 
     async def connect(self):
-        """"Optional if required"""
+        pass
 
     @abc.abstractmethod
     async def send_frame(self, frame: Frame):

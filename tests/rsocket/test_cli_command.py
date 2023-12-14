@@ -1,20 +1,25 @@
 import io
 import sys
 import tempfile
+from asyncio import sleep
 
 import pytest
+from asyncclick.testing import CliRunner
 from decoy import Decoy
 
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.cli.command import parse_uri, build_composite_metadata, create_request_payload, get_metadata_value, \
     create_setup_payload, normalize_data, normalize_limit_rate, RequestType, get_request_type, parse_headers, \
-    normalize_metadata_mime_type, execute_request
+    normalize_metadata_mime_type, execute_request, command
 from rsocket.extensions.helpers import route, authenticate_simple, authenticate_bearer
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
 from rsocket.frame import MAX_REQUEST_N
-from rsocket.helpers import create_future
+from rsocket.helpers import create_future, create_response
 from rsocket.payload import Payload
+from rsocket.request_handler import BaseRequestHandler
 from tests.rsocket.helpers import create_data
+from tests.tools.fixtures_quart import pipe_factory_quart_websocket
+from tests.tools.fixtures_tcp import pipe_factory_tcp
 
 
 def test_parse_uri():
@@ -218,3 +223,37 @@ async def test_execute_request_fnf(decoy: Decoy):
     result = await execute_request(client, RequestType.fnf, 3, Payload())
 
     assert result is None
+
+
+async def test_execute_command_tcp_request(unused_tcp_port):
+    class Handler(BaseRequestHandler):
+        async def request_response(self, request: Payload):
+            await sleep(4)
+            return create_response(b'response from test')
+
+    async with pipe_factory_tcp(unused_tcp_port,
+                                client_arguments={},
+                                server_arguments={'handler_factory': Handler}):
+        runner = CliRunner()
+        uri = f'tcp://localhost:{unused_tcp_port}'
+        result = await runner.invoke(command, ['--request', uri])
+
+        assert result.stdout == 'response from test\n'
+        assert result.exit_code == 0
+
+
+async def test_execute_command_websocket_request(unused_tcp_port):
+    class Handler(BaseRequestHandler):
+        async def request_response(self, request: Payload):
+            await sleep(4)
+            return create_response(b'response from test')
+
+    async with pipe_factory_quart_websocket(unused_tcp_port,
+                                            client_arguments={},
+                                            server_arguments={'handler_factory': Handler}):
+        runner = CliRunner()
+        uri = f'ws://localhost:{unused_tcp_port}'
+        result = await runner.invoke(command, ['--request', uri])
+
+        assert result.stdout == 'response from test\n'
+        assert result.exit_code == 0

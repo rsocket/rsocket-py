@@ -1,5 +1,5 @@
-import asyncio
 import functools
+from asyncio import Event, CancelledError, get_event_loop, create_task
 
 import reactivex
 from reactivex import Observable, Observer
@@ -17,8 +17,8 @@ class RxSubscriber(Subscriber):
         self.limit_rate = limit_rate
         self.observer = observer
         self._received_messages = 0
-        self.done = asyncio.Event()
-        self.get_next_n = asyncio.Event()
+        self.done = Event()
+        self.get_next_n = Event()
         self.subscription = None
 
     def on_subscribe(self, subscription: Subscription):
@@ -54,7 +54,7 @@ async def _aio_sub(publisher: Publisher, subscriber: RxSubscriber, observer: Obs
         publisher.subscribe(subscriber)
         await subscriber.done.wait()
 
-    except asyncio.CancelledError:
+    except CancelledError:
         if not subscriber.done.is_set():
             subscriber.subscription.cancel()
     except Exception as exception:
@@ -67,21 +67,21 @@ async def _trigger_next_request_n(subscriber: RxSubscriber, limit_rate):
             await subscriber.get_next_n.wait()
             subscriber.subscription.request(limit_rate)
             subscriber.get_next_n.clear()
-    except asyncio.CancelledError:
+    except CancelledError:
         logger().debug('Asyncio task canceled: trigger_next_request_n')
 
 
 def from_rsocket_publisher(publisher: Publisher, limit_rate: int = MAX_REQUEST_N) -> Observable:
-    loop = asyncio.get_event_loop()
+    loop = get_event_loop()
 
     # noinspection PyUnusedLocal
     def on_subscribe(observer: Observer, scheduler):
         subscriber = RxSubscriber(observer, limit_rate)
 
-        get_next_task = asyncio.create_task(
+        get_next_task = create_task(
             _trigger_next_request_n(subscriber, limit_rate)
         )
-        task = asyncio.create_task(
+        task = create_task(
             _aio_sub(publisher, subscriber, observer, loop)
         )
 

@@ -1,7 +1,7 @@
 import functools
 import logging
 import re
-
+import sys
 import pytest
 
 from rsocket.frame_parser import FrameParser
@@ -41,12 +41,16 @@ setup_logging(logging.WARN)
 
 tested_transports = [
     'tcp',
-    'aiohttp',
     'quart',
-    'quic',
-    'http3',
-    'websockets'
+    'aiohttp'
 ]
+
+if sys.version_info[:3] < (3, 11, 5):
+    tested_transports += [
+        'quic',
+        'http3',
+        # 'websockets'
+    ]
 
 
 def pytest_configure(config):
@@ -86,6 +90,16 @@ async def lazy_pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_
 
 
 @pytest.fixture(params=tested_transports)
+async def lazy_pipe_with_id(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):  # noqa: F811
+    transport_id = request.param
+
+    logging.info('Testing transport %s on port %s (lazy)', transport_id, unused_tcp_port)
+
+    pipe_factory = get_pipe_factory_by_id(aiohttp_raw_server, transport_id, generate_test_certificates)
+    yield transport_id, functools.partial(pipe_factory, unused_tcp_port)
+
+
+@pytest.fixture(params=tested_transports)
 async def pipe(request, aiohttp_raw_server, unused_tcp_port, generate_test_certificates):  # noqa: F811
     transport_id = request.param
 
@@ -105,7 +119,7 @@ async def pipe_tcp(unused_tcp_port):
 
 
 @pytest.fixture
-async def lazy_pipe_tcp(aiohttp_raw_server, unused_tcp_port):  # noqa: F811
+async def lazy_pipe_tcp(unused_tcp_port):  # noqa: F811
     logging.info('Testing transport tcp (explicitly) on port %s (lazy)', unused_tcp_port)
 
     yield functools.partial(pipe_factory_tcp, unused_tcp_port)

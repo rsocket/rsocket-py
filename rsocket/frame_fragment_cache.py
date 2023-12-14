@@ -24,7 +24,7 @@ class FrameFragmentCache:
 
         current_frame_from_fragments = self._frames_by_stream_id.get(next_fragment.stream_id)
 
-        if current_frame_from_fragments is not None and type(next_fragment) != PayloadFrame:
+        if current_frame_from_fragments is not None and not isinstance(next_fragment, PayloadFrame):
             raise RSocketFrameFragmentDifferentType()
 
         if current_frame_from_fragments is None:

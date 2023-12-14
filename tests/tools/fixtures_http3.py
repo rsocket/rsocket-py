@@ -6,8 +6,6 @@ from rsocket.helpers import single_transport_provider
 from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
 from tests.rsocket.helpers import assert_no_open_streams
-from tests.tools.http3_client import http3_ws_transport
-from tests.tools.http3_server import start_http_server
 
 
 @asynccontextmanager
@@ -15,9 +13,13 @@ async def pipe_factory_http3(generate_test_certificates,
                              unused_tcp_port,
                              client_arguments=None,
                              server_arguments=None):
+    from tests.tools.http3_client import http3_ws_transport
+    from tests.tools.http3_server import start_http_server
+
     certificate, private_key = generate_test_certificates
 
     server: Optional[RSocketBase] = None
+    client: Optional[RSocketBase] = None
     wait_for_server = Event()
 
     def store_server(new_server):
@@ -42,7 +44,9 @@ async def pipe_factory_http3(generate_test_certificates,
                 await wait_for_server.wait()
                 yield server, client
     finally:
-        await server.close()
+        if server is not None:
+            await server.close()
+
         assert_no_open_streams(client, server)
 
         http3_server.close()

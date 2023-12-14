@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Optional
 
 from rsocket.datetime_helpers import to_milliseconds
@@ -28,7 +29,8 @@ def to_payload_frame(stream_id: int,
     return frame
 
 
-def to_request_n_frame(stream_id: int, n: int = MAX_REQUEST_N):
+def to_request_n_frame(stream_id: int,
+                       n: int = MAX_REQUEST_N):
     frame = RequestNFrame()
     frame.stream_id = stream_id
     frame.request_n = n
@@ -69,7 +71,8 @@ def to_request_stream_frame(stream_id: int,
     return request
 
 
-def to_request_response_frame(stream_id: int, payload: Payload,
+def to_request_response_frame(stream_id: int,
+                              payload: Payload,
                               fragment_size_bytes: Optional[int] = None):
     request = RequestResponseFrame()
     request.stream_id = stream_id
@@ -79,7 +82,8 @@ def to_request_response_frame(stream_id: int, payload: Payload,
     return request
 
 
-def to_fire_and_forget_frame(stream_id: int, payload: Payload,
+def to_fire_and_forget_frame(stream_id: int,
+                             payload: Payload,
                              fragment_size_bytes: Optional[int] = None) -> RequestFireAndForgetFrame:
     frame = RequestFireAndForgetFrame()
     frame.stream_id = stream_id
@@ -91,12 +95,12 @@ def to_fire_and_forget_frame(stream_id: int, payload: Payload,
     return frame
 
 
-def to_setup_frame(payload,
-                   data_encoding,
-                   metadata_encoding,
-                   keep_alive_period,
-                   max_lifetime_period,
-                   honor_lease=False):
+def to_setup_frame(payload: Payload,
+                   data_encoding: str,
+                   metadata_encoding: str,
+                   keep_alive_period: timedelta,
+                   max_lifetime_period: timedelta,
+                   honor_lease: bool = False):
     setup = SetupFrame()
     setup.flags_lease = honor_lease
     setup.keep_alive_milliseconds = to_milliseconds(keep_alive_period)

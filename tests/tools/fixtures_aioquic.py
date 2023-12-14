@@ -2,14 +2,10 @@ from asyncio import Event
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from aioquic.quic.configuration import QuicConfiguration
-
 from rsocket.helpers import single_transport_provider
 from rsocket.rsocket_base import RSocketBase
 from rsocket.rsocket_client import RSocketClient
-from rsocket.transports.aioquic_transport import rsocket_connect, rsocket_serve
 from tests.rsocket.helpers import assert_no_open_streams
-from tests.tools.helpers import quic_client_configuration
 
 
 @asynccontextmanager
@@ -17,6 +13,10 @@ async def pipe_factory_quic(generate_test_certificates,
                             unused_tcp_port,
                             client_arguments=None,
                             server_arguments=None):
+    from rsocket.transports.aioquic_transport import rsocket_connect, rsocket_serve
+    from tests.tools.helpers import quic_client_configuration
+    from aioquic.quic.configuration import QuicConfiguration
+
     certificate, private_key = generate_test_certificates
 
     server_configuration = QuicConfiguration(
@@ -26,6 +26,7 @@ async def pipe_factory_quic(generate_test_certificates,
     )
 
     server: Optional[RSocketBase] = None
+    client: Optional[RSocketBase] = None
     wait_for_server = Event()
 
     def store_server(new_server):

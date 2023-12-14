@@ -19,7 +19,11 @@ from rsocket.transports.transport import Transport
 
 class RSocketClient(RSocketBase):
     """
-    Server side instance of an rsocket connection.
+    Client side instance of an RSocket connection.
+
+    :param transport_provider: Async generator which returns `Transport` to use with this instance.
+    :param request_queue_size: Number of frames which can be queued while waiting for a lease.
+    :param fragment_size_bytes: Minimum 64, Maximum depends on transport.
     """
 
     def __init__(self,

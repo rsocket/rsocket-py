@@ -1,5 +1,4 @@
-import asyncio
-from asyncio import Queue
+from asyncio import Queue, create_task, sleep
 from dataclasses import dataclass
 from typing import Optional, Callable, AsyncGenerator, Union
 
@@ -50,8 +49,8 @@ async def task_from_awaitable(future):
     async def coroutine_from_awaitable(awaitable):
         return await awaitable
 
-    task = asyncio.create_task(coroutine_from_awaitable(future))
-    await asyncio.sleep(0)  # allow awaitable to be accessed at least once
+    task = create_task(coroutine_from_awaitable(future))
+    await sleep(0)  # allow awaitable to be accessed at least once
     return task
 
 
@@ -59,7 +58,7 @@ def observable_from_async_generator(iterator, backpressure: Subject) -> Observab
     # noinspection PyUnusedLocal
     def on_subscribe(observer: Observer, scheduler):
 
-        request_n_queue = asyncio.Queue()
+        request_n_queue = Queue()
 
         def request_next_n(n):
             request_n_queue.put_nowait(n)
@@ -92,7 +91,7 @@ def observable_from_async_generator(iterator, backpressure: Subject) -> Observab
             on_completed=cancel_sender
         )
 
-        sender = asyncio.create_task(_aio_next())
+        sender = create_task(_aio_next())
 
         return result
 
@@ -100,7 +99,7 @@ def observable_from_async_generator(iterator, backpressure: Subject) -> Observab
 
 
 async def observable_to_async_event_generator(observable: Observable) -> AsyncGenerator[Notification, None]:
-    queue = asyncio.Queue()
+    queue = Queue()
 
     completed = object()
 
@@ -131,7 +130,7 @@ def from_async_event_iterator(iterator, backpressure: Subject) -> Observable:
     # noinspection PyUnusedLocal
     def on_subscribe(observer: Observer, scheduler):
 
-        request_n_queue = asyncio.Queue()
+        request_n_queue = Queue()
 
         async def _aio_next():
 
@@ -156,7 +155,7 @@ def from_async_event_iterator(iterator, backpressure: Subject) -> Observable:
                 logger().error(str(exception), exc_info=True)
                 observer.on_error(exception)
 
-        sender = asyncio.create_task(_aio_next())
+        sender = create_task(_aio_next())
 
         def cancel_sender():
             sender.cancel()
