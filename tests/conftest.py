@@ -41,12 +41,12 @@ setup_logging(logging.WARN)
 
 tested_transports = [
     'tcp',
-    'quart'
+    'quart',
+    'aiohttp'
 ]
 
 if sys.version_info[:3] < (3, 11, 5):
     tested_transports += [
-        'aiohttp',
         'quic',
         'http3',
         # 'websockets'
