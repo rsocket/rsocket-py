@@ -22,6 +22,6 @@ cloudevents==1.10.1
 pydantic==1.10.13
 Werkzeug==3.0.1
 graphql-core==3.2.3
-gql==3.4.1
+gql==3.5.0
 websockets==12.0
 asyncwebsockets==0.9.4
