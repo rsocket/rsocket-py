@@ -2,7 +2,7 @@ Rx==3.2.0
 aiohttp==3.9.1
 aioquic==0.9.24
 asyncclick==8.1.3.4
-asyncstdlib==3.10.9
+asyncstdlib==3.12.0
 coverage==6.5.0
 coveralls==3.3.1
 decoy==2.1.1
