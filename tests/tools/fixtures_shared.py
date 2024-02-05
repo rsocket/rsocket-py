@@ -49,9 +49,12 @@ def generate_certificate(*, alternative_names: Optional[list], common_name: str,
     return cert, key
 
 
-def generate_ec_certificate(common_name: str, alternative_names: Optional[list] = None, curve=SECP256R1):
+def generate_ec_certificate(common_name: str, alternative_names: Optional[list] = None, curve=None):
     if alternative_names is None:
         alternative_names = []
+
+    if curve is None:
+        curve = SECP256R1()
 
     key = generate_private_key(curve=curve)
     return generate_certificate(
