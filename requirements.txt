@@ -1,8 +1,8 @@
 Rx==3.2.0
-aiohttp==3.9.3
+aiohttp==3.9.5
 aioquic==0.9.25
-asyncclick==8.1.7.1
 asyncstdlib==3.12.3
+asyncclick==8.1.7.2
 coverage==6.5.0
 coveralls==3.3.1
 decoy==2.1.1
@@ -11,7 +11,7 @@ pytest-asyncio==0.23.4
 pytest-cov==4.1.0
 pytest-profiling==1.7.0
 pytest-rerunfailures==13.0
-pytest-timeout==2.2.0
+pytest-timeout==2.3.1
 pytest-xdist==3.5.0
 pytest==7.4.4
 quart==0.19.4
@@ -20,7 +20,7 @@ starlette==0.36.3
 cbitstruct==1.1.0
 cloudevents==1.10.1
 pydantic==1.10.14
-Werkzeug==3.0.1
+Werkzeug==3.0.3
 graphql-core==3.2.3
 gql==3.5.0
 websockets==12.0
