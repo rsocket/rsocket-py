@@ -12,7 +12,7 @@ pytest-cov==4.1.0
 pytest-profiling==1.7.0
 pytest-rerunfailures==13.0
 pytest-timeout==2.3.1
-pytest-xdist==3.5.0
+pytest-xdist==3.6.1
 pytest==7.4.4
 quart==0.19.4
 reactivex==4.0.4
