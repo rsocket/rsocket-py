@@ -89,7 +89,7 @@ class ChatUserSession:
 
                 def cancel(self):
                     if self._sender is not None:
-                        logging.info('Canceling message sender task')
+                        logging.info('Canceling incoming message sender task')
                         self._sender.cancel()
                         self._sender = None
 

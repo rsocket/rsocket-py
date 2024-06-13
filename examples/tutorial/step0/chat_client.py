@@ -13,7 +13,7 @@ async def main():
     async with RSocketClient(single_transport_provider(TransportTCP(*connection))) as client:
         response = await client.request_response(Payload(data=b'George'))
 
-        print(f"Server response: {utf8_decode(response.data)}")
+        logging.info(f'Login response: {utf8_decode(response.data)}')
 
 
 if __name__ == '__main__':
