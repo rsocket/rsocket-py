@@ -20,7 +20,7 @@ starlette==0.38.2
 cbitstruct==1.1.0
 cloudevents==1.11.0
 pydantic==1.10.14
-Werkzeug==3.0.3
+Werkzeug==3.0.4
 graphql-core==3.2.3
 gql==3.5.0
 websockets==12.0
