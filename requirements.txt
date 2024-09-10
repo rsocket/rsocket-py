@@ -19,7 +19,7 @@ reactivex==4.0.4
 starlette==0.38.2
 cbitstruct==1.1.0
 cloudevents==1.11.0
-pydantic==1.10.14
+pydantic==1.10.18
 Werkzeug==3.0.4
 graphql-core==3.2.3
 gql==3.5.0
