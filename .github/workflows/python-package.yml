@@ -41,6 +41,7 @@ jobs:
       with:
         name: code-coverage-report
         path: coverage_report_html
+        overwrite: true
     - name: Publish coveralls
       continue-on-error: true
       env:
