@@ -17,7 +17,7 @@ pytest==7.4.4
 quart==0.19.9
 reactivex==4.0.4
 starlette==0.40.0
-cbitstruct==1.1.0
+cbitstruct==1.1.1
 cloudevents==1.11.0
 pydantic==1.10.18
 Werkzeug==3.0.4
