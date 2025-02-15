@@ -191,11 +191,11 @@ async def main(server_port):
     async with RSocketClient(single_transport_provider(TransportTCP(*connection)),
                              metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,
                              fragment_size_bytes=64) as client:
-        await request_large_response(client)
-        await request_large_request(client)
-        await request_response(client)
-        await request_stream(client)
-        await request_slow_stream(client)
+        # await request_large_response(client)
+        # await request_large_request(client)
+        # await request_response(client)
+        # await request_stream(client)
+        # await request_slow_stream(client)
         await request_channel(client)
         # await request_stream_invalid_login(client)
 

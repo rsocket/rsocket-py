@@ -30,6 +30,8 @@ class Handler(BaseReactivexHandler):
         def observer(value: Payload):
             logging.info(f'Received by test server: {value.data}')
 
+        observer(payload)
+
         return ReactivexChannel(observable,
                                 Observer(observer,
                                          on_completed=lambda: self._server_done.set(),
