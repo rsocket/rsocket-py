@@ -19,6 +19,7 @@ class Handler(BaseReactivexHandler):
 
     def __init__(self, server_done: Optional[asyncio.Event] = None):
         self._server_done = server_done
+        self.received_payloads = []
 
     async def request_stream(self, payload: Payload) -> Observable:
         return reactivex.from_iterable((Payload(ensure_bytes('Feed Item: {}'.format(index))) for index in range(3)))
@@ -29,6 +30,7 @@ class Handler(BaseReactivexHandler):
 
         def observer(value: Payload):
             logging.info(f'Received by test server: {value.data}')
+            self.received_payloads.append(value.data)
 
         observer(payload)
 
@@ -64,9 +66,12 @@ async def test_serve_reactivex_channel(pipe: Tuple[RSocketServer, RSocketClient]
     server, client = pipe
 
     server_done_event = asyncio.Event()
+    handler = None
 
     def handler_factory():
-        return Handler(server_done_event)
+        nonlocal handler
+        handler = Handler(server_done_event)
+        return handler
 
     server.set_handler_using_factory(reactivex_handler_factory(handler_factory))
 
@@ -85,6 +90,12 @@ async def test_serve_reactivex_channel(pipe: Tuple[RSocketServer, RSocketClient]
     assert received_messages[2] == b'Feed Item: 2'
 
     await server_done_event.wait()
+
+    assert len(handler.received_payloads) == 4
+    assert handler.received_payloads[0] == b'request text'
+    assert handler.received_payloads[1] == b'Client item: 0'
+    assert handler.received_payloads[2] == b'Client item: 1'
+    assert handler.received_payloads[3] == b'Client item: 2'
 
 
 async def test_serve_reactivex_response(pipe: Tuple[RSocketServer, RSocketClient]):
