@@ -72,7 +72,7 @@ def handler_factory_factory(is_infinite_stream: bool = False):
             if item.encoding == b'text/plain':
                 storage.last_metadata_push = item.content
 
-    @router.channel('channel', send_request_payload_to_subscriber=False)
+    @router.channel('channel', send_request_payload_to_subscriber=True)
     async def channel_response(payload, composite_metadata):
         logging.info('Got channel request')
         subscriber = LoggingSubscriber()
