@@ -17,13 +17,12 @@ decorated_method = Callable[[RSocket, Payload, CompositeMetadata], Any]
 
 
 class RouteInfo:
-    def __init__(self, method, send_channel_request_payload_to_subscriber=False):
+    def __init__(self, method):
         self.method: Callable = method
         self.signature = signature(method)
-        self.send_channel_request_payload_to_subscriber = send_channel_request_payload_to_subscriber
 
 
-def decorator_factory(container: dict, route: str, send_channel_request_payload_to_subscriber: bool = False):
+def decorator_factory(container: dict, route: str):
     def decorator(function: decorated_method):
         if safe_len(route) == 0:
             raise RSocketEmptyRoute(function.__name__)
@@ -31,7 +30,7 @@ def decorator_factory(container: dict, route: str, send_channel_request_payload_
         if route in container:
             raise KeyError('Duplicate route "%s" already registered', route)
 
-        container[route] = RouteInfo(function, send_channel_request_payload_to_subscriber)
+        container[route] = RouteInfo(function)
         return function
 
     return decorator
@@ -107,9 +106,8 @@ class RequestRouter:
 
         return wrapper
 
-    def channel(self, route: str, send_request_payload_to_subscriber: bool = False):
-        return decorator_factory(self._channel_routes, route,
-                                 send_channel_request_payload_to_subscriber=send_request_payload_to_subscriber)
+    def channel(self, route: str):
+        return decorator_factory(self._channel_routes, route)
 
     def channel_unknown(self):
         def wrapper(function):
@@ -163,11 +161,6 @@ class RequestRouter:
                 result = self._payload_serializer(route_info.signature.return_annotation, result)
 
             return create_future(result)
-
-        elif frame_type == FrameType.REQUEST_CHANNEL:
-            publisher, subscriber = result
-            if route_info.send_channel_request_payload_to_subscriber:
-                subscriber.on_next(payload)
 
         return result
 
