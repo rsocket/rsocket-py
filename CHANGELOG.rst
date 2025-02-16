@@ -1,6 +1,12 @@
 Changelog
 ---------
 
+v0.4.16
+=======
+- Fix using router request-response with reactivex response
+- Fix examples of consuming the payload of a request-channel
+- Fix the reactivex example of the tutorial application
+
 v0.4.15
 =======
 - Websockets server support (https://github.com/python-websockets/websockets)
