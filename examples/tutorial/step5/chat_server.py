@@ -97,6 +97,7 @@ class ChatUserSession:
         @router.response('login')
         async def login(username: str) -> Awaitable[Payload]:
             logging.info(f'New user: {username}')
+
             session_id = SessionId(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
@@ -113,18 +114,6 @@ class ChatUserSession:
         async def leave_channel(channel_name: str) -> Awaitable[Payload]:
             chat_data.channel_users[channel_name].discard(self._session.session_id)
             return create_response()
-
-        @router.stream('channel.users')
-        async def get_channel_users(channel_name: str) -> Publisher:
-            if channel_name not in chat_data.channel_users:
-                return EmptyStream()
-
-            count = len(chat_data.channel_users[channel_name])
-            generator = ((Payload(ensure_bytes(find_username_by_session(session_id))), index == count) for
-                         (index, session_id) in
-                         enumerate(chat_data.channel_users[channel_name], 1))
-
-            return StreamFromGenerator(lambda: generator)
 
         @router.response('file.upload')
         async def upload_file(payload: Payload, composite_metadata: CompositeMetadata) -> Awaitable[Payload]:
@@ -174,7 +163,7 @@ class ChatUserSession:
 
                 def cancel(self):
                     if self._sender is not None:
-                        logging.info('Canceling message sender task')
+                        logging.info('Canceling incoming message sender task')
                         self._sender.cancel()
                         self._sender = None
 
@@ -189,6 +178,18 @@ class ChatUserSession:
                         self._subscriber.on_next(dataclass_to_payload(next_message))
 
             return MessagePublisher(self._session)
+
+        @router.stream('channel.users')
+        async def get_channel_users(channel_name: str) -> Publisher:
+            if channel_name not in chat_data.channel_users:
+                return EmptyStream()
+
+            count = len(chat_data.channel_users[channel_name])
+            generator = ((Payload(ensure_bytes(find_username_by_session(session_id))), index == count) for
+                         (index, session_id) in
+                         enumerate(chat_data.channel_users[channel_name], 1))
+
+            return StreamFromGenerator(lambda: generator)
 
         return router
 
@@ -207,7 +208,8 @@ async def run_server():
     def session(*connection):
         RSocketServer(TransportTCP(*connection),
                       handler_factory=handler_factory,
-                      fragment_size_bytes=1_000_000)
+                      fragment_size_bytes=1_000_000
+                      )
 
     async with await asyncio.start_server(session, 'localhost', 6565) as server:
         await server.serve_forever()
