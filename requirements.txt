@@ -28,7 +28,7 @@ reactivex==4.0.4
 starlette==0.40.0
 cbitstruct==1.1.0; python_version <= "3.12"
 cloudevents==1.11.0
-pydantic==1.10.18
+pydantic==1.10.21
 Werkzeug==3.0.4
 graphql-core==3.2.5
 gql==3.5.0
