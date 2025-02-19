@@ -59,21 +59,29 @@ class RequestHandler(metaclass=ABCMeta):
 
     @abstractmethod
     async def on_error(self, error_code: ErrorCode, payload: Payload):
-        ...
+        """
+        Handle errors received from the remote side
+        """
 
     @abstractmethod
     async def on_keepalive_timeout(self,
                                    time_since_last_keepalive: timedelta,
                                    rsocket):
-        ...
+        """
+        Handle keepalive timeout
+        """
 
     @abstractmethod
     async def on_connection_error(self, rsocket, exception: Exception):
-        ...
+        """
+        Handle connection error
+        """
 
     @abstractmethod
     async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        ...
+        """
+        Handle connection closed
+        """
 
     # noinspection PyMethodMayBeStatic
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:
