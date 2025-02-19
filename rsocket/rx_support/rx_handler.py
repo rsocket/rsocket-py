@@ -11,6 +11,8 @@ from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.rx_support.rx_channel import RxChannel
 
+__all__ = ['RxHandler']
+
 
 class RxHandler:
     """

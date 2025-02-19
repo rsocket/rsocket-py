@@ -13,11 +13,14 @@ from rsocket.rx_support.back_pressure_publisher import observable_to_publisher
 from rsocket.rx_support.from_rsocket_publisher import RxSubscriberFromObserver
 from rsocket.rx_support.rx_handler import RxHandler
 
+__all__ = ['rx_handler_factory']
+
 
 def rx_handler_factory(handler_factory: Callable[[], RxHandler]):
     """
     Wraps an Rx handler factory into a basic request handler adapter.
     """
+
     def create_handler():
         return RxHandlerAdapter(handler_factory())
 
