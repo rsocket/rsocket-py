@@ -57,6 +57,9 @@ def rsocket_serve(host: str,
 
 
 class RSocketQuicProtocol(QuicConnectionProtocol):
+    """
+    RSocket transport over server side quic.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.frame_queue = asyncio.Queue()

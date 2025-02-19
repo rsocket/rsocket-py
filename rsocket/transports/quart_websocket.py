@@ -25,7 +25,7 @@ async def websocket_handler(on_server_create=None, **kwargs):
 
 class TransportQuartWebsocket(AbstractMessagingTransport):
     """
-    RSocket transport over server side quart websocket.
+    RSocket transport over server side quart websocket. Use the :method:`websocket_handler <rsocket.transports.quart_websocket.websocket_handler>` helper method to instantiate.
     """
 
     async def handle_incoming_ws_messages(self):

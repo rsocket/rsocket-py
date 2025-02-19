@@ -33,7 +33,8 @@ class RequestHandler(metaclass=ABCMeta):
                               ) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
         """
         Bi-Directional communication.  A publisher on each end is connected
-        to a subscriber on the other end.
+        to a subscriber on the other end. Note that the first payload sent to the handler is passed as
+        an argument to this method and not to the local subscriber.
         """
 
     @abstractmethod
