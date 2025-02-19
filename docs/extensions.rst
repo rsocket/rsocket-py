@@ -25,6 +25,18 @@ quart
 .. automodule:: rsocket.transports.quart_websocket
     :members:
 
+websockets
+++++++++++
+
+.. automodule:: rsocket.transports.websockets_transport
+    :members:
+
+asyncwebsockets
++++++++++++++++
+
+.. automodule:: rsocket.transports.asyncwebsockets_transport
+    :members:
+
 quic
 ~~~~
 
@@ -36,19 +48,6 @@ http3
 
 .. automodule:: rsocket.transports.http3_transport
     :members:
-
-websockets
-~~~~~~~~~~
-
-.. automodule:: rsocket.transports.websockets_transport
-    :members:
-
-asyncwebsockets
-~~~~~~~~~~~~~~~
-
-.. automodule:: rsocket.transports.asyncwebsockets_transport
-    :members:
-
 
 Routing
 -------
