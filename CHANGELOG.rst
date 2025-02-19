@@ -1,6 +1,11 @@
 Changelog
 ---------
 
+v0.4.17
+=======
+- python 3.13 support
+- Documentation and example code update
+
 v0.4.16
 =======
 - Fix using router request-response with reactivex response
