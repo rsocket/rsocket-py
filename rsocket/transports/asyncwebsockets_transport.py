@@ -14,6 +14,9 @@ async def websocket_client(url: str,
                            **kwargs) -> RSocketClient:
     """
     Helper method to instantiate an RSocket client using a websocket url over asyncwebsockets client.
+
+    :param url: websocket url
+    :param kwargs: parameters passed to the client
     """
     from asyncwebsockets import open_websocket
     async with open_websocket(url) as websocket:
@@ -25,6 +28,8 @@ async def websocket_client(url: str,
 class TransportAsyncWebsocketsClient(AbstractMessagingTransport):
     """
     RSocket transport over client side asyncwebsockets.
+
+    :param websocket: websocket connection
     """
 
     def __init__(self, websocket):
