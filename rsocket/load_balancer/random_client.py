@@ -7,6 +7,10 @@ from rsocket.rsocket import RSocket
 
 
 class LoadBalancerRandom(LoadBalancerStrategy):
+    """
+    Random Load Balancer
+    """
+
     def __init__(self,
                  pool: List[RSocket],
                  auto_connect=True,
