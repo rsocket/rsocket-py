@@ -12,6 +12,9 @@ from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 async def websocket_handler(on_server_create=None, **kwargs):
     """
     Helper method to instantiate an RSocket server using a quart websocket connection.
+
+    :param on_server_create: callback to be called when the server is created
+    :param kwargs: parameters passed to the server
     """
 
     transport = TransportQuartWebsocket()
