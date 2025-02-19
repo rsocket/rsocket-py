@@ -12,37 +12,55 @@ from rsocket.reactivex.reactivex_channel import ReactivexChannel
 
 
 class ReactivexHandler:
+    """
+    Variant of :class:`RequestHandler <rsocket.request_handler.RequestHandler>` which uses Reactivex (4.0).
+    Wrap with :meth:`reactivex_handler_factory <rsocket.reactivex.reactivex_handler_adapter.reactivex_handler_factory>` to pass as a request handler
+    """
 
     @abstractmethod
     async def on_setup(self,
                        data_encoding: bytes,
                        metadata_encoding: bytes,
                        payload: Payload):
-        ...
+        """
+        Handle setup request
+        """
 
     @abstractmethod
     async def on_metadata_push(self, metadata: Payload):
-        ...
+        """
+        Handle metadata-push request
+        """
 
     @abstractmethod
     async def request_channel(self, payload: Payload) -> ReactivexChannel:
-        ...
+        """
+        Handle request-channel interaction
+        """
 
     @abstractmethod
     async def request_fire_and_forget(self, payload: Payload):
-        ...
+        """
+        Handle request-fire-and-forget interaction
+        """
 
     @abstractmethod
     async def request_response(self, payload: Payload) -> Observable:
-        ...
+        """
+        Handle request-response interaction
+        """
 
     @abstractmethod
     async def request_stream(self, payload: Payload) -> Union[Observable, Callable[[Subject], Observable]]:
-        ...
+        """
+        Handle request-stream interaction
+        """
 
     @abstractmethod
     async def on_error(self, error_code: ErrorCode, payload: Payload):
-        ...
+        """
+        Handle errors received from the remote side
+        """
 
     @abstractmethod
     async def on_keepalive_timeout(self,
@@ -52,11 +70,15 @@ class ReactivexHandler:
 
     @abstractmethod
     async def on_connection_error(self, rsocket, exception: Exception):
-        ...
+        """
+        Handle connection error
+        """
 
     @abstractmethod
     async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        ...
+        """
+        Handle connection closed
+        """
 
     # noinspection PyMethodMayBeStatic
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:

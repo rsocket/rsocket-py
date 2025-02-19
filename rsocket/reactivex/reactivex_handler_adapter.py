@@ -15,6 +15,9 @@ from rsocket.request_handler import RequestHandler
 
 
 def reactivex_handler_factory(handler_factory: Callable[[], ReactivexHandler]):
+    """
+    Wraps a reactivex handler factory into a basic request handler adapter.
+    """
     def create_handler():
         return ReactivexHandlerAdapter(handler_factory())
 

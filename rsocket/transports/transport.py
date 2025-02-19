@@ -12,7 +12,7 @@ class Transport(metaclass=abc.ABCMeta):
     - websocket: :class:`TransportAsyncWebsocketsClient <rsocket.transports.asyncwebsockets_transport.TransportAsyncWebsocketsClient>`
     - http3: :class:`Http3TransportWebsocket <rsocket.transports.http3_transport.Http3TransportWebsocket>`
     - aioquic: :class:`RSocketQuicProtocol <rsocket.transports.aioquic_transport.RSocketQuicProtocol>`
-    - aiohttp: :class:`TransportAioHttpWebsocket <rsocket.transports.aiohttp_websocket.TransportAioHttpWebsocket>`
+    - aiohttp: :class:`TransportAioHttpWebsocket <rsocket.transports.aiohttp_websocket.TransportAioHttpClient>`
     - quart: :class:`TransportQuartWebsocket <rsocket.transports.quart_websocket.TransportQuartWebsocket>`
     """
 

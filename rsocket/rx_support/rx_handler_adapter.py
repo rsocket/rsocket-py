@@ -15,6 +15,9 @@ from rsocket.rx_support.rx_handler import RxHandler
 
 
 def rx_handler_factory(handler_factory: Callable[[], RxHandler]):
+    """
+    Wraps an Rx handler factory into a basic request handler adapter.
+    """
     def create_handler():
         return RxHandlerAdapter(handler_factory())
 
