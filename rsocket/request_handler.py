@@ -25,7 +25,9 @@ class RequestHandler(metaclass=ABCMeta):
 
     @abstractmethod
     async def on_metadata_push(self, metadata: Payload):
-        ...
+        """
+        Handle metadata-push request
+        """
 
     @abstractmethod
     async def request_channel(self,
@@ -39,7 +41,9 @@ class RequestHandler(metaclass=ABCMeta):
 
     @abstractmethod
     async def request_fire_and_forget(self, payload: Payload):
-        ...
+        """
+        Handle fire-and-forget request
+        """
 
     @abstractmethod
     async def request_response(self, payload: Payload) -> Awaitable[Payload]:
