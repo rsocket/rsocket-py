@@ -47,6 +47,7 @@ python3 setup.py install
 # Documentation
 
 [Documentation](https://rsocket.io/guides/rsocket-py) is available on the official rsocket.io site.
+[API](https://rsocket.readthedocs.io/en/latest/index.html) documentation is at readthedocs.io.
 
 # Examples
 
