@@ -1,12 +1,12 @@
 Rx==3.2.0
-aiohttp==3.10.2
+aiohttp==3.10.11
 aioquic==1.2.0
-asyncstdlib==3.12.5
-asyncclick==8.1.7.2
+asyncstdlib==3.13.0
+asyncclick==8.1.8
 coverage==7.5.4
 coveralls==4.0.1
 decoy==2.1.1
-flake8==7.1.1
+flake8==7.1.2
 
 pytest-asyncio==0.25.3; python_version > "3.8"
 pytest-asyncio==0.23.4; python_version == "3.8"
@@ -16,21 +16,21 @@ pytest-cov==4.1.0
 pytest-profiling==1.8.1; python_version > "3.8"
 pytest-profiling==1.7.0; python_version == "3.8"
 
-pytest-rerunfailures==13.0
+pytest-rerunfailures==15.0
 pytest-timeout==2.3.1
 pytest-xdist==3.6.1
 
 pytest==8.3.4; python_version > "3.8"
 pytest==7.4.4; python_version == "3.8"
 
-quart==0.19.9
+quart==0.20.0
 reactivex==4.0.4
-starlette==0.40.0
+starlette==0.45.3
 cbitstruct==1.1.0; python_version <= "3.12"
 cloudevents==1.11.0
-pydantic==1.10.18
-Werkzeug==3.0.4
-graphql-core==3.2.5
-gql==3.5.0
-websockets==13.1
+pydantic==1.10.21
+Werkzeug==3.1.3
+graphql-core==3.2.6
+gql==3.5.1
+websockets==15.0
 asyncwebsockets==0.9.4
