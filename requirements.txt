@@ -28,7 +28,9 @@ pytest-xdist==3.6.1
 pytest==8.3.4; python_version > "3.8"
 pytest==7.4.4; python_version == "3.8"
 
-quart==0.20.0
+quart==0.20.0; python_version > "3.8"
+quart==0.19.9; python_version == "3.8"
+
 reactivex==4.0.4
 starlette==0.45.3
 cbitstruct==1.1.0; python_version <= "3.12"
