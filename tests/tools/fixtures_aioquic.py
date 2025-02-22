@@ -1,3 +1,4 @@
+import logging
 from asyncio import Event
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -34,11 +35,15 @@ async def pipe_factory_quic(generate_test_certificates,
         server = new_server
         wait_for_server.set()
 
+    logging.debug('test quic - starting server')
+
     quic_server = await rsocket_serve(host='localhost',
                                       port=unused_tcp_port,
                                       configuration=server_configuration,
                                       on_server_create=store_server,
                                       **(server_arguments or {}))
+
+    logging.debug('test quic - server started')
 
     try:
         # from datetime import timedelta
@@ -49,7 +54,12 @@ async def pipe_factory_quic(generate_test_certificates,
                                    configuration=quic_client_configuration(certificate)) as transport:
             async with RSocketClient(single_transport_provider(transport),
                                      **client_arguments) as client:
+                logging.debug('test quic - waiting for server to be ready')
+
                 await wait_for_server.wait()
+
+                logging.debug('test quic - server and client ready, starting test')
+
                 yield server, client
     finally:
         if server is not None:

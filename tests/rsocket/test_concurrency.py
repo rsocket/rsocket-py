@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Tuple, Optional
 
 import pytest
@@ -75,6 +76,8 @@ async def test_concurrent_fragmented_responses(lazy_pipe_with_id):
 
             request_2 = asyncio.create_task(measure_time(client.request_response(Payload(b'10'))))
             return await request_1, await request_2
+
+        logging.debug("Starting concurrent requests")
 
         measure_result = await measure_time(run())
 
