@@ -149,6 +149,7 @@ class RSocketBase(RSocket, RSocketInternal):
 
     def finish_stream(self, stream_id: int):
         self._stream_control.finish_stream(stream_id)
+        self._frame_fragment_cache.remove(stream_id)
 
     def send_request(self, frame: RequestFrame):
         if self._honor_lease and not self._is_frame_allowed_to_send(frame):
