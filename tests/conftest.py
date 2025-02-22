@@ -45,7 +45,7 @@ tested_transports = [
     'aiohttp'
 ]
 
-if sys.version_info[:2] < (3, 13):
+if sys.version_info[:2] < (3, 11, 5):
     tested_transports += [
         'quic',
         'http3',
