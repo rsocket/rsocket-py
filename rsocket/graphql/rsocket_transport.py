@@ -9,6 +9,7 @@ from graphql import DocumentNode, ExecutionResult, print_ast
 from reactivestreams.subscriber import DefaultSubscriber
 from rsocket.extensions.helpers import composite, route
 from rsocket.frame_helpers import str_to_bytes
+from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 
@@ -104,6 +105,14 @@ class RSocketTransport(AsyncTransport):
             def on_error(self, exception: Exception):
                 self._received_queue.put_nowait(exception)
 
+            def cancel(self):
+                if self.subscription is not None:
+                    self.subscription.cancel()
+
+            def request(self, n: int):
+                if self.subscription is not None:
+                    self.subscription.request(n)
+
         rsocket_payload = self._create_rsocket_payload(document, variable_values, operation_name)
 
         received_queue = Queue()
@@ -120,4 +129,12 @@ class RSocketTransport(AsyncTransport):
             if response is complete_object:
                 break
 
-            yield self._response_to_execution_result(response)
+            execution_result = self._response_to_execution_result(response)
+
+            try:
+                yield execution_result
+            except GeneratorExit:
+                logger().debug('Generator exited')
+                subscriber.cancel()
+                return
+
