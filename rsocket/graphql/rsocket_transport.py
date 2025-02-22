@@ -121,17 +121,17 @@ class RSocketTransport(AsyncTransport):
         self._rsocket_client.request_stream(rsocket_payload).subscribe(subscriber)
 
         while True:
-            response = await received_queue.get()
-
-            if isinstance(response, Exception):
-                raise response
-
-            if response is complete_object:
-                break
-
-            execution_result = self._response_to_execution_result(response)
-
             try:
+                response = await received_queue.get()
+
+                if isinstance(response, Exception):
+                    raise response
+
+                if response is complete_object:
+                    break
+
+                execution_result = self._response_to_execution_result(response)
+
                 yield execution_result
             except GeneratorExit:
                 logger().debug('Generator exited')
