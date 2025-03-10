@@ -4,7 +4,7 @@ aiohttp==3.11.13; python_version > "3.8"
 aiohttp==3.10.11; python_version == "3.8"
 
 aioquic==1.2.0
-asyncstdlib==3.13.0
+asyncstdlib==3.13.1
 
 asyncclick==8.1.8; python_version > "3.8"
 asyncclick==8.1.7.2; python_version == "3.8"
