@@ -21,7 +21,7 @@ class Handler(BaseRequestHandler):
 async def endpoint(websocket: WebSocket):
     await websocket.accept()
     transport = Http3TransportWebsocket(websocket)
-    RSocketServer(transport=transport)
+    RSocketServer(transport=transport, handler_factory=Handler)
     await transport.wait_for_disconnect()
 
 

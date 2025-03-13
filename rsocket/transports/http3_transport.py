@@ -164,7 +164,7 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
     async def send_frame(self, frame: Frame):
         with wrap_transport_exception():
             try:
-                data = serialize_with_frame_size_header(frame)
+                data = frame.serialize()
                 try:
                     await self._websocket.send_bytes(data)
                 except LocalProtocolError as exception:
@@ -190,7 +190,7 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
                     self._disconnect_event.set()
                     break
 
-                async for frame in self._frame_parser.receive_data(data):
+                async for frame in self._frame_parser.receive_data(data, 0):
                     self._incoming_frame_queue.put_nowait(frame)
 
         except asyncio.CancelledError:
