@@ -178,7 +178,6 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
 
     async def close(self):
         await cancel_if_task_exists(self._listener)
-        # await self._websocket.close()
 
     async def incoming_data_listener(self):
         try:
