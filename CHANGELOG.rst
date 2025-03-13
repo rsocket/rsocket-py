@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+v0.4.18
+=======
+- Fixed Stalette/FastAPI implementation and added example using FastAPI server
+
 v0.4.17
 =======
 - python 3.13 support
