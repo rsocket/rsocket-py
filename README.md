@@ -17,6 +17,7 @@ You may also install using some **extras**:
 | rx              | ReactiveX ([v3](https://pypi.org/project/Rx/)) integration                                 | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
 | reactivex       | [ReactiveX](https://reactivex.io/) ([v4](https://pypi.org/project/reactivex/)) integration | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
 | aiohttp         | [aiohttp](https://docs.aiohttp.org/en/stable/) Websocket transport (server/client)         | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/websocket) |
+| fastapi         | [fastapi](https://github.com/fastapi/fastapi) Websocket transport (server/client)          |                                                                     |
 | quart           | [Quart](https://pgjones.gitlab.io/quart/) Websocket transport (server only)                |                                                                     |
 | quic            | [QUIC](https://github.com/aiortc/aioquic) transport                                        |                                                                     |
 | websockets      | [Websockets](https://github.com/python-websockets/websockets) transport (server only)      |                                                                     |
@@ -74,6 +75,7 @@ the [Spring RSocket demo](https://github.com/benwilcock/spring-rsocket-demo).
 |                             | ServerWithFragmentation | client_with_routing.py             |                 |
 | server_quart_websocket.py   |                         | client_websocket.py                |                 |
 | server_aiohttp_websocket.py |                         | client_websocket.py                |                 |
+| server_fastapi_websocket.py |                         | client_websocket.py                |                 |
 | server_graphql.py           | ServerWithGraphQL       | client_graphql.py                  |                 |
 
 # Build Status
