@@ -54,4 +54,4 @@ websockets==13.1; python_version == "3.8"
 
 asyncwebsockets==0.9.4
 
-fastapi==0.115.11
+fastapi==0.115.12
