@@ -16,7 +16,6 @@ def graphql_schema():
         }
 
     async def get_message(*args) -> str:
-        nonlocal stored_message
         return stored_message
 
     async def set_message(root, _info, message) -> Dict:

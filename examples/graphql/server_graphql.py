@@ -21,7 +21,6 @@ async def greeting(*args) -> Dict:
 
 
 async def get_message(*args) -> str:
-    global stored_message
     return stored_message
 
 
