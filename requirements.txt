@@ -12,7 +12,9 @@ asyncclick==8.1.7.2; python_version == "3.8"
 coverage==6.5.0
 coveralls==3.3.1
 decoy==2.1.1
-flake8==7.2.0
+
+flake8==7.2.0; python_version > "3.8"
+flake8==7.1.2; python_version == "3.8"
 
 pytest-asyncio==0.25.3; python_version > "3.8"
 pytest-asyncio==0.23.4; python_version == "3.8"
