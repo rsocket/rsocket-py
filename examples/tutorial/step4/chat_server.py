@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Awaitable
 from weakref import WeakValueDictionary, WeakSet
 
-from examples.tutorial.step4.shared import (Message, chat_filename_mimetype, dataclass_to_payload, decode_payload)
+from examples.tutorial.step4.shared import (Message, dataclass_to_payload, decode_payload)
 from reactivestreams.publisher import DefaultPublisher, Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import DefaultSubscription
@@ -79,10 +79,6 @@ async def channel_message_delivery(channel_name: str):
             logging.error(str(exception), exc_info=True)
 
 
-def get_file_name(composite_metadata):
-    return utf8_decode(composite_metadata.find_by_mimetype(chat_filename_mimetype)[0].content)
-
-
 class ChatUserSession:
 
     def __init__(self):
@@ -94,7 +90,9 @@ class ChatUserSession:
         @router.response('login')
         async def login(payload: Payload) -> Awaitable[Payload]:
             username = utf8_decode(payload.data)
+
             logging.info(f'New user: {username}')
+
             session_id = SessionId(uuid.uuid4())
             self._session = UserSessionData(username, session_id)
             chat_data.user_session_by_id[session_id] = self._session
@@ -142,7 +140,7 @@ class ChatUserSession:
 
                 def cancel(self):
                     if self._sender is not None:
-                        logging.info('Canceling message sender task')
+                        logging.info('Canceling incoming message sender task')
                         self._sender.cancel()
                         self._sender = None
 
@@ -185,7 +183,9 @@ def handler_factory():
 
 async def run_server():
     def session(*connection):
-        RSocketServer(TransportTCP(*connection), handler_factory=handler_factory)
+        RSocketServer(TransportTCP(*connection),
+                      handler_factory=handler_factory
+                      )
 
     async with await asyncio.start_server(session, 'localhost', 6565) as server:
         await server.serve_forever()

@@ -18,15 +18,14 @@ from rsocket.transports.tcp import TransportTCP
 class ChatClient:
     def __init__(self, rsocket: RSocketClient):
         self._rsocket = rsocket
-        self._message_subscriber: Optional = None
-        self._session_id: Optional[str] = None
         self._username: Optional[str] = None
 
     async def login(self, username: str):
         self._username = username
         payload = Payload(ensure_bytes(username), composite(route('login')))
-        self._session_id = (await self._rsocket.request_response(payload)).data
-        return self
+        response = await self._rsocket.request_response(payload)
+
+        logging.info(f'Login response: {utf8_decode(response.data)}')
 
     async def join(self, channel_name: str):
         request = Payload(ensure_bytes(channel_name), composite(route('channel.join')))
@@ -41,7 +40,7 @@ class ChatClient:
     def listen_for_messages(self):
         def print_message(data: bytes):
             message = decode_dataclass(data, Message)
-            print(f'{self._username}: from {message.user} ({message.channel}): {message.content}')
+            logging.info(f'to {self._username}: from {message.user} (channel: {message.channel}): {message.content}')
 
         class MessageListener(DefaultSubscriber, DefaultSubscription):
 
@@ -49,28 +48,36 @@ class ChatClient:
                 print_message(value.data)
 
             def on_error(self, exception: Exception):
-                print(exception)
+                logging.error(exception)
 
             def cancel(self):
                 self.subscription.cancel()
 
-        self._message_subscriber = MessageListener()
+        message_subscriber = MessageListener()
         self._rsocket.request_stream(
             Payload(metadata=composite(route('messages.incoming')))
-        ).subscribe(self._message_subscriber)
-
-    def stop_listening_for_messages(self):
-        self._message_subscriber.cancel()
+        ).subscribe(message_subscriber)
+        return message_subscriber
 
     async def private_message(self, username: str, content: str):
-        print(f'Sending {content} to user {username}')
-        await self._rsocket.request_response(Payload(encode_dataclass(Message(username, content)),
-                                                     composite(route('message'))))
+        logging.info(f'Sending "{content}" to user {username}')
+
+        request = Payload(
+            encode_dataclass(Message(username, content)),
+            composite(route('message'))
+        )
+
+        await self._rsocket.request_response(request)
 
     async def channel_message(self, channel: str, content: str):
-        print(f'Sending {content} to channel {channel}')
-        await self._rsocket.request_response(Payload(encode_dataclass(Message(channel=channel, content=content)),
-                                                     composite(route('message'))))
+        logging.info(f'Sending "{content}" to channel {channel}')
+
+        request = Payload(
+            encode_dataclass(Message(channel=channel, content=content)),
+            composite(route('message'))
+        )
+
+        await self._rsocket.request_response(request)
 
     async def list_channels(self) -> List[str]:
         request = Payload(metadata=composite(route('channels')))
@@ -102,16 +109,16 @@ async def main():
 
 
 async def messaging_example(user1: ChatClient, user2: ChatClient):
-    user1.listen_for_messages()
-    user2.listen_for_messages()
+    message_subscriber1 = user1.listen_for_messages()
+    message_subscriber2 = user2.listen_for_messages()
 
     channel_name = 'channel1'
 
     await user1.join(channel_name)
     await user2.join(channel_name)
 
-    print(f'Channels: {await user1.list_channels()}')
-    print(f'Channel {channel_name} users: {await user1.list_channel_users(channel_name)}')
+    logging.info(f'Channels: {await user1.list_channels()}')
+    logging.info(f'Channel: {channel_name} users: {await user1.list_channel_users(channel_name)}')
 
     await user1.private_message('user2', 'private message from user1')
     await user1.channel_message(channel_name, 'channel message from user1')
@@ -119,10 +126,10 @@ async def messaging_example(user1: ChatClient, user2: ChatClient):
     await asyncio.sleep(1)
 
     await user1.leave(channel_name)
-    print(f'Channel {channel_name} users: {await user1.list_channel_users(channel_name)}')
+    logging.info(f'Channel {channel_name} users: {await user1.list_channel_users(channel_name)}')
 
-    user1.stop_listening_for_messages()
-    user2.stop_listening_for_messages()
+    message_subscriber1.cancel()
+    message_subscriber2.cancel()
 
 
 if __name__ == '__main__':
