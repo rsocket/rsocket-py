@@ -15,10 +15,11 @@ class RSocketServer(RSocketBase):
     """
     Server side instance of an RSocket connection.
 
-    :param transport: Transport to use with this instance. See `Transport` class implementations.
+    :param transport: Transport to use with this instance. See :class:`Transport <rsocket.transports.transport.Transport>` class implementations.
     :param request_queue_size: Number of frames which can be queued while waiting for a lease.
     :param fragment_size_bytes: Minimum 64, Maximum depends on transport.
     :param on_ready: Called after the RSocket server internals setup is done.
+    :param handler_factory: Callable which returns the implemented application logic endpoints. See :class:`RequestRouter <rsocket.routing.request_router.RequestRouter>`
     """
 
     def __init__(self,

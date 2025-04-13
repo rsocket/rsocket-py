@@ -4,7 +4,7 @@ import ssl
 import asyncclick as click
 from aiohttp import web
 
-from examples.fixtures import generate_certificate_and_key
+from fixtures import generate_certificate_and_key
 from rsocket.helpers import create_future
 from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload

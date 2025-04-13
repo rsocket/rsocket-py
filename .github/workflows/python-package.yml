@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
@@ -37,10 +37,11 @@ jobs:
       run: |
         pytest -n 1 --reruns 5 --cov-report=html --cov --ignore=examples tests
     - name: Archive code coverage html report
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: code-coverage-report
         path: coverage_report_html
+        overwrite: true
     - name: Publish coveralls
       continue-on-error: true
       env:

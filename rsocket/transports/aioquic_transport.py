@@ -57,6 +57,9 @@ def rsocket_serve(host: str,
 
 
 class RSocketQuicProtocol(QuicConnectionProtocol):
+    """
+    RSocket transport over server side quic.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.frame_queue = asyncio.Queue()
@@ -99,6 +102,8 @@ class RSocketQuicTransport(AbstractMessagingTransport):
 
     async def incoming_data_listener(self):
         try:
+            logger().debug('Quic - Listener started')
+
             await self._quic_protocol.wait_connected()
 
             while True:
@@ -115,8 +120,11 @@ class RSocketQuicTransport(AbstractMessagingTransport):
             logger().debug('Asyncio task canceled: incoming_data_listener')
         except Exception:
             self._incoming_frame_queue.put_nowait(RSocketTransportError())
+        finally:
+            logger().debug('Quic - Listener stopped')
 
     async def close(self):
+        logger().debug('Quic - Closing transport')
         await cancel_if_task_exists(self._listener)
         self._quic_protocol.close()
 

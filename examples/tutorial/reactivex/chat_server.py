@@ -180,7 +180,7 @@ class ChatUserSession:
             self._session.statistics = statistics
 
         @router.channel('statistics')
-        async def send_statistics() -> ReactivexChannel:
+        async def send_statistics(initial_payload: Payload) -> ReactivexChannel:
 
             async def statistics_generator():
                 while True:
@@ -200,6 +200,8 @@ class ChatUserSession:
 
                 if request.period_seconds is not None:
                     self._session.requested_statistics.period_seconds = request.period_seconds
+
+            on_next(initial_payload)
 
             return ReactivexChannel(
                 from_observable_with_backpressure(

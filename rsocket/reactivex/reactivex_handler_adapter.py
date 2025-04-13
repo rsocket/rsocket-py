@@ -15,6 +15,9 @@ from rsocket.request_handler import RequestHandler
 
 
 def reactivex_handler_factory(handler_factory: Callable[[], ReactivexHandler]):
+    """
+    Wraps a reactivex handler factory into a basic request handler adapter.
+    """
     def create_handler():
         return ReactivexHandlerAdapter(handler_factory())
 
@@ -48,7 +51,13 @@ class ReactivexHandlerAdapter(RequestHandler):
         await self.delegate.request_fire_and_forget(payload)
 
     async def request_response(self, payload: Payload) -> asyncio.Future:
-        observable = await self.delegate.request_response(payload)
+        response = await self.delegate.request_response(payload)
+
+        if isinstance(response, asyncio.Future):
+            observable = await response
+        else:
+            observable = response
+
         return observable.pipe(
             operators.default_if_empty(Payload()),
             operators.to_future()

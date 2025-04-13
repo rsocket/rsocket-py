@@ -11,7 +11,7 @@ from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, FrameType,
                            MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
                            serialize_with_frame_size_header, RequestStreamFrame, RequestChannelFrame, ParseError,
                            parse_or_ignore, Frame, RequestFireAndForgetFrame, serialize_prefix_with_frame_size_header,
-                           parse_header_native, Header)
+                           parse_header_native, Header, is_frame_to_ignore, is_fragmentable_frame, new_frame_fragment)
 from rsocket.frame_parser import FrameParser
 from tests.rsocket.helpers import data_bits, build_frame, bits
 
@@ -23,7 +23,6 @@ from tests.rsocket.helpers import data_bits, build_frame, bits
         (1, 0, 1)
 ))
 def test_parse_header_native(follows, complete, is_next):
-
     data = build_frame(
         bits(24, 28, 'Frame size'),
         bits(1, 0, 'Padding'),
@@ -50,6 +49,7 @@ def test_parse_header_native(follows, complete, is_next):
     assert flags.flags_follows_resume_respond == follows
     assert flags.flags_complete_lease == complete
     assert flags.flags_next == is_next
+
 
 @pytest.mark.parametrize('metadata_flag, metadata, lease, frame_data', (
         (0, b'', 0, b'\x01\x02\x03'),
@@ -801,3 +801,25 @@ def test_equality():
 async def parse_frame(data: bytes, frame_parser: FrameParser) -> Frame:
     frames = await asyncstdlib.builtins.list(frame_parser.receive_data(data))
     return frames[0]
+
+
+def test_is_frame_to_ignore():
+    frame = RequestResponseFrame()
+    frame.stream_id = 1
+    frame.flags_ignore = True
+
+    assert not is_frame_to_ignore(frame)
+
+
+@pytest.mark.allow_error_log(regex_filter='Invalid metadata frame')
+def test_is_frame_to_ignore_invalid_metadata_push():
+    ignored_frame = MetadataPushFrame()
+    ignored_frame.stream_id = 1
+
+    assert is_frame_to_ignore(ignored_frame)
+
+
+def test_is_fragmentable_frame():
+    frame = PayloadFrame()
+
+    assert is_fragmentable_frame(frame)

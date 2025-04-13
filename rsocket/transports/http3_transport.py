@@ -18,8 +18,8 @@ from starlette.websockets import WebSocket, WebSocketDisconnect
 from wsproto.utilities import LocalProtocolError
 
 from rsocket.exceptions import RSocketTransportError
-from rsocket.frame import Frame, serialize_with_frame_size_header, KeepAliveFrame
-from rsocket.helpers import wrap_transport_exception, cancel_if_task_exists
+from rsocket.frame import Frame, KeepAliveFrame
+from rsocket.helpers import wrap_transport_exception, cancel_if_task_exists, create_future
 from rsocket.logger import logger
 from rsocket.transports.abstract_messaging import AbstractMessagingTransport
 
@@ -158,13 +158,13 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
     def __init__(self, websocket: Union[WebSocket, ClientWebSocket]):
         super().__init__()
         self._websocket = websocket
+        self._disconnect_event = create_future()
         self._listener = asyncio.create_task(self.incoming_data_listener())
-        self._disconnect_event = asyncio.Event()
 
     async def send_frame(self, frame: Frame):
         with wrap_transport_exception():
             try:
-                data = serialize_with_frame_size_header(frame)
+                data = frame.serialize()
                 try:
                     await self._websocket.send_bytes(data)
                 except LocalProtocolError as exception:
@@ -174,11 +174,10 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
                         raise RSocketTransportError(str(frame)) from exception
                 await asyncio.sleep(0)
             except WebSocketDisconnect:
-                self._disconnect_event.set()
+                self._disconnect_event.set_result(True)
 
     async def close(self):
         await cancel_if_task_exists(self._listener)
-        # await self._websocket.close()
 
     async def incoming_data_listener(self):
         try:
@@ -187,21 +186,24 @@ class Http3TransportWebsocket(AbstractMessagingTransport):
                 try:
                     data = await self._websocket.receive_bytes()
                 except WebSocketDisconnect:
-                    self._disconnect_event.set()
+                    logger().debug('Websocket disconnected')
+                    self._disconnect_event.set_result(True)
                     break
 
-                async for frame in self._frame_parser.receive_data(data):
+                async for frame in self._frame_parser.receive_data(data, 0):
                     self._incoming_frame_queue.put_nowait(frame)
 
         except asyncio.CancelledError:
             logger().debug('Asyncio task canceled: incoming_data_listener')
+            self._disconnect_event.set_result(True)
         except WebSocketDisconnect:
-            pass
-        except Exception:
+            self._disconnect_event.set_result(True)
+        except Exception as exception:
             self._incoming_frame_queue.put_nowait(RSocketTransportError())
+            self._disconnect_event.set_exception(exception)
 
     async def wait_for_disconnect(self):
-        await self._disconnect_event.wait()
+        await self._disconnect_event
 
     def requires_length_header(self) -> bool:
         return True

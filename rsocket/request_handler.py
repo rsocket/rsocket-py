@@ -25,7 +25,9 @@ class RequestHandler(metaclass=ABCMeta):
 
     @abstractmethod
     async def on_metadata_push(self, metadata: Payload):
-        ...
+        """
+        Handle metadata-push request
+        """
 
     @abstractmethod
     async def request_channel(self,
@@ -33,12 +35,15 @@ class RequestHandler(metaclass=ABCMeta):
                               ) -> Tuple[Optional[Publisher], Optional[Subscriber]]:
         """
         Bi-Directional communication.  A publisher on each end is connected
-        to a subscriber on the other end.
+        to a subscriber on the other end. Note that the first payload sent to the handler is passed as
+        an argument to this method and not to the local subscriber.
         """
 
     @abstractmethod
     async def request_fire_and_forget(self, payload: Payload):
-        ...
+        """
+        Handle fire-and-forget request
+        """
 
     @abstractmethod
     async def request_response(self, payload: Payload) -> Awaitable[Payload]:
@@ -54,21 +59,29 @@ class RequestHandler(metaclass=ABCMeta):
 
     @abstractmethod
     async def on_error(self, error_code: ErrorCode, payload: Payload):
-        ...
+        """
+        Handle errors received from the remote side
+        """
 
     @abstractmethod
     async def on_keepalive_timeout(self,
                                    time_since_last_keepalive: timedelta,
                                    rsocket):
-        ...
+        """
+        Handle keepalive timeout
+        """
 
     @abstractmethod
     async def on_connection_error(self, rsocket, exception: Exception):
-        ...
+        """
+        Handle connection error
+        """
 
     @abstractmethod
     async def on_close(self, rsocket, exception: Optional[Exception] = None):
-        ...
+        """
+        Handle connection closed
+        """
 
     # noinspection PyMethodMayBeStatic
     def _parse_composite_metadata(self, metadata: bytes) -> CompositeMetadata:

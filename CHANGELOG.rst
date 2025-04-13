@@ -1,9 +1,20 @@
 Changelog
 ---------
 
+v0.4.18
+=======
+- Fixed Stalette/FastAPI implementation and added example using FastAPI server
+
+v0.4.17
+=======
+- python 3.13 support
+- Documentation and example code update
+
 v0.4.16
 =======
-- Channels (django) (https://github.com/django/channels) server support
+- Fix using router request-response with reactivex response
+- Fix examples of consuming the payload of a request-channel
+- Fix the reactivex example of the tutorial application
 
 v0.4.15
 =======

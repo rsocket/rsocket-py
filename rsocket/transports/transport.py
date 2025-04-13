@@ -6,7 +6,14 @@ from rsocket.frame_parser import FrameParser
 
 class Transport(metaclass=abc.ABCMeta):
     """
-    Base class for all transports.
+    Base class for all transports:
+
+    - tcp: :class:`TransportTCP <rsocket.transports.tcp.TransportTCP>`
+    - websocket: :class:`TransportAsyncWebsocketsClient <rsocket.transports.asyncwebsockets_transport.TransportAsyncWebsocketsClient>`
+    - http3: :class:`Http3TransportWebsocket <rsocket.transports.http3_transport.Http3TransportWebsocket>`
+    - aioquic: :class:`RSocketQuicProtocol <rsocket.transports.aioquic_transport.RSocketQuicProtocol>`
+    - aiohttp: :class:`TransportAioHttpWebsocket <rsocket.transports.aiohttp_websocket.TransportAioHttpClient>`
+    - quart: :class:`TransportQuartWebsocket <rsocket.transports.quart_websocket.TransportQuartWebsocket>`
     """
 
     def __init__(self):

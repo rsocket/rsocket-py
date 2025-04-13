@@ -8,7 +8,7 @@ class FrameFragmentCache:
     __slots__ = '_frames_by_stream_id'
 
     def __init__(self):
-        self._frames_by_stream_id: Dict[str, FragmentableFrame] = {}
+        self._frames_by_stream_id: Dict[int, FragmentableFrame] = {}
 
     def append(self, frame: FragmentableFrame) -> Optional[FragmentableFrame]:
         if frame.flags_follows:
@@ -19,6 +19,9 @@ class FrameFragmentCache:
                 frame = self._frame_fragment_builder(frame)
                 self._frames_by_stream_id.pop(frame.stream_id)
             return frame
+
+    def remove(self, stream_id: int):
+        self._frames_by_stream_id.pop(stream_id, None)
 
     def _frame_fragment_builder(self, next_fragment: FragmentableFrame) -> FragmentableFrame:
 

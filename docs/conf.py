@@ -24,7 +24,7 @@ copyright = '2022, jellofishi@pm.me'
 author = 'jellofishi@pm.me'
 
 # The full version, including alpha/beta/rc tags
-release = '0.4.15'
+release = '0.4.18'
 
 # -- General configuration ---------------------------------------------------
 
@@ -35,7 +35,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     "sphinx.ext.napoleon",
-    "sphinx.ext.viewcode"
+    "sphinx.ext.viewcode",
 ]
 
 # Add any paths that contain templates here, relative to this directory.

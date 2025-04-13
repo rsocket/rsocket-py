@@ -6,6 +6,9 @@ from rsocket.rsocket import RSocket
 
 
 class LoadBalancerRoundRobin(LoadBalancerStrategy):
+    """
+    Round Robin Load Balancer
+    """
     def __init__(self,
                  pool: List[RSocket],
                  auto_connect=True,
