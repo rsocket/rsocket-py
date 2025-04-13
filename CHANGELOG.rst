@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+v0.4.19
+=======
+- Added Django Channels transport support for WebSocket communication
+
 v0.4.18
 =======
 - Fixed Stalette/FastAPI implementation and added example using FastAPI server

@@ -18,6 +18,7 @@ You may also install using some **extras**:
 | reactivex       | [ReactiveX](https://reactivex.io/) ([v4](https://pypi.org/project/reactivex/)) integration | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/reactivex) |
 | aiohttp         | [aiohttp](https://docs.aiohttp.org/en/stable/) Websocket transport (server/client)         | [Tutorial](https://rsocket.io/guides/rsocket-py/tutorial/websocket) |
 | fastapi         | [fastapi](https://github.com/fastapi/fastapi) Websocket transport (server/client)          |                                                                     |
+| channels        | Websocket transport (server only) using channels (django)                                  |                                                                     |
 | quart           | [Quart](https://pgjones.gitlab.io/quart/) Websocket transport (server only)                |                                                                     |
 | quic            | [QUIC](https://github.com/aiortc/aioquic) transport                                        |                                                                     |
 | websockets      | [Websockets](https://github.com/python-websockets/websockets) transport (server only)      |                                                                     |
