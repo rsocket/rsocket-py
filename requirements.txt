@@ -38,7 +38,7 @@ quart==0.19.9; python_version == "3.8"
 
 reactivex==4.0.4
 
-starlette==0.46.1; python_version > "3.8"
+starlette==0.46.2; python_version > "3.8"
 starlette==0.44.0; python_version == "3.8"
 
 cbitstruct==1.1.0; python_version <= "3.12"
