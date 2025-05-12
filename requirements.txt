@@ -24,7 +24,7 @@ pytest-cov==4.1.0
 pytest-profiling==1.8.1; python_version > "3.8"
 pytest-profiling==1.7.0; python_version == "3.8"
 
-pytest-rerunfailures==15.0; python_version > "3.8"
+pytest-rerunfailures==15.1; python_version > "3.8"
 pytest-rerunfailures==14.0; python_version == "3.8"
 
 pytest-timeout==2.3.1
