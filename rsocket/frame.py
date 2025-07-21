@@ -287,6 +287,9 @@ class Frame(Header, metaclass=ABCMeta):
 
 class FrameFragmentMixin(metaclass=abc.ABCMeta):
 
+    def cleanup(self, requires_length_header: bool = True):
+        self.get_next_fragment(requires_length_header)
+
     def get_next_fragment(self, requires_length_header: bool = True) -> Optional['Frame']:
         if self.fragment_generator is None:
             self.fragment_generator = data_to_fragments_if_required(

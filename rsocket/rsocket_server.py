@@ -7,6 +7,7 @@ from rsocket.helpers import create_future, noop
 from rsocket.local_typing import Awaitable
 from rsocket.payload import Payload
 from rsocket.request_handler import RequestHandler, BaseRequestHandler
+from rsocket.resume.resume_interface import ResumeInterface
 from rsocket.rsocket_base import RSocketBase
 from rsocket.transports.transport import Transport
 
@@ -34,7 +35,8 @@ class RSocketServer(RSocketBase):
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  setup_payload: Optional[Payload] = None,
                  fragment_size_bytes: Optional[int] = None,
-                 on_ready: Optional[Callable[[RSocketBase], None]] = None
+                 on_ready: Optional[Callable[[RSocketBase], None]] = None,
+                 resume_registry: Optional[ResumeInterface] = None,
                  ):
         self._on_ready = on_ready or noop
         self._transport = transport
@@ -48,7 +50,8 @@ class RSocketServer(RSocketBase):
                          keep_alive_period,
                          max_lifetime_period,
                          setup_payload,
-                         fragment_size_bytes=fragment_size_bytes)
+                         fragment_size_bytes=fragment_size_bytes,
+                         resume_registry=resume_registry)
 
     def _current_transport(self) -> Awaitable[Transport]:
         return create_future(self._transport)

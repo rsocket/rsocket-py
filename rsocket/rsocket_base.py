@@ -16,7 +16,8 @@ from rsocket.frame import (KeepAliveFrame,
                            exception_to_error_frame,
                            LeaseFrame, ErrorFrame, RequestFrame,
                            initiate_request_frame_types, InvalidFrame,
-                           FragmentableFrame, FrameFragmentMixin, MINIMUM_FRAGMENT_SIZE_BYTES)
+                           FragmentableFrame, FrameFragmentMixin, MINIMUM_FRAGMENT_SIZE_BYTES, PayloadFrame,
+                           CancelFrame)
 from rsocket.frame import (RequestChannelFrame, ResumeFrame,
                            is_fragmentable_frame, CONNECTION_STREAM_ID)
 from rsocket.frame import SetupFrame
@@ -37,6 +38,9 @@ from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.queue_peekable import QueuePeekable
 from rsocket.request_handler import BaseRequestHandler, RequestHandler
+from rsocket.resume.resume_interface import ResumeInterface
+from rsocket.resume.resume_registry import ResumeRegistry
+from rsocket.resume.resume_session import ResumeSession
 from rsocket.rsocket import RSocket
 from rsocket.rsocket_internal import RSocketInternal
 from rsocket.stream_control import StreamControl
@@ -66,7 +70,8 @@ class RSocketBase(RSocket, RSocketInternal):
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  setup_payload: Optional[Payload] = None,
-                 fragment_size_bytes: Optional[int] = None
+                 fragment_size_bytes: Optional[int] = None,
+                 resume_registry: Optional[ResumeInterface] = None,
                  ):
 
         self._assert_valid_fragment_size(fragment_size_bytes)
@@ -88,6 +93,12 @@ class RSocketBase(RSocket, RSocketInternal):
         self._is_closing = False
         self._connecting = True
         self._fragment_size_bytes = fragment_size_bytes
+
+        if fragment_size_bytes is not None and resume_registry is not None:
+            raise Exception('Cannot use fragmentation and resume at the same time')
+
+        self._resume_registry = resume_registry
+        self._resume_session: Optional[ResumeSession] = None
 
         self._setup_internals()
 
@@ -123,9 +134,11 @@ class RSocketBase(RSocket, RSocketInternal):
         self._sender_task = self._start_task_if_not_closing(self._sender)
 
     async def connect(self):
-        self.send_priority_frame(self._create_setup_frame(self._data_encoding,
-                                                          self._metadata_encoding,
-                                                          self._setup_payload))
+        resume_token = None
+        setup_frame = self._create_setup_frame(self._data_encoding, self._metadata_encoding, self._setup_payload,
+                                               resume_token)
+
+        self.send_priority_frame(setup_frame)
 
         if self._honor_lease:
             self._subscribe_to_lease_publisher()
@@ -163,6 +176,9 @@ class RSocketBase(RSocket, RSocketInternal):
         self._request_queue.put_nowait(frame)
 
     def send_priority_frame(self, frame: Frame):
+        """
+        TODO: this should be reimplemented better optimized. separate priority queue ?
+        """
         items = []
         while not self._send_queue.empty():
             items.append(self._send_queue.get_nowait())
@@ -203,6 +219,9 @@ class RSocketBase(RSocket, RSocketInternal):
     async def handle_keep_alive(self, frame: KeepAliveFrame):
         self._update_last_keepalive()
 
+        if self._resume_session is not None:
+            self._resume_session.cleanup_until_including(frame.last_received_position)
+
         if frame.flags_respond:
             frame.flags_respond = False
             self.send_frame(frame)
@@ -229,7 +248,11 @@ class RSocketBase(RSocket, RSocketInternal):
 
     async def handle_setup(self, frame: SetupFrame):
         if frame.flags_resume:
-            raise RSocketProtocolError(ErrorCode.UNSUPPORTED_SETUP, data='Resume not supported')
+            if self._resume_registry is None:
+                raise RSocketProtocolError(ErrorCode.UNSUPPORTED_SETUP, data='Resume not supported')
+            else:
+                self._resume_session = ResumeSession(frame.resume_identification_token)
+                self._resume_registry.register_session(self._resume_session)
 
         if frame.flags_lease:
             if self._lease_publisher is None:
@@ -394,16 +417,15 @@ class RSocketBase(RSocket, RSocketInternal):
             next_fragment = next_frame_source.get_next_fragment(transport.requires_length_header())
 
             if next_fragment.flags_follows:
-                self._send_queue.put_nowait(self._send_queue.get_nowait())  # cycle to next frame source in queue
+                self._send_queue.put_nowait(self._send_queue.get_nowait())  # there are more fragment in this send item
             else:
-                next_frame_source.get_next_fragment(
-                    transport.requires_length_header())  # workaround to clean-up generator.
-                self._send_queue.get_nowait()
+                next_frame_source.cleanup(transport.requires_length_header())
+                self._send_queue.remove_nowait()
 
             yield next_fragment
 
         else:
-            self._send_queue.get_nowait()
+            self._send_queue.remove_nowait()
             yield next_frame_source
 
     async def _sender(self):
@@ -414,7 +436,9 @@ class RSocketBase(RSocket, RSocketInternal):
                 self._before_sender()
                 while self.is_server_alive():
                     async with self._get_next_frame_to_send(transport) as frame:
+                        self._record_frame_position(frame)
                         await transport.send_frame(frame)
+
                         log_frame(frame, self._log_identifier(), 'Sent')
 
                         if frame.sent_future is not None:
@@ -433,6 +457,13 @@ class RSocketBase(RSocket, RSocketInternal):
             raise
         finally:
             await self._finally_sender()
+
+    def _record_frame_position(self, frame: Frame):
+        if self._resume_session is not None:
+            if isinstance(frame,
+                          [RequestResponseFrame, RequestStreamFrame, RequestChannelRequester, RequestFireAndForgetFrame,
+                           PayloadFrame, CancelFrame]):
+                self._resume_session.record_frame(frame)
 
     async def close(self):
         logger().debug('%s: Closing', self._log_identifier())
@@ -538,7 +569,8 @@ class RSocketBase(RSocket, RSocketInternal):
     def _create_setup_frame(self,
                             data_encoding: bytes,
                             metadata_encoding: bytes,
-                            payload: Optional[Payload] = None) -> SetupFrame:
+                            payload: Optional[Payload] = None,
+                            resume_token_id: Optional[int] = None) -> SetupFrame:
         return to_setup_frame(payload,
                               data_encoding,
                               metadata_encoding,

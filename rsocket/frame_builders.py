@@ -100,13 +100,15 @@ def to_setup_frame(payload: Payload,
                    metadata_encoding: str,
                    keep_alive_period: timedelta,
                    max_lifetime_period: timedelta,
-                   honor_lease: bool = False):
+                   honor_lease: bool = False,
+                   resume_token_id: Optional[int] = None):
     setup = SetupFrame()
     setup.flags_lease = honor_lease
     setup.keep_alive_milliseconds = to_milliseconds(keep_alive_period)
     setup.max_lifetime_milliseconds = to_milliseconds(max_lifetime_period)
     setup.data_encoding = data_encoding
     setup.metadata_encoding = metadata_encoding
+    setup.resume_identification_token = resume_token_id
     if payload is not None:
         setup.data = payload.data
         setup.metadata = payload.metadata

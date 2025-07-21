@@ -7,7 +7,7 @@ class QueuePeekable(Queue):
     async def peek(self):
         """Peek the next item in the queue.
 
-        If queue is empty, wait until an item is available.
+        If the queue is empty, wait until an item is available.
         """
         while self.empty():
             getter = self._get_loop().create_future()
@@ -29,6 +29,9 @@ class QueuePeekable(Queue):
                     self._wakeup_next(self._getters)
                 raise
         return self.peek_nowait()
+
+    def remove_nowait(self):
+        self.get_nowait()
 
     def peek_nowait(self):
         """Peek the next item in the queue.

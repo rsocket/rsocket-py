@@ -13,6 +13,7 @@ from rsocket.logger import logger
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
 from rsocket.request_handler import RequestHandler
+from rsocket.resume.resume_client import ResumeClient
 from rsocket.rsocket_base import RSocketBase
 from rsocket.transports.transport import Transport
 
@@ -38,7 +39,8 @@ class RSocketClient(RSocketBase):
                  keep_alive_period: timedelta = timedelta(milliseconds=500),
                  max_lifetime_period: timedelta = timedelta(minutes=10),
                  setup_payload: Optional[Payload] = None,
-                 fragment_size_bytes: Optional[int] = None
+                 fragment_size_bytes: Optional[int] = None,
+                 resume_enabled: bool = False,
                  ):
         self._transport_provider = transport_provider.__aiter__()
         self._is_server_alive = True
@@ -49,6 +51,10 @@ class RSocketClient(RSocketBase):
         self._reconnect_task = asyncio.create_task(self._reconnect_listener())
         self._keepalive_task = None
 
+        self._resume_client :Optional[ResumeClient] = None
+        if resume_enabled:
+            self._resume_client = ResumeClient()
+
         super().__init__(handler_factory=handler_factory,
                          honor_lease=honor_lease,
                          lease_publisher=lease_publisher,
@@ -58,7 +64,8 @@ class RSocketClient(RSocketBase):
                          keep_alive_period=keep_alive_period,
                          max_lifetime_period=max_lifetime_period,
                          setup_payload=setup_payload,
-                         fragment_size_bytes=fragment_size_bytes)
+                         fragment_size_bytes=fragment_size_bytes,
+                         resume_registry=self._resume_client)
 
     def _current_transport(self) -> Awaitable[Transport]:
         return self._next_transport
