@@ -59,4 +59,4 @@ asyncwebsockets==0.9.4
 fastapi==0.116.1
 
 channels==4.2.2
-daphne==4.1.2
+daphne==4.2.1
