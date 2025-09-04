@@ -13,7 +13,7 @@ MAX_STREAM_ID = 0x7FFFFFFF
 
 class StreamControl:
     def __init__(self, first_stream_id: int):
-        self._first_stream_id = first_stream_id - 2
+        self._first_stream_id = (first_stream_id - 2) & MAX_STREAM_ID
         self._current_stream_id = self._first_stream_id
         self._streams: Dict[int, StreamHandler] = {}
         self._maximum_stream_id = MAX_STREAM_ID
