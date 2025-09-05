@@ -13,7 +13,7 @@ MAX_STREAM_ID = 0x7FFFFFFF
 
 class StreamControl:
     def __init__(self, first_stream_id: int):
-        self._first_stream_id = first_stream_id
+        self._first_stream_id = (first_stream_id - 2) & MAX_STREAM_ID
         self._current_stream_id = self._first_stream_id
         self._streams: Dict[int, StreamHandler] = {}
         self._maximum_stream_id = MAX_STREAM_ID
@@ -21,14 +21,18 @@ class StreamControl:
     def allocate_stream(self) -> int:
         attempt_counter = 0
 
-        while (self._current_stream_id == CONNECTION_STREAM_ID
-               or self._current_stream_id in self._streams):
-
+        available_stream_id_found = False
+        while not available_stream_id_found:
             if attempt_counter > self._maximum_stream_id / 2:
                 raise RSocketStreamAllocationFailure()
 
             self._increment_stream_id()
             attempt_counter += 1
+
+            available_stream_id_found = not (
+                self._current_stream_id == CONNECTION_STREAM_ID
+                or self._current_stream_id in self._streams
+            )
 
         return self._current_stream_id
 
