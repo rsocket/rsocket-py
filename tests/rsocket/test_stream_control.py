@@ -66,6 +66,20 @@ def test_stream_control_reuse_old_stream_ids():
     assert next_stream == 5
 
 
+@pytest.mark.parametrize('first_stream_id', (1, 2))
+def test_stream_id_increments_after_allocation_and_registration_followed_by_finishing(first_stream_id: int):
+    control = StreamControl(first_stream_id)
+    dummy_stream = object()
+
+    allocated_id = control.allocate_stream()
+    control.register_stream(allocated_id, dummy_stream)
+
+    control.finish_stream(allocated_id)
+    new_allocated_id = control.allocate_stream()
+
+    assert new_allocated_id != allocated_id
+
+
 def test_stream_in_use():
     control = StreamControl(1)
 
