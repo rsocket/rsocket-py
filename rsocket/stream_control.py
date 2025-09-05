@@ -21,16 +21,15 @@ class StreamControl:
     def allocate_stream(self) -> int:
         attempt_counter = 0
 
-        # python do-while loop  equivalent
-        repeat = True
-        while repeat:
+        available_stream_id_found = False
+        while not available_stream_id_found:
             if attempt_counter > self._maximum_stream_id / 2:
                 raise RSocketStreamAllocationFailure()
 
             self._increment_stream_id()
             attempt_counter += 1
 
-            repeat = (
+            available_stream_id_found = not (
                 self._current_stream_id == CONNECTION_STREAM_ID
                 or self._current_stream_id in self._streams
             )
