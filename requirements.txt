@@ -16,8 +16,8 @@ decoy==2.1.1
 flake8==7.2.0; python_version > "3.8"
 flake8==7.1.2; python_version == "3.8"
 
-pytest-asyncio==0.25.3; python_version > "3.8"
-pytest-asyncio==0.23.4; python_version == "3.8"
+pytest-asyncio==1.1.0; python_version > "3.8"
+pytest-asyncio==1.1.0; python_version == "3.8"
 
 pytest-cov==4.1.0
 
