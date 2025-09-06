@@ -23,8 +23,8 @@ from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
 from rsocket.transports.aioquic_transport import rsocket_connect, rsocket_serve
 from rsocket.transports.tcp import TransportTCP
 from rsocket.transports.transport import Transport
-from tests.rsocket.helpers import future_from_payload, IdentifiedHandlerFactory, \
-    IdentifiedHandler, force_closing_connection, ServerContainer
+from tests.rsocket.helpers import (future_from_payload, IdentifiedHandlerFactory,
+                                   IdentifiedHandler, force_closing_connection, ServerContainer)
 
 
 class ServerHandler(IdentifiedHandler):
@@ -240,7 +240,7 @@ async def start_tcp_client(port: int, generate_test_certificates) -> RSocketClie
 
 
 async def start_websocket_service(waiter: asyncio.Event, container, port: int, generate_test_certificates):
-    from rsocket.transports.aiohttp_websocket import websocket_handler_factory, TransportAioHttpClient
+    from rsocket.transports.aiohttp_websocket import websocket_handler_factory
     from aiohttp.test_utils import RawTestServer
 
     index_iterator = iter(range(1, 3))

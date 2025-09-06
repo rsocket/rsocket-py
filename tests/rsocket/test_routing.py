@@ -159,7 +159,6 @@ async def test_routed_request_response_composite_according_to_type(lazy_pipe):
         assert result.metadata == b'test.path'
 
 
-
 async def test_routed_request_response_properly_finished_accept_payload_and_metadata(lazy_pipe):
     router = RequestRouter()
 

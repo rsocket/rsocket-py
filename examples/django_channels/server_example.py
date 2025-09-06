@@ -18,8 +18,7 @@ from django.urls import path
 
 from rsocket.payload import Payload
 from rsocket.request_handler import BaseRequestHandler
-from rsocket.rsocket_server import RSocketServer
-from rsocket.transports.channels_transport import AsyncRSocketConsumer, rsocket_consumer_factory
+from rsocket.transports.channels_transport import rsocket_consumer_factory
 
 
 # Define a request handler for RSocket
