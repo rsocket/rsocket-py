@@ -61,8 +61,10 @@ def handler_factory_factory():
         publisher = ChannelPublisher()
         subscriber = ChannelSubscriber(publisher)
 
-        # WHY?: if passing received payload to ChannelSubscriber here can be processed before at ChannelPublisher "subscribe" method got subscriber
-        # in other words - we do "one_next()", it will be processed with some logic and result can be published with "publish()"
+        # WHY?: if passing received payload to ChannelSubscriber here can be processed
+        # before at ChannelPublisher "subscribe" method got subscriber
+        # in other words - we do "one_next()", it will be processed with some logic
+        # and a result can be published with "publish()"
         # subscriber.on_next(payload)
 
         return publisher, subscriber
@@ -88,7 +90,7 @@ def websocket_handler_factory(**kwargs):
 async def start_server():
     logging.basicConfig(level=logging.DEBUG)
 
-    print(f'Starting server at localhost: 7878')
+    print('Starting server at localhost: 7878')
 
     app = web.Application()
     app.add_routes(

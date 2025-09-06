@@ -1,6 +1,5 @@
 from rsocket.frame import Frame, RequestChannelFrame
 from rsocket.handlers.request_cahnnel_common import RequestChannelCommon
-from rsocket.helpers import payload_from_frame
 
 
 class RequestChannelResponder(RequestChannelCommon):
