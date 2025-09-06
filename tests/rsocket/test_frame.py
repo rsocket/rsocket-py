@@ -11,7 +11,7 @@ from rsocket.frame import (SetupFrame, CancelFrame, ErrorFrame, FrameType,
                            MetadataPushFrame, PayloadFrame, LeaseFrame, ResumeOKFrame, KeepAliveFrame,
                            serialize_with_frame_size_header, RequestStreamFrame, RequestChannelFrame, ParseError,
                            parse_or_ignore, Frame, RequestFireAndForgetFrame, serialize_prefix_with_frame_size_header,
-                           parse_header_native, Header, is_frame_to_ignore, is_fragmentable_frame, new_frame_fragment)
+                           parse_header_native, Header, is_frame_to_ignore, is_fragmentable_frame)
 from rsocket.frame_parser import FrameParser
 from tests.rsocket.helpers import data_bits, build_frame, bits
 

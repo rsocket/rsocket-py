@@ -29,21 +29,21 @@ async def connect_to_django_channels(url: str, ssl_context: Optional[ssl.SSLCont
     async with websockets.connect(url, ssl=ssl_context) as websocket:
         # Create a transport using the websocket connection
         transport = WebsocketsTransport()
-        
+
         # Start the transport handler
         handler_task = asyncio.create_task(transport.handler(websocket))
-        
+
         try:
             # Create an RSocket client using the transport
             async with RSocketClient(single_transport_provider(transport)) as client:
                 # Send a request-response
                 payload = Payload(b'Hello from RSocket client')
                 response = await client.request_response(payload)
-                
+
                 print(f"Received response: {response.data.decode()}")
-                
+
                 # You can add more interactions here
-                
+
         finally:
             # Clean up the handler task
             handler_task.cancel()
@@ -61,7 +61,7 @@ async def main(url: str, secure: bool):
     Connect to a Django Channels RSocket server.
     """
     logging.basicConfig(level=logging.INFO)
-    
+
     if secure and not url.startswith('wss://'):
         url = 'wss://' + url.removeprefix('ws://')
         ssl_context = ssl.create_default_context()
@@ -70,7 +70,7 @@ async def main(url: str, secure: bool):
         ssl_context.verify_mode = ssl.CERT_NONE
     else:
         ssl_context = None
-    
+
     await connect_to_django_channels(url, ssl_context)
 
 

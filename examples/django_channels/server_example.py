@@ -32,14 +32,12 @@ class Handler(BaseRequestHandler):
 # Create a consumer using the factory
 RSocketConsumer = rsocket_consumer_factory(handler_factory=Handler)
 
-
 # Django Channels routing configuration
 application = ProtocolTypeRouter({
     'websocket': URLRouter([
         path('rsocket', RSocketConsumer.as_asgi()),
     ]),
 })
-
 
 """
 To use this in a Django project:

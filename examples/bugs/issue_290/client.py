@@ -1,24 +1,17 @@
 import asyncio
 import logging
-import sys
 from asyncio import Event
 from typing import AsyncGenerator, Tuple
-
-import aiohttp
-from rsocket.transports.asyncwebsockets_transport import websocket_client
-
-from rsocket.transports.aiohttp_websocket import TransportAioHttpClient
 
 from reactivestreams.publisher import Publisher
 from reactivestreams.subscriber import Subscriber
 from reactivestreams.subscription import Subscription
 from rsocket.extensions.helpers import route, composite, authenticate_simple
 from rsocket.extensions.mimetypes import WellKnownMimeTypes
-from rsocket.helpers import single_transport_provider
 from rsocket.payload import Payload
 from rsocket.rsocket_client import RSocketClient
 from rsocket.streams.stream_from_async_generator import StreamFromAsyncGenerator
-from rsocket.transports.tcp import TransportTCP
+from rsocket.transports.asyncwebsockets_transport import websocket_client
 
 
 def sample_publisher(wait_for_requester_complete: Event,
@@ -64,8 +57,8 @@ class ChannelSubscriber(Subscriber):
         logging.info('Completed from server on channel')
         self._wait_for_responder_complete.set()
 
-async def request_channel(client: RSocketClient):
 
+async def request_channel(client: RSocketClient):
     channel_completion_event = Event()
     requester_completion_event = Event()
     payload = Payload(b'The first item in the stream', composite(
@@ -84,9 +77,9 @@ async def request_channel(client: RSocketClient):
 
 
 async def application(serve_port: int):
-        async with websocket_client('http://localhost:%s/rsocket' % serve_port,
-                                    metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA,) as client:
-            await request_channel(client)
+    async with websocket_client('http://localhost:%s/rsocket' % serve_port,
+                                metadata_encoding=WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA, ) as client:
+        await request_channel(client)
 
 
 async def command():

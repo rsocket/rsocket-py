@@ -22,7 +22,7 @@ class ChannelPublisher(DefaultPublisherSubscription):
         print(f"ChannelPublisher - publish: {data}")
         print(f"ChannelPublisher - publish subscriber: {self.subscriber}")
 
-        if (self.subscriber is not None):
+        if self.subscriber is not None:
             self.subscriber.on_next(Payload(data.encode('utf-8')))
 
     def subscribe(self, subscriber):
@@ -36,6 +36,7 @@ class ChannelPublisher(DefaultPublisherSubscription):
 class ChannelSubscriber(DefaultSubscriber):
 
     def __init__(self, publisher: ChannelPublisher):
+        super().__init__()
         self.subscription = None
         self.publisher = publisher
 
