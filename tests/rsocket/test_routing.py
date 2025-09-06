@@ -141,6 +141,25 @@ async def test_routed_request_response_properly_finished_accept_metadata_only(la
         assert result.metadata == b'test.path'
 
 
+async def test_routed_request_response_composite_according_to_type(lazy_pipe):
+    router = RequestRouter()
+
+    def handler_factory():
+        return RoutingRequestHandler(router)
+
+    @router.response('test.path')
+    async def response(metadata: CompositeMetadata):
+        return create_response(metadata=metadata.items[0].tags[0])
+
+    async with lazy_pipe(
+            client_arguments={'metadata_encoding': WellKnownMimeTypes.MESSAGE_RSOCKET_COMPOSITE_METADATA},
+            server_arguments={'handler_factory': handler_factory}) as (server, client):
+        result = await client.request_response(Payload(metadata=composite(route('test.path'))))
+
+        assert result.metadata == b'test.path'
+
+
+
 async def test_routed_request_response_properly_finished_accept_payload_and_metadata(lazy_pipe):
     router = RequestRouter()
 
