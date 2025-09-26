@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Callable
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 

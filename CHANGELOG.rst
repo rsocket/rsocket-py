@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+v0.4.21
+=======
+- Fix processing CompositeMetadata parameter in router by annotation
+
 v0.4.20
 =======
 - Stream id bugfix (#330)

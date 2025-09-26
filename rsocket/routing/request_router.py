@@ -174,8 +174,8 @@ class RequestRouter:
         for parameter in route_signature.parameters:
             parameter_type = route_signature.parameters[parameter]
 
-            if 'composite_metadata' == parameter or parameter_type is CompositeMetadata:
-                route_kwargs['composite_metadata'] = composite_metadata
+            if 'composite_metadata' == parameter or parameter_type.annotation is CompositeMetadata:
+                route_kwargs[parameter] = composite_metadata
             else:
                 payload_data = payload
 
