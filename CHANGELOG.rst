@@ -1,6 +1,14 @@
 Changelog
 ---------
 
+v0.4.21
+=======
+- Fix processing CompositeMetadata parameter in router by annotation
+
+v0.4.20
+=======
+- Stream id bugfix (#330)
+
 v0.4.19
 =======
 - Added Django Channels transport support for WebSocket communication

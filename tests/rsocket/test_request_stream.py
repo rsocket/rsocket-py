@@ -138,7 +138,7 @@ async def test_request_stream_returns_error_after_first_payload(pipe: Tuple[RSoc
 
     assert len(stream_subscriber.received_messages) == 1
     assert stream_subscriber.received_messages[0].data == b'success'
-    assert type(stream_subscriber.error) == RuntimeError
+    assert type(stream_subscriber.error) is RuntimeError
     assert str(stream_subscriber.error) == 'error message from handler'
 
 
