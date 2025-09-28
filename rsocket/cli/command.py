@@ -7,7 +7,11 @@ from enum import Enum, unique
 from importlib.metadata import version as get_version
 from typing import Optional, Type, Collection, List, Callable
 
-import asyncclick as click
+try:
+    import asyncclick as click
+except ImportError:
+    print("This command requires the CLI extra.")
+    print("Install with: pip install rsocket[cli]")
 
 from rsocket.awaitable.awaitable_rsocket import AwaitableRSocket
 from rsocket.extensions.helpers import route, composite, authenticate_simple, authenticate_bearer
