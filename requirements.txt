@@ -11,7 +11,7 @@ asyncclick==8.1.7.2; python_version == "3.8"
 
 coverage==6.5.0
 coveralls==3.3.1
-decoy==2.1.1
+decoy==2.2.0
 
 flake8==7.3.0; python_version > "3.8"
 flake8==7.1.2; python_version == "3.8"
@@ -38,7 +38,7 @@ quart==0.19.9; python_version == "3.8"
 
 reactivex==4.0.4
 
-starlette==0.46.1; python_version > "3.8"
+starlette==0.47.2; python_version > "3.8"
 starlette==0.44.0; python_version == "3.8"
 
 cbitstruct==1.1.0; python_version <= "3.12"
@@ -59,4 +59,4 @@ asyncwebsockets==0.9.4
 fastapi==0.116.1
 
 channels==4.2.2
-daphne==4.1.2
+daphne==4.2.1
