@@ -20,7 +20,8 @@ class ChatClient:
         self._username = username
         payload = Payload(ensure_bytes(username), composite(route('login')))
         response = await self._rsocket.request_response(payload)
-        print(f'Server response: {utf8_decode(response.data)}')
+
+        logging.info(f'Login response: {utf8_decode(response.data)}')
 
 
 async def main():

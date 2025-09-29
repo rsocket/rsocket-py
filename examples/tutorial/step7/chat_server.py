@@ -33,23 +33,23 @@ class SessionId(str):  # allow weak reference
 @dataclass()
 class UserSessionData:
     username: str
-    session_id: str
+    session_id: SessionId
     messages: Queue = field(default_factory=Queue)
     statistics: Optional[ClientStatistics] = None
 
 
 @dataclass(frozen=True)
 class ChatData:
-    channel_users: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(WeakSet))
+    channel_users: Dict[str, Set[SessionId]] = field(default_factory=lambda: defaultdict(WeakSet))
     files: Dict[str, bytes] = field(default_factory=dict)
     channel_messages: Dict[str, Queue] = field(default_factory=lambda: defaultdict(Queue))
-    user_session_by_id: Dict[str, UserSessionData] = field(default_factory=WeakValueDictionary)
+    user_session_by_id: Dict[SessionId, UserSessionData] = field(default_factory=WeakValueDictionary)
 
 
 chat_data = ChatData()
 
 
-def ensure_channel_exists(channel_name):
+def ensure_channel_exists(channel_name: str):
     if channel_name not in chat_data.channel_users:
         chat_data.channel_users[channel_name] = WeakSet()
         chat_data.channel_messages[channel_name] = Queue()
@@ -210,7 +210,7 @@ class ChatUserSession:
 
                 def cancel(self):
                     if self._sender is not None:
-                        logging.info('Canceling message sender task')
+                        logging.info('Canceling incoming message sender task')
                         self._sender.cancel()
                         self._sender = None
 
@@ -257,8 +257,9 @@ async def run_server():
                                handler_factory=handler_factory,
                                fragment_size_bytes=1_000_000)
 
-        response = await server.request_response(Payload(metadata=composite(route('time'))))
-        print(f'Client time: {response.data}')
+        request = Payload(metadata=composite(route('time')))
+        response = await server.request_response(request)
+        logging.info(f'Client time: {response.data}')
 
     async with await asyncio.start_server(session, 'localhost', 6565) as server:
         await server.serve_forever()

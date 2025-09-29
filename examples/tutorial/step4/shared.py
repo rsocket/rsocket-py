@@ -14,9 +14,6 @@ class Message:
     channel: Optional[str] = None
 
 
-chat_filename_mimetype = b'chat/file-name'
-
-
 def encode_dataclass(obj):
     return ensure_bytes(json.dumps(obj.__dict__))
 

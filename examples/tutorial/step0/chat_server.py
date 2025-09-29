@@ -13,6 +13,9 @@ from rsocket.transports.tcp import TransportTCP
 class Handler(BaseRequestHandler):
     async def request_response(self, payload: Payload) -> Awaitable[Payload]:
         username = utf8_decode(payload.data)
+
+        logging.info(f'New user: {username}')
+
         return create_future(Payload(ensure_bytes(f'Welcome to chat, {username}')))
 
 
