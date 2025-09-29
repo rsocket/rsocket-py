@@ -4,6 +4,7 @@ Changelog
 v0.4.21
 =======
 - Fix processing CompositeMetadata parameter in router by annotation
+- Fix installing rsocket-py cli command
 
 v0.4.20
 =======
